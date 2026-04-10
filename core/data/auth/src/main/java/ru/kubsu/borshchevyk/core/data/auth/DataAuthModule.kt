@@ -13,4 +13,8 @@ interface DataAuthModule {
     @Binds
     @Singleton
     fun bindAuthRepository(impl: AuthRepositoryImpl): AuthRepository
+
+    @Binds
+    @Singleton
+    fun bindTokenProvider(impl: AuthPreferences): ru.kubsu.borshchevyk.core.network.TokenProvider
 }

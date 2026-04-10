@@ -7,6 +7,9 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.okhttp.OkHttp
+import io.ktor.client.plugins.auth.Auth
+import io.ktor.client.plugins.auth.providers.BearerTokens
+import io.ktor.client.plugins.auth.providers.bearer
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.defaultRequest
 import io.ktor.http.ContentType
@@ -28,15 +31,35 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    fun provideHttpClient(json: Json): HttpClient {
+    fun provideHttpClient(
+        json: Json,
+        tokenProvider: TokenProvider
+    ): HttpClient {
         return HttpClient(OkHttp) {
             expectSuccess = true
             install(ContentNegotiation) {
                 json(json)
             }
+            install(Auth) {
+                bearer {
+                    loadTokens {
+                        val accessToken = tokenProvider.getAccessToken()
+                        val refreshToken = tokenProvider.getRefreshToken()
+                        if (accessToken != null && refreshToken != null) {
+                            BearerTokens(accessToken, refreshToken)
+                        } else {
+                            null
+                        }
+                    }
+                    refreshTokens {
+                        // TODO: Implement actual token refresh logic via auth endpoint
+                        tokenProvider.clearTokens()
+                        null
+                    }
+                }
+            }
             defaultRequest {
-                // TODO: load from BuildConfig or properties in real app
-                url("http://10.0.2.2:8080/") // Emulator localhost mapping to backend gateway
+                url("https://borshchevik.su/") 
                 contentType(ContentType.Application.Json)
             }
         }
@@ -49,4 +72,16 @@ interface NetworkDataSourceModule {
     @Binds
     @Singleton
     fun bindAuthNetworkDataSource(impl: KtorAuthNetworkDataSource): AuthNetworkDataSource
+
+    @Binds
+    @Singleton
+    fun bindUserNetworkDataSource(impl: KtorUserNetworkDataSource): UserNetworkDataSource
+
+    @Binds
+    @Singleton
+    fun bindChatNetworkDataSource(impl: KtorChatNetworkDataSource): ChatNetworkDataSource
+
+    @Binds
+    @Singleton
+    fun bindContactNetworkDataSource(impl: KtorContactNetworkDataSource): ContactNetworkDataSource
 }

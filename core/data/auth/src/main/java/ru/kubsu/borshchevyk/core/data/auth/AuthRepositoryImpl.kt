@@ -22,11 +22,32 @@ import javax.inject.Inject
  * @property keyManager the security manager for crypto operations
  * @property authPreferences the Jetpack DataStore wrapper for local storage
  */
+import kotlinx.coroutines.flow.Flow
+
 class AuthRepositoryImpl @Inject constructor(
     private val networkDataSource: AuthNetworkDataSource,
     private val keyManager: KeyManager,
     private val authPreferences: AuthPreferences
 ) : AuthRepository {
+
+    override val accessToken: Flow<String?> = authPreferences.accessToken
+    override val userId: Flow<String?> = authPreferences.userId
+    override val tag: Flow<String?> = authPreferences.tag
+
+    override suspend fun logout() {
+        authPreferences.clearTokens()
+        authPreferences.saveUserId("")
+        authPreferences.saveTag("")
+        authPreferences.saveLocalWrappedPrivateKey("")
+    }
+
+    override suspend fun getUserId(): String? {
+        return authPreferences.userId.firstOrNull()
+    }
+
+    override suspend fun getTag(): String? {
+        return authPreferences.tag.firstOrNull()
+    }
 
     override suspend fun registerOffline(tag: String): String {
         keyManager.generateKeystoreRsaKeyPair("mesh_key_$tag")

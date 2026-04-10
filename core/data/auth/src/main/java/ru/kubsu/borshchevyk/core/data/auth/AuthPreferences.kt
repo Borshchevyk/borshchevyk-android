@@ -8,7 +8,9 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import ru.kubsu.borshchevyk.core.network.TokenProvider
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -26,7 +28,7 @@ val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "au
  * @property context the application context required for DataStore initialization
  */
 @Singleton
-class AuthPreferences @Inject constructor(@ApplicationContext private val context: Context) {
+class AuthPreferences @Inject constructor(@ApplicationContext private val context: Context) : TokenProvider {
     private val ACCESS_TOKEN = stringPreferencesKey("access_token")
     private val REFRESH_TOKEN = stringPreferencesKey("refresh_token")
     private val USER_ID = stringPreferencesKey("user_id")
@@ -44,6 +46,21 @@ class AuthPreferences @Inject constructor(@ApplicationContext private val contex
     
     /** Flow emitting the Base64-encoded, AES-wrapped RSA private key. */
     val localWrappedPrivateKey: Flow<String?> = context.dataStore.data.map { it[LOCAL_WRAPPED_PRIVATE_KEY] }
+
+    override suspend fun getAccessToken(): String? {
+        return context.dataStore.data.map { it[ACCESS_TOKEN] }.first()
+    }
+
+    override suspend fun getRefreshToken(): String? {
+        return context.dataStore.data.map { it[REFRESH_TOKEN] }.first()
+    }
+
+    override suspend fun clearTokens() {
+        context.dataStore.edit { prefs ->
+            prefs.remove(ACCESS_TOKEN)
+            prefs.remove(REFRESH_TOKEN)
+        }
+    }
 
     /**
      * Persists the JWT session tokens provided by the backend.
