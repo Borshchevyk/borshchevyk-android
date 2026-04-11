@@ -1,17 +1,5 @@
 package ru.kubsu.borshchevyk.core.data.auth
 
-import android.util.Base64
-import kotlinx.coroutines.flow.firstOrNull
-import ru.kubsu.borshchevyk.core.domain.auth.AuthRepository
-import ru.kubsu.borshchevyk.core.model.dto.ChallengeRequest
-import ru.kubsu.borshchevyk.core.model.dto.LoginRequest
-import ru.kubsu.borshchevyk.core.model.dto.RegisterRequest
-import ru.kubsu.borshchevyk.core.model.dto.VerifyRequest
-import ru.kubsu.borshchevyk.core.network.AuthNetworkDataSource
-import ru.kubsu.borshchevyk.core.security.KeyManager
-import java.security.MessageDigest
-import javax.inject.Inject
-
 /**
  * Implementation of [AuthRepository] managing user identities and network authentication.
  *
@@ -22,7 +10,18 @@ import javax.inject.Inject
  * @property keyManager the security manager for crypto operations
  * @property authPreferences the Jetpack DataStore wrapper for local storage
  */
+import android.util.Base64
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.firstOrNull
+import ru.kubsu.borshchevyk.core.domain.auth.AuthRepository
+import ru.kubsu.borshchevyk.core.model.dto.ChallengeRequest
+import ru.kubsu.borshchevyk.core.model.dto.LoginRequest
+import ru.kubsu.borshchevyk.core.model.dto.RegisterRequest
+import ru.kubsu.borshchevyk.core.model.dto.VerifyRequest
+import ru.kubsu.borshchevyk.core.network.AuthNetworkDataSource
+import ru.kubsu.borshchevyk.core.security.KeyManager
+import java.security.MessageDigest
+import javax.inject.Inject
 
 class AuthRepositoryImpl @Inject constructor(
     private val networkDataSource: AuthNetworkDataSource,
@@ -36,9 +35,7 @@ class AuthRepositoryImpl @Inject constructor(
 
     override suspend fun logout() {
         authPreferences.clearTokens()
-        authPreferences.saveUserId("")
-        authPreferences.saveTag("")
-        authPreferences.saveLocalWrappedPrivateKey("")
+        authPreferences.clearIdentity()
     }
 
     override suspend fun getUserId(): String? {
@@ -113,7 +110,7 @@ class AuthRepositoryImpl @Inject constructor(
     override suspend fun isLoggedIn(): Boolean {
         val token = authPreferences.accessToken.firstOrNull()
         val tag = authPreferences.tag.firstOrNull()
-        return token != null || tag != null
+        return !token.isNullOrBlank() || !tag.isNullOrBlank()
     }
 
     /**

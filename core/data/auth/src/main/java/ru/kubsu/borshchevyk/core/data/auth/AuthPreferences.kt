@@ -62,13 +62,21 @@ class AuthPreferences @Inject constructor(@ApplicationContext private val contex
         }
     }
 
+    suspend fun clearIdentity() {
+        context.dataStore.edit { prefs ->
+            prefs.remove(USER_ID)
+            prefs.remove(TAG)
+            prefs.remove(LOCAL_WRAPPED_PRIVATE_KEY)
+        }
+    }
+
     /**
      * Persists the JWT session tokens provided by the backend.
      *
      * @param access the access token string
      * @param refresh the refresh token string
      */
-    suspend fun saveTokens(access: String, refresh: String) {
+    override suspend fun saveTokens(access: String, refresh: String) {
         context.dataStore.edit { prefs ->
             prefs[ACCESS_TOKEN] = access
             prefs[REFRESH_TOKEN] = refresh
