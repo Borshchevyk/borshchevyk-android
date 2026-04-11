@@ -1,6 +1,17 @@
 package ru.kubsu.borshchevyk.core.data.auth
 
+/**
+ * Implementation of [AuthRepository] managing user identities and network authentication.
+ *
+ * Orchestrates API calls, secure key wrapping via [KeyManager], and local state persistence
+ * via [AuthPreferences].
+ *
+ * @property networkDataSource the Ktor-based network client for API interaction
+ * @property keyManager the security manager for crypto operations
+ * @property authPreferences the Jetpack DataStore wrapper for local storage
+ */
 import android.util.Base64
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.firstOrNull
 import ru.kubsu.borshchevyk.core.domain.auth.AuthRepository
 import ru.kubsu.borshchevyk.core.model.dto.ChallengeRequest
@@ -12,21 +23,28 @@ import ru.kubsu.borshchevyk.core.security.KeyManager
 import java.security.MessageDigest
 import javax.inject.Inject
 
-/**
- * Implementation of [AuthRepository] managing user identities and network authentication.
- *
- * Orchestrates API calls, secure key wrapping via [KeyManager], and local state persistence
- * via [AuthPreferences].
- *
- * @property networkDataSource the Ktor-based network client for API interaction
- * @property keyManager the security manager for crypto operations
- * @property authPreferences the Jetpack DataStore wrapper for local storage
- */
 class AuthRepositoryImpl @Inject constructor(
     private val networkDataSource: AuthNetworkDataSource,
     private val keyManager: KeyManager,
     private val authPreferences: AuthPreferences
 ) : AuthRepository {
+
+    override val accessToken: Flow<String?> = authPreferences.accessToken
+    override val userId: Flow<String?> = authPreferences.userId
+    override val tag: Flow<String?> = authPreferences.tag
+
+    override suspend fun logout() {
+        authPreferences.clearTokens()
+        authPreferences.clearIdentity()
+    }
+
+    override suspend fun getUserId(): String? {
+        return authPreferences.userId.firstOrNull()
+    }
+
+    override suspend fun getTag(): String? {
+        return authPreferences.tag.firstOrNull()
+    }
 
     override suspend fun registerOffline(tag: String): String {
         keyManager.generateKeystoreRsaKeyPair("mesh_key_$tag")
@@ -92,7 +110,7 @@ class AuthRepositoryImpl @Inject constructor(
     override suspend fun isLoggedIn(): Boolean {
         val token = authPreferences.accessToken.firstOrNull()
         val tag = authPreferences.tag.firstOrNull()
-        return token != null || tag != null
+        return !token.isNullOrBlank() || !tag.isNullOrBlank()
     }
 
     /**

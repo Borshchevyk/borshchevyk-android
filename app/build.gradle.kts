@@ -3,15 +3,12 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.hilt)
     alias(libs.plugins.ksp)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 android {
     namespace = "ru.kubsu.borshchevyk"
-    compileSdk {
-        version = release(36) {
-            minorApiLevel = 1
-        }
-    }
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "ru.kubsu.borshchevyk"
@@ -45,19 +42,29 @@ dependencies {
     implementation(project(":core:model"))
     implementation(project(":core:domain:auth"))
     implementation(project(":core:data:auth"))
+    implementation(project(":core:domain:user"))
+    implementation(project(":core:data:user"))
+    implementation(project(":core:domain:message"))
+    implementation(project(":core:data:message"))
     implementation(project(":core:network"))
     implementation(project(":core:security"))
     implementation(project(":core:ui"))
     implementation(project(":feature:auth"))
+    implementation(project(":feature:chat"))
+    implementation(project(":feature:profile"))
+    implementation(project(":feature:search"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
+    implementation(libs.kotlinx.serialization.json)
+    implementation(libs.androidx.navigation.compose)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
+    implementation(libs.androidx.hilt.navigation.compose)
     
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)

@@ -7,7 +7,7 @@ plugins {
 
 android {
     namespace = "ru.kubsu.borshchevyk.core.network"
-    compileSdk = 35
+    compileSdk = 36
     defaultConfig {
         minSdk = 29
     }
@@ -23,6 +23,8 @@ dependencies {
     implementation(libs.ktor.client.core)
     implementation(libs.ktor.client.okhttp)
     implementation(libs.ktor.client.content.negotiation)
+    implementation(libs.ktor.client.auth)
+    implementation(libs.ktor.client.logging)
     implementation(libs.ktor.serialization.kotlinx.json)
     
     implementation(libs.hilt.android)

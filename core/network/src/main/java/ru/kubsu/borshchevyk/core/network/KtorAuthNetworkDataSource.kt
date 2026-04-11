@@ -8,6 +8,7 @@ import ru.kubsu.borshchevyk.core.model.dto.ChallengeRequest
 import ru.kubsu.borshchevyk.core.model.dto.ChallengeResponse
 import ru.kubsu.borshchevyk.core.model.dto.LoginRequest
 import ru.kubsu.borshchevyk.core.model.dto.LoginResponse
+import ru.kubsu.borshchevyk.core.model.dto.RefreshRequest
 import ru.kubsu.borshchevyk.core.model.dto.RegisterRequest
 import ru.kubsu.borshchevyk.core.model.dto.RegisterResponse
 import ru.kubsu.borshchevyk.core.model.dto.VerifyRequest
@@ -38,6 +39,12 @@ class KtorAuthNetworkDataSource @Inject constructor(
 
     override suspend fun verify(request: VerifyRequest): VerifyResponse {
         return httpClient.post("api/v1/auth/verify") {
+            setBody(request)
+        }.body()
+    }
+
+    override suspend fun refresh(request: RefreshRequest): VerifyResponse {
+        return httpClient.post("api/v1/auth/refresh") {
             setBody(request)
         }.body()
     }
