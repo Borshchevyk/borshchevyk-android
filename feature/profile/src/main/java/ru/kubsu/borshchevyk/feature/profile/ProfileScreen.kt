@@ -364,7 +364,7 @@ fun PrivacyOption(
                 FilterChip(
                     selected = isSelected,
                     onClick = { onValueChange(visibility) },
-                    label = { Text(visibility.name.lowercase().capitalize()) },
+                    label = { Text(visibility.name.lowercase().replaceFirstChar { it.uppercase() }) },
                     colors = FilterChipDefaults.filterChipColors(
                         selectedContainerColor = BorshchevykTheme.colors.primaryContainer,
                         selectedLabelColor = BorshchevykTheme.colors.primary

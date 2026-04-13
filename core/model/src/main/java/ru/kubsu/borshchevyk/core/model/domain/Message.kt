@@ -9,6 +9,12 @@ enum class MessageSource {
 }
 
 @Serializable
+data class MessageReaction(
+    val userId: String,
+    val reaction: String
+)
+
+@Serializable
 data class Message(
     val id: String,
     val chatId: String,
@@ -16,5 +22,7 @@ data class Message(
     val text: String,
     val createdAt: String,
     val isDeleted: Boolean = false,
-    val source: MessageSource = MessageSource.ONLINE
+    val source: MessageSource = MessageSource.ONLINE,
+    val isPinned: Boolean = false,
+    val reactions: List<MessageReaction> = emptyList()
 )

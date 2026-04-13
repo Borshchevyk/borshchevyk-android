@@ -1,7 +1,10 @@
 package ru.kubsu.borshchevyk.feature.chat
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -22,8 +25,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
@@ -41,7 +48,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import ru.kubsu.borshchevyk.core.model.domain.Message
@@ -88,6 +97,13 @@ fun ChatRoute(
     ) { padding ->
         ChatScreen(
             uiState = uiState,
+            onPinToggle = { msg ->
+                if (msg.isPinned) viewModel.onUnpinMessage(msg.id)
+                else viewModel.onPinMessage(msg.id)
+            },
+            onReactionToggle = { msgId, reaction ->
+                viewModel.onToggleReaction(msgId, reaction)
+            },
             modifier = Modifier.padding(padding)
         )
     }
@@ -96,34 +112,94 @@ fun ChatRoute(
 @Composable
 internal fun ChatScreen(
     uiState: ChatUiState,
+    onPinToggle: (Message) -> Unit,
+    onReactionToggle: (String, String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    if (uiState.isLoading && uiState.messages.isEmpty()) {
-        Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            CircularProgressIndicator(color = BorshchevykTheme.colors.primary)
+    Column(modifier = modifier.fillMaxSize()) {
+        if (uiState.pinnedMessages.isNotEmpty()) {
+            PinnedMessagesBanner(
+                messages = uiState.pinnedMessages,
+                onUnpinClick = { msg -> onPinToggle(msg) }
+            )
         }
-    } else {
-        LazyColumn(
-            modifier = modifier.fillMaxSize(),
-            contentPadding = PaddingValues(16.dp),
-            reverseLayout = true
-        ) {
-            items(uiState.messages, key = { it.id }) { message ->
-                MessageBubble(
-                    message = message,
-                    isFromMe = message.authorId == uiState.currentUserId
-                )
-                Spacer(modifier = Modifier.height(12.dp))
+        
+        if (uiState.isLoading && uiState.messages.isEmpty()) {
+            Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = BorshchevykTheme.colors.primary)
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier.weight(1f).fillMaxWidth(),
+                contentPadding = PaddingValues(16.dp),
+                reverseLayout = true
+            ) {
+                items(uiState.messages, key = { it.id }) { message ->
+                    MessageBubble(
+                        message = message,
+                        isFromMe = message.authorId == uiState.currentUserId,
+                        currentUserId = uiState.currentUserId,
+                        onPinToggle = { onPinToggle(message) },
+                        onReactionToggle = { reaction -> onReactionToggle(message.id, reaction) }
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
             }
         }
     }
 }
 
 @Composable
+internal fun PinnedMessagesBanner(
+    messages: List<Message>,
+    onUnpinClick: (Message) -> Unit
+) {
+    val message = messages.lastOrNull() ?: return
+    
+    Surface(
+        color = BorshchevykTheme.colors.surfaceVariant,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                Icons.Default.Star,
+                contentDescription = "Pinned",
+                tint = BorshchevykTheme.colors.primary,
+                modifier = Modifier.size(20.dp)
+            )
+            Spacer(modifier = Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Pinned Message",
+                    style = BorshchevykTheme.typography.labelSmall,
+                    color = BorshchevykTheme.colors.primary
+                )
+                Text(
+                    text = message.text,
+                    style = BorshchevykTheme.typography.bodyMedium,
+                    color = BorshchevykTheme.colors.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
 internal fun MessageBubble(
     message: Message,
-    isFromMe: Boolean
+    isFromMe: Boolean,
+    currentUserId: String,
+    onPinToggle: () -> Unit,
+    onReactionToggle: (String) -> Unit
 ) {
+    var showMenu by remember { mutableStateOf(false) }
+    
     val bubbleShape = if (isFromMe) {
         RoundedCornerShape(
             topStart = 20.dp,
@@ -144,19 +220,89 @@ internal fun MessageBubble(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = if (isFromMe) Alignment.End else Alignment.Start
     ) {
-        Surface(
-            color = if (isFromMe) BorshchevykTheme.colors.primary else BorshchevykTheme.colors.surfaceVariant,
-            shape = bubbleShape,
-            shadowElevation = 1.dp
-        ) {
-            Column(
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
-            ) {
-                Text(
-                    text = message.text,
-                    style = BorshchevykTheme.typography.bodyLarge,
-                    color = if (isFromMe) BorshchevykTheme.colors.onPrimary else BorshchevykTheme.colors.onSurface
+        Box {
+            Surface(
+                color = if (isFromMe) BorshchevykTheme.colors.primary else BorshchevykTheme.colors.surfaceVariant,
+                shape = bubbleShape,
+                shadowElevation = 1.dp,
+                modifier = Modifier.combinedClickable(
+                    onClick = {},
+                    onLongClick = { showMenu = true }
                 )
+            ) {
+                Column(
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
+                ) {
+                    Text(
+                        text = message.text,
+                        style = BorshchevykTheme.typography.bodyLarge,
+                        color = if (isFromMe) BorshchevykTheme.colors.onPrimary else BorshchevykTheme.colors.onSurface
+                    )
+                }
+            }
+            
+            DropdownMenu(
+                expanded = showMenu,
+                onDismissRequest = { showMenu = false },
+                containerColor = BorshchevykTheme.colors.surface
+            ) {
+                DropdownMenuItem(
+                    text = { Text(if (message.isPinned) "Unpin Message" else "Pin Message") },
+                    onClick = {
+                        showMenu = false
+                        onPinToggle()
+                    }
+                )
+                HorizontalDivider()
+                val reactions = listOf("👍", "❤️", "😂", "😢", "🔥")
+                Row(modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)) {
+                    reactions.forEach { emoji ->
+                        Text(
+                            text = emoji,
+                            modifier = Modifier
+                                .clickable {
+                                    showMenu = false
+                                    onReactionToggle(emoji)
+                                }
+                                .padding(8.dp),
+                            fontSize = 20.sp
+                        )
+                    }
+                }
+            }
+        }
+        
+        // Display Reactions
+        if (message.reactions.isNotEmpty()) {
+            val reactionCounts = message.reactions.groupBy { it.reaction }.mapValues { it.value.size }
+            Row(
+                modifier = Modifier.padding(top = 4.dp, start = if (isFromMe) 0.dp else 8.dp, end = if (isFromMe) 8.dp else 0.dp),
+                horizontalArrangement = if (isFromMe) Arrangement.End else Arrangement.Start
+            ) {
+                reactionCounts.forEach { (emoji, count) ->
+                    val iReacted = message.reactions.any { it.reaction == emoji && it.userId == currentUserId }
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = if (iReacted) BorshchevykTheme.colors.primaryContainer else BorshchevykTheme.colors.surfaceVariant,
+                        border = if (iReacted) androidx.compose.foundation.BorderStroke(1.dp, BorshchevykTheme.colors.primary) else null,
+                        modifier = Modifier
+                            .padding(end = 4.dp)
+                            .clickable { onReactionToggle(emoji) }
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(text = emoji, fontSize = 12.sp)
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = count.toString(),
+                                style = BorshchevykTheme.typography.labelSmall,
+                                color = BorshchevykTheme.colors.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
             }
         }
     }
