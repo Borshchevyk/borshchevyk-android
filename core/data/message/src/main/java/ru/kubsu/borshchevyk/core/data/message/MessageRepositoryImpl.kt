@@ -40,6 +40,27 @@ class MessageRepositoryImpl @Inject constructor(
         networkDataSource.unpinMessage(chatId, messageId)
     }
 
+    override suspend fun getPinnedMessages(chatId: String): List<Message> {
+        return networkDataSource.getPinnedMessages(chatId).map { it.toDomain() }
+    }
+
+    override suspend fun readMessage(chatId: String, messageId: String) {
+        networkDataSource.readMessage(chatId, messageId)
+    }
+
+    override suspend fun getMessageReaders(chatId: String, messageId: String): List<String> {
+        return networkDataSource.getMessageReaders(chatId, messageId)
+    }
+
+    override suspend fun getMessageComments(
+        chatId: String,
+        messageId: String,
+        page: Int,
+        size: Int
+    ): List<Message> {
+        return networkDataSource.getMessageComments(chatId, messageId, page, size).map { it.toDomain() }
+    }
+
     private fun MessageResponse.toDomain(): Message = Message(
         id = id,
         chatId = chatId,
@@ -49,6 +70,10 @@ class MessageRepositoryImpl @Inject constructor(
         isDeleted = isDeleted,
         source = source,
         isPinned = pinnedAt != null,
-        reactions = reactions?.map { MessageReaction(userId = it.userId, reaction = it.reaction) } ?: emptyList()
+        reactions = reactions?.map { MessageReaction(userId = it.userId, reaction = it.reaction) } ?: emptyList(),
+        commentsCount = commentsCount,
+        parentMessageId = parentMessageId,
+        forwardedFromChatId = forwardedFromChatId,
+        forwardedFromUserId = forwardedFromUserId
     )
 }

@@ -81,6 +81,30 @@ class KtorChatNetworkDataSource @Inject constructor(
     }
 
     override suspend fun unpinMessage(chatId: String, messageId: String) {
-        httpClient.post("api/v1/chats/$chatId/messages/$messageId/unpin")
+        httpClient.delete("api/v1/chats/$chatId/messages/$messageId/unpin")
+    }
+
+    override suspend fun getPinnedMessages(chatId: String): List<MessageResponse> {
+        return httpClient.get("api/v1/chats/$chatId/messages/pinned").body()
+    }
+
+    override suspend fun readMessage(chatId: String, messageId: String) {
+        httpClient.post("api/v1/chats/$chatId/messages/$messageId/read")
+    }
+
+    override suspend fun getMessageReaders(chatId: String, messageId: String): List<String> {
+        return httpClient.get("api/v1/chats/$chatId/messages/$messageId/readers").body()
+    }
+
+    override suspend fun getMessageComments(
+        chatId: String,
+        messageId: String,
+        page: Int,
+        size: Int
+    ): List<MessageResponse> {
+        return httpClient.get("api/v1/chats/$chatId/messages/$messageId/comments") {
+            parameter("page", page)
+            parameter("size", size)
+        }.body()
     }
 }

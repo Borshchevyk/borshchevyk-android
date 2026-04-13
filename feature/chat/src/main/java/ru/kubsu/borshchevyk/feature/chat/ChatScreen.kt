@@ -26,6 +26,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -38,9 +39,11 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -104,6 +107,18 @@ fun ChatRoute(
             onReactionToggle = { msgId, reaction ->
                 viewModel.onToggleReaction(msgId, reaction)
             },
+            onDelete = { msgId, forAll ->
+                viewModel.onDeleteMessage(msgId, forAll)
+            },
+            onMessageVisible = { msgId ->
+                viewModel.onMessageVisible(msgId)
+            },
+            onLoadReaders = { msgId ->
+                viewModel.onLoadReaders(msgId)
+            },
+            onLoadComments = { msgId ->
+                viewModel.onLoadComments(msgId)
+            },
             modifier = Modifier.padding(padding)
         )
     }
@@ -114,8 +129,15 @@ internal fun ChatScreen(
     uiState: ChatUiState,
     onPinToggle: (Message) -> Unit,
     onReactionToggle: (String, String) -> Unit,
+    onDelete: (String, Boolean) -> Unit,
+    onMessageVisible: (String) -> Unit,
+    onLoadReaders: (String) -> Unit,
+    onLoadComments: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    var messageIdForReaders by remember { mutableStateOf<String?>(null) }
+    var messageIdForComments by remember { mutableStateOf<String?>(null) }
+
     Column(modifier = modifier.fillMaxSize()) {
         if (uiState.pinnedMessages.isNotEmpty()) {
             PinnedMessagesBanner(
@@ -140,12 +162,71 @@ internal fun ChatScreen(
                         isFromMe = message.authorId == uiState.currentUserId,
                         currentUserId = uiState.currentUserId,
                         onPinToggle = { onPinToggle(message) },
-                        onReactionToggle = { reaction -> onReactionToggle(message.id, reaction) }
+                        onReactionToggle = { reaction -> onReactionToggle(message.id, reaction) },
+                        onDelete = { forAll -> onDelete(message.id, forAll) },
+                        onMessageVisible = { onMessageVisible(message.id) },
+                        onViewReaders = {
+                            onLoadReaders(message.id)
+                            messageIdForReaders = message.id
+                        },
+                        onViewComments = {
+                            onLoadComments(message.id)
+                            messageIdForComments = message.id
+                        }
                     )
                     Spacer(modifier = Modifier.height(12.dp))
                 }
             }
         }
+    }
+
+    if (messageIdForReaders != null) {
+        val readers = uiState.readersByMessageId[messageIdForReaders]
+        AlertDialog(
+            onDismissRequest = { messageIdForReaders = null },
+            title = { Text("Readers") },
+            text = {
+                if (readers == null) {
+                    CircularProgressIndicator()
+                } else if (readers.isEmpty()) {
+                    Text("No one has read this yet.")
+                } else {
+                    LazyColumn {
+                        items(readers) { readerId ->
+                            Text(text = "User ID: $readerId", modifier = Modifier.padding(vertical = 4.dp))
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { messageIdForReaders = null }) { Text("Close") }
+            }
+        )
+    }
+
+    if (messageIdForComments != null) {
+        val comments = uiState.commentsByMessageId[messageIdForComments]
+        AlertDialog(
+            onDismissRequest = { messageIdForComments = null },
+            title = { Text("Comments") },
+            text = {
+                if (comments == null) {
+                    CircularProgressIndicator()
+                } else if (comments.isEmpty()) {
+                    Text("No comments yet.")
+                } else {
+                    LazyColumn {
+                        items(comments) { comment ->
+                            Text(text = comment.text, modifier = Modifier.padding(vertical = 4.dp))
+                            HorizontalDivider()
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { messageIdForComments = null }) { Text("Close") }
+            }
+        )
     }
 }
 
@@ -196,9 +277,19 @@ internal fun MessageBubble(
     isFromMe: Boolean,
     currentUserId: String,
     onPinToggle: () -> Unit,
-    onReactionToggle: (String) -> Unit
+    onReactionToggle: (String) -> Unit,
+    onDelete: (Boolean) -> Unit,
+    onMessageVisible: () -> Unit,
+    onViewReaders: () -> Unit,
+    onViewComments: () -> Unit
 ) {
     var showMenu by remember { mutableStateOf(false) }
+
+    LaunchedEffect(message.id) {
+        if (!isFromMe) {
+            onMessageVisible()
+        }
+    }
     
     val bubbleShape = if (isFromMe) {
         RoundedCornerShape(
@@ -253,6 +344,39 @@ internal fun MessageBubble(
                         onPinToggle()
                     }
                 )
+                if (isFromMe) {
+                    DropdownMenuItem(
+                        text = { Text("Delete for Everyone") },
+                        onClick = {
+                            showMenu = false
+                            onDelete(true)
+                        }
+                    )
+                }
+                DropdownMenuItem(
+                    text = { Text("Delete for Me") },
+                    onClick = {
+                        showMenu = false
+                        onDelete(false)
+                    }
+                )
+                if (isFromMe) {
+                    DropdownMenuItem(
+                        text = { Text("View Readers") },
+                        onClick = {
+                            showMenu = false
+                            onViewReaders()
+                        }
+                    )
+                }
+                DropdownMenuItem(
+                    text = { Text("View Comments (${message.commentsCount})") },
+                    onClick = {
+                        showMenu = false
+                        onViewComments()
+                    }
+                )
+
                 HorizontalDivider()
                 val reactions = listOf("👍", "❤️", "😂", "😢", "🔥")
                 Row(modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)) {

@@ -20,11 +20,16 @@ data class MessageResponse(
     val source: MessageSource,
     val pinnedAt: String? = null,
     val pinnedBy: String? = null,
-    val reactions: List<MessageReactionResponse>? = null
+    val reactions: List<MessageReactionResponse>? = null,
+    val commentsCount: Int = 0,
+    val parentMessageId: String? = null,
+    val forwardedFromChatId: String? = null,
+    val forwardedFromUserId: String? = null
 )
 
 @Serializable
 data class SendMessageRequest(
     val text: String,
-    val source: MessageSource? = null
+    val source: MessageSource? = null,
+    val parentMessageId: String? = null
 )

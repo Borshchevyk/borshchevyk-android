@@ -24,5 +24,9 @@ data class Message(
     val isDeleted: Boolean = false,
     val source: MessageSource = MessageSource.ONLINE,
     val isPinned: Boolean = false,
-    val reactions: List<MessageReaction> = emptyList()
+    val reactions: List<MessageReaction> = emptyList(),
+    val commentsCount: Int = 0,
+    val parentMessageId: String? = null,
+    val forwardedFromChatId: String? = null,
+    val forwardedFromUserId: String? = null
 )
