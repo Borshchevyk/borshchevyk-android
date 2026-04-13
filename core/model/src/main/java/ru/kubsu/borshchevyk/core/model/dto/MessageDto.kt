@@ -4,6 +4,12 @@ import kotlinx.serialization.Serializable
 import ru.kubsu.borshchevyk.core.model.domain.MessageSource
 
 @Serializable
+data class MessageReactionResponse(
+    val userId: String,
+    val reaction: String
+)
+
+@Serializable
 data class MessageResponse(
     val id: String,
     val chatId: String,
@@ -11,7 +17,10 @@ data class MessageResponse(
     val text: String,
     val createdAt: String,
     val isDeleted: Boolean,
-    val source: MessageSource
+    val source: MessageSource,
+    val pinnedAt: String? = null,
+    val pinnedBy: String? = null,
+    val reactions: List<MessageReactionResponse>? = null
 )
 
 @Serializable

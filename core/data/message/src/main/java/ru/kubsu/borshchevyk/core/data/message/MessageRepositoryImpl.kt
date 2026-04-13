@@ -2,6 +2,7 @@ package ru.kubsu.borshchevyk.core.data.message
 
 import ru.kubsu.borshchevyk.core.domain.message.MessageRepository
 import ru.kubsu.borshchevyk.core.model.domain.Message
+import ru.kubsu.borshchevyk.core.model.domain.MessageReaction
 import ru.kubsu.borshchevyk.core.model.dto.MessageResponse
 import ru.kubsu.borshchevyk.core.model.dto.SendMessageRequest
 import ru.kubsu.borshchevyk.core.network.ChatNetworkDataSource
@@ -23,6 +24,22 @@ class MessageRepositoryImpl @Inject constructor(
         networkDataSource.deleteMessage(chatId, messageId, forAll)
     }
 
+    override suspend fun addReaction(chatId: String, messageId: String, reaction: String) {
+        networkDataSource.addReaction(chatId, messageId, reaction)
+    }
+
+    override suspend fun removeReaction(chatId: String, messageId: String, reaction: String) {
+        networkDataSource.removeReaction(chatId, messageId, reaction)
+    }
+
+    override suspend fun pinMessage(chatId: String, messageId: String) {
+        networkDataSource.pinMessage(chatId, messageId)
+    }
+
+    override suspend fun unpinMessage(chatId: String, messageId: String) {
+        networkDataSource.unpinMessage(chatId, messageId)
+    }
+
     private fun MessageResponse.toDomain(): Message = Message(
         id = id,
         chatId = chatId,
@@ -30,6 +47,8 @@ class MessageRepositoryImpl @Inject constructor(
         text = text,
         createdAt = createdAt,
         isDeleted = isDeleted,
-        source = source
+        source = source,
+        isPinned = pinnedAt != null,
+        reactions = reactions?.map { MessageReaction(userId = it.userId, reaction = it.reaction) } ?: emptyList()
     )
 }

@@ -67,4 +67,20 @@ class KtorChatNetworkDataSource @Inject constructor(
             parameter("forAll", forAll)
         }
     }
+
+    override suspend fun addReaction(chatId: String, messageId: String, reaction: String) {
+        httpClient.post("api/v1/chats/$chatId/messages/$messageId/reactions/$reaction")
+    }
+
+    override suspend fun removeReaction(chatId: String, messageId: String, reaction: String) {
+        httpClient.delete("api/v1/chats/$chatId/messages/$messageId/reactions/$reaction")
+    }
+
+    override suspend fun pinMessage(chatId: String, messageId: String) {
+        httpClient.post("api/v1/chats/$chatId/messages/$messageId/pin")
+    }
+
+    override suspend fun unpinMessage(chatId: String, messageId: String) {
+        httpClient.post("api/v1/chats/$chatId/messages/$messageId/unpin")
+    }
 }
