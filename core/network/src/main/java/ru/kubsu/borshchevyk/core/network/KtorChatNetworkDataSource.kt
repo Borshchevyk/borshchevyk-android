@@ -7,9 +7,11 @@ import io.ktor.client.request.get
 import io.ktor.client.request.parameter
 import io.ktor.client.request.patch
 import io.ktor.client.request.post
+import io.ktor.client.request.put
 import io.ktor.client.request.setBody
 import ru.kubsu.borshchevyk.core.model.dto.ChatResponse
 import ru.kubsu.borshchevyk.core.model.dto.CreateChatRequest
+import ru.kubsu.borshchevyk.core.model.dto.EditMessageRequest
 import ru.kubsu.borshchevyk.core.model.dto.MessageResponse
 import ru.kubsu.borshchevyk.core.model.dto.SendMessageRequest
 import ru.kubsu.borshchevyk.core.model.dto.TargetUserRequest
@@ -58,6 +60,12 @@ class KtorChatNetworkDataSource @Inject constructor(
 
     override suspend fun sendMessage(chatId: String, request: SendMessageRequest): MessageResponse {
         return httpClient.post("api/v1/chats/$chatId/messages") {
+            setBody(request)
+        }.body()
+    }
+
+    override suspend fun editMessage(chatId: String, messageId: String, request: EditMessageRequest): MessageResponse {
+        return httpClient.put("api/v1/chats/$chatId/messages/$messageId") {
             setBody(request)
         }.body()
     }

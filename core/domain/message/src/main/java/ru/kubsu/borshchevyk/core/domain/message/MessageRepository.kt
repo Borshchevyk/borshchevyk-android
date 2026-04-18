@@ -5,7 +5,8 @@ import ru.kubsu.borshchevyk.core.model.dto.SendMessageRequest
 
 interface MessageRepository {
     suspend fun sendMessage(chatId: String, request: SendMessageRequest): Message
-    suspend fun loadChatHistory(chatId: String, page: Int, size: Int): List<Message>
+    suspend fun editMessage(chatId: String, messageId: String, newText: String): Message
+    suspend fun loadChatHistory(chatId: String, page: Int = 0, size: Int = 50): List<Message>
     suspend fun deleteMessage(chatId: String, messageId: String, forAll: Boolean)
     
     suspend fun addReaction(chatId: String, messageId: String, reaction: String)
