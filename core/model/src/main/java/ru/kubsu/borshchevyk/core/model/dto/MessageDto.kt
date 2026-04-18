@@ -33,3 +33,8 @@ data class SendMessageRequest(
     val source: MessageSource? = null,
     val parentMessageId: String? = null
 )
+
+@Serializable
+data class EditMessageRequest(
+    val text: String
+)

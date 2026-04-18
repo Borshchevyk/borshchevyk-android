@@ -25,6 +25,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
@@ -93,7 +95,12 @@ fun ChatRoute(
             )
         },
         bottomBar = {
-            MessageInput(onSendMessage = viewModel::onSendMessage)
+            MessageInput(
+                editingMessage = uiState.editingMessage,
+                onSendMessage = viewModel::onSendMessage,
+                onEditMessage = viewModel::onEditMessage,
+                onCancelEdit = { viewModel.setEditingMessage(null) }
+            )
         },
         containerColor = BorshchevykTheme.colors.background,
         modifier = modifier
@@ -107,6 +114,7 @@ fun ChatRoute(
             onReactionToggle = { msgId, reaction ->
                 viewModel.onToggleReaction(msgId, reaction)
             },
+            onEdit = { msg -> viewModel.setEditingMessage(msg) },
             onDelete = { msgId, forAll ->
                 viewModel.onDeleteMessage(msgId, forAll)
             },
@@ -129,6 +137,7 @@ internal fun ChatScreen(
     uiState: ChatUiState,
     onPinToggle: (Message) -> Unit,
     onReactionToggle: (String, String) -> Unit,
+    onEdit: (Message) -> Unit,
     onDelete: (String, Boolean) -> Unit,
     onMessageVisible: (String) -> Unit,
     onLoadReaders: (String) -> Unit,
@@ -163,6 +172,7 @@ internal fun ChatScreen(
                         currentUserId = uiState.currentUserId,
                         onPinToggle = { onPinToggle(message) },
                         onReactionToggle = { reaction -> onReactionToggle(message.id, reaction) },
+                        onEdit = { onEdit(message) },
                         onDelete = { forAll -> onDelete(message.id, forAll) },
                         onMessageVisible = { onMessageVisible(message.id) },
                         onViewReaders = {
@@ -278,6 +288,7 @@ internal fun MessageBubble(
     currentUserId: String,
     onPinToggle: () -> Unit,
     onReactionToggle: (String) -> Unit,
+    onEdit: () -> Unit,
     onDelete: (Boolean) -> Unit,
     onMessageVisible: () -> Unit,
     onViewReaders: () -> Unit,
@@ -345,6 +356,13 @@ internal fun MessageBubble(
                     }
                 )
                 if (isFromMe) {
+                    DropdownMenuItem(
+                        text = { Text("Edit Message") },
+                        onClick = {
+                            showMenu = false
+                            onEdit()
+                        }
+                    )
                     DropdownMenuItem(
                         text = { Text("Delete for Everyone") },
                         onClick = {
@@ -434,67 +452,100 @@ internal fun MessageBubble(
 
 @Composable
 internal fun MessageInput(
-    onSendMessage: (String) -> Unit
+    editingMessage: Message?,
+    onSendMessage: (String) -> Unit,
+    onEditMessage: (String, String) -> Unit,
+    onCancelEdit: () -> Unit
 ) {
     var text by remember { mutableStateOf("") }
+
+    LaunchedEffect(editingMessage) {
+        text = editingMessage?.text ?: ""
+    }
 
     Surface(
         color = BorshchevykTheme.colors.surface,
         shadowElevation = 8.dp,
         modifier = Modifier.fillMaxWidth()
     ) {
-        Row(
-            modifier = Modifier
-                .padding(horizontal = 16.dp, vertical = 12.dp)
-                .imePadding(),
-            verticalAlignment = Alignment.Bottom
-        ) {
-            OutlinedTextField(
-                value = text,
-                onValueChange = { text = it },
-                placeholder = { 
+        Column {
+            if (editingMessage != null) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(BorshchevykTheme.colors.surfaceVariant)
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     Text(
-                        "Type a message...",
-                        color = BorshchevykTheme.colors.onSurfaceVariant
-                    ) 
-                },
+                        text = "Editing message",
+                        style = BorshchevykTheme.typography.bodyMedium,
+                        color = BorshchevykTheme.colors.primary
+                    )
+                    IconButton(onClick = onCancelEdit, modifier = Modifier.size(24.dp)) {
+                        Icon(Icons.Default.Close, contentDescription = "Cancel edit", tint = BorshchevykTheme.colors.onSurfaceVariant)
+                    }
+                }
+            }
+
+            Row(
                 modifier = Modifier
-                    .weight(1f)
-                    .defaultMinSize(minHeight = 48.dp),
-                shape = RoundedCornerShape(24.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = BorshchevykTheme.colors.primary,
-                    unfocusedBorderColor = BorshchevykTheme.colors.outline,
-                    focusedContainerColor = BorshchevykTheme.colors.background,
-                    unfocusedContainerColor = BorshchevykTheme.colors.background,
-                    focusedTextColor = BorshchevykTheme.colors.onSurface,
-                    unfocusedTextColor = BorshchevykTheme.colors.onSurface,
-                    cursorColor = BorshchevykTheme.colors.primary
-                ),
-                maxLines = 4
-            )
-            
-            Spacer(modifier = Modifier.width(12.dp))
-            
-            Box(
-                modifier = Modifier
-                    .size(48.dp)
-                    .clip(CircleShape)
-                    .background(if (text.isNotBlank()) BorshchevykTheme.colors.primary else BorshchevykTheme.colors.surfaceVariant)
-                    .clickable(enabled = text.isNotBlank()) {
-                        if (text.isNotBlank()) {
-                            onSendMessage(text)
-                            text = ""
-                        }
-                    },
-                contentAlignment = Alignment.Center
+                    .padding(horizontal = 16.dp, vertical = 12.dp)
+                    .imePadding(),
+                verticalAlignment = Alignment.Bottom
             ) {
-                Icon(
-                    Icons.AutoMirrored.Filled.Send, 
-                    contentDescription = "Send",
-                    tint = if (text.isNotBlank()) BorshchevykTheme.colors.onPrimary else BorshchevykTheme.colors.onSurfaceVariant,
-                    modifier = Modifier.size(24.dp)
+                OutlinedTextField(
+                    value = text,
+                    onValueChange = { text = it },
+                    placeholder = { 
+                        Text(
+                            "Type a message...",
+                            color = BorshchevykTheme.colors.onSurfaceVariant
+                        ) 
+                    },
+                    modifier = Modifier
+                        .weight(1f)
+                        .defaultMinSize(minHeight = 48.dp),
+                    shape = RoundedCornerShape(24.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = BorshchevykTheme.colors.primary,
+                        unfocusedBorderColor = BorshchevykTheme.colors.outline,
+                        focusedContainerColor = BorshchevykTheme.colors.background,
+                        unfocusedContainerColor = BorshchevykTheme.colors.background,
+                        focusedTextColor = BorshchevykTheme.colors.onSurface,
+                        unfocusedTextColor = BorshchevykTheme.colors.onSurface,
+                        cursorColor = BorshchevykTheme.colors.primary
+                    ),
+                    maxLines = 4
                 )
+                
+                Spacer(modifier = Modifier.width(12.dp))
+                
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(CircleShape)
+                        .background(if (text.isNotBlank()) BorshchevykTheme.colors.primary else BorshchevykTheme.colors.surfaceVariant)
+                        .clickable(enabled = text.isNotBlank()) {
+                            if (text.isNotBlank()) {
+                                if (editingMessage != null) {
+                                    onEditMessage(editingMessage.id, text)
+                                } else {
+                                    onSendMessage(text)
+                                }
+                                text = ""
+                            }
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        if (editingMessage != null) Icons.Default.Check else Icons.AutoMirrored.Filled.Send, 
+                        contentDescription = "Send",
+                        tint = if (text.isNotBlank()) BorshchevykTheme.colors.onPrimary else BorshchevykTheme.colors.onSurfaceVariant,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
             }
         }
     }

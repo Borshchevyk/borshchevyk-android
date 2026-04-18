@@ -3,6 +3,7 @@ package ru.kubsu.borshchevyk.core.data.message
 import ru.kubsu.borshchevyk.core.domain.message.MessageRepository
 import ru.kubsu.borshchevyk.core.model.domain.Message
 import ru.kubsu.borshchevyk.core.model.domain.MessageReaction
+import ru.kubsu.borshchevyk.core.model.dto.EditMessageRequest
 import ru.kubsu.borshchevyk.core.model.dto.MessageResponse
 import ru.kubsu.borshchevyk.core.model.dto.SendMessageRequest
 import ru.kubsu.borshchevyk.core.network.ChatNetworkDataSource
@@ -14,6 +15,10 @@ class MessageRepositoryImpl @Inject constructor(
 
     override suspend fun sendMessage(chatId: String, request: SendMessageRequest): Message {
         return networkDataSource.sendMessage(chatId, request).toDomain()
+    }
+
+    override suspend fun editMessage(chatId: String, messageId: String, newText: String): Message {
+        return networkDataSource.editMessage(chatId, messageId, EditMessageRequest(text = newText)).toDomain()
     }
 
     override suspend fun loadChatHistory(chatId: String, page: Int, size: Int): List<Message> {

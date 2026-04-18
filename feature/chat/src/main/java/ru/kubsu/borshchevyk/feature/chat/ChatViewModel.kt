@@ -13,6 +13,7 @@ import kotlinx.coroutines.launch
 import ru.kubsu.borshchevyk.core.domain.auth.GetUserIdUseCase
 import ru.kubsu.borshchevyk.core.domain.message.AddReactionUseCase
 import ru.kubsu.borshchevyk.core.domain.message.DeleteMessageUseCase
+import ru.kubsu.borshchevyk.core.domain.message.EditMessageUseCase
 import ru.kubsu.borshchevyk.core.domain.message.GetMessageCommentsUseCase
 import ru.kubsu.borshchevyk.core.domain.message.GetMessageReadersUseCase
 import ru.kubsu.borshchevyk.core.domain.message.GetPinnedMessagesUseCase
@@ -33,6 +34,7 @@ data class ChatUiState(
     val pinnedMessages: List<Message> = emptyList(),
     val commentsByMessageId: Map<String, List<Message>> = emptyMap(),
     val readersByMessageId: Map<String, List<String>> = emptyMap(),
+    val editingMessage: Message? = null,
     val isLoading: Boolean = false,
     val error: String? = null
 )
@@ -42,6 +44,7 @@ class ChatViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val loadChatHistoryUseCase: LoadChatHistoryUseCase,
     private val sendMessageUseCase: SendMessageUseCase,
+    private val editMessageUseCase: EditMessageUseCase,
     private val addReactionUseCase: AddReactionUseCase,
     private val removeReactionUseCase: RemoveReactionUseCase,
     private val pinMessageUseCase: PinMessageUseCase,
@@ -91,6 +94,28 @@ class ChatViewModel @Inject constructor(
                 val newMessage = sendMessageUseCase(chatId, text)
                 _uiState.update { 
                     it.copy(messages = listOf(newMessage) + it.messages)
+                }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(error = e.message) }
+            }
+        }
+    }
+
+    fun setEditingMessage(message: Message?) {
+        _uiState.update { it.copy(editingMessage = message) }
+    }
+
+    fun onEditMessage(messageId: String, newText: String) {
+        if (newText.isBlank()) return
+        viewModelScope.launch {
+            try {
+                val updatedMessage = editMessageUseCase(chatId, messageId, newText)
+                _uiState.update { state ->
+                    state.copy(
+                        messages = state.messages.map { if (it.id == messageId) updatedMessage else it },
+                        pinnedMessages = state.pinnedMessages.map { if (it.id == messageId) updatedMessage else it },
+                        editingMessage = null
+                    )
                 }
             } catch (e: Exception) {
                 _uiState.update { it.copy(error = e.message) }
