@@ -4,10 +4,12 @@ import ru.kubsu.borshchevyk.core.model.dto.ChatResponse
 import ru.kubsu.borshchevyk.core.model.dto.CreateChatRequest
 import ru.kubsu.borshchevyk.core.model.dto.MessageResponse
 import ru.kubsu.borshchevyk.core.model.dto.SendMessageRequest
+import ru.kubsu.borshchevyk.core.model.dto.TargetUserRequest
 import ru.kubsu.borshchevyk.core.model.dto.UpdatePermissionsRequest
 
 interface ChatNetworkDataSource {
     suspend fun createChat(request: CreateChatRequest): ChatResponse
+    suspend fun createPrivateChat(request: TargetUserRequest): ChatResponse
     suspend fun getUserChats(): List<ChatResponse>
     suspend fun updatePermissions(chatId: String, targetUserId: String, request: UpdatePermissionsRequest)
     suspend fun clearChatHistory(chatId: String, forAll: Boolean)

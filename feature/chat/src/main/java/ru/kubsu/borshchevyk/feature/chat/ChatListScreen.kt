@@ -20,6 +20,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.GroupAdd
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
@@ -64,6 +65,7 @@ fun ChatListRoute(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var showCreateChatDialog by remember { mutableStateOf(false) }
+    var showCreateGroupDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -98,13 +100,25 @@ fun ChatListRoute(
             )
         },
         floatingActionButton = {
-            FloatingActionButton(
-                onClick = { showCreateChatDialog = true },
-                containerColor = BorshchevykTheme.colors.primary,
-                contentColor = BorshchevykTheme.colors.onPrimary,
-                shape = RoundedCornerShape(16.dp)
-            ) {
-                Icon(Icons.Default.Add, contentDescription = "New Chat")
+            Column(horizontalAlignment = Alignment.End) {
+                FloatingActionButton(
+                    onClick = { showCreateGroupDialog = true },
+                    containerColor = BorshchevykTheme.colors.surfaceVariant,
+                    contentColor = BorshchevykTheme.colors.onSurfaceVariant,
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.size(48.dp)
+                ) {
+                    Icon(Icons.Default.GroupAdd, contentDescription = "New Group")
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+                FloatingActionButton(
+                    onClick = { showCreateChatDialog = true },
+                    containerColor = BorshchevykTheme.colors.primary,
+                    contentColor = BorshchevykTheme.colors.onPrimary,
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = "New Private Chat")
+                }
             }
         },
         containerColor = BorshchevykTheme.colors.background,
@@ -122,6 +136,18 @@ fun ChatListRoute(
                 onCreate = { peerId ->
                     showCreateChatDialog = false
                     viewModel.onCreatePrivateChat(peerId) { newChatId ->
+                        onChatClick(newChatId)
+                    }
+                }
+            )
+        }
+
+        if (showCreateGroupDialog) {
+            CreateGroupChatDialog(
+                onDismiss = { showCreateGroupDialog = false },
+                onCreate = { title, desc ->
+                    showCreateGroupDialog = false
+                    viewModel.onCreateGroupChat(title, desc) { newChatId ->
                         onChatClick(newChatId)
                     }
                 }
@@ -219,17 +245,17 @@ fun CreateChatDialog(
     onCreate: (String) -> Unit
 ) {
     var peerId by remember { mutableStateOf("") }
-    
+
     AlertDialog(
         onDismissRequest = onDismiss,
         containerColor = BorshchevykTheme.colors.surface,
         titleContentColor = BorshchevykTheme.colors.onSurface,
         textContentColor = BorshchevykTheme.colors.onSurfaceVariant,
-        title = { 
+        title = {
             Text(
                 "Start new chat",
                 style = BorshchevykTheme.typography.titleMedium
-            ) 
+            )
         },
         text = {
             OutlinedTextField(
@@ -254,8 +280,7 @@ fun CreateChatDialog(
                 colors = ButtonDefaults.buttonColors(
                     containerColor = BorshchevykTheme.colors.primary,
                     contentColor = BorshchevykTheme.colors.onPrimary
-                ),
-                shape = RoundedCornerShape(8.dp)
+                )
             ) {
                 Text("Create")
             }
@@ -269,6 +294,51 @@ fun CreateChatDialog(
             ) {
                 Text("Cancel")
             }
+        }
+    )
+}
+
+@Composable
+fun CreateGroupChatDialog(
+    onDismiss: () -> Unit,
+    onCreate: (String, String) -> Unit
+) {
+    var title by remember { mutableStateOf("") }
+    var description by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = BorshchevykTheme.colors.surface,
+        titleContentColor = BorshchevykTheme.colors.onSurface,
+        textContentColor = BorshchevykTheme.colors.onSurfaceVariant,
+        title = { Text("Create Group", style = BorshchevykTheme.typography.titleMedium) },
+        text = {
+            Column {
+                OutlinedTextField(
+                    value = title,
+                    onValueChange = { title = it },
+                    label = { Text("Group Name") },
+                    shape = RoundedCornerShape(12.dp),
+                    singleLine = true
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = description,
+                    onValueChange = { description = it },
+                    label = { Text("Description") },
+                    shape = RoundedCornerShape(12.dp),
+                    maxLines = 3
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onCreate(title, description) },
+                enabled = title.isNotBlank()
+            ) { Text("Create") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
         }
     )
 }
