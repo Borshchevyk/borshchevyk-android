@@ -8,9 +8,12 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import ru.kubsu.borshchevyk.core.domain.message.CreateGroupChatUseCase
 import ru.kubsu.borshchevyk.core.domain.message.CreatePrivateChatUseCase
 import ru.kubsu.borshchevyk.core.domain.message.GetUserChatsUseCase
 import ru.kubsu.borshchevyk.core.model.domain.Chat
+import ru.kubsu.borshchevyk.core.model.domain.ChatType
+import ru.kubsu.borshchevyk.core.model.dto.CreateChatRequest
 import javax.inject.Inject
 
 data class ChatListUiState(
@@ -22,7 +25,8 @@ data class ChatListUiState(
 @HiltViewModel
 class ChatListViewModel @Inject constructor(
     private val getUserChatsUseCase: GetUserChatsUseCase,
-    private val createPrivateChatUseCase: CreatePrivateChatUseCase
+    private val createPrivateChatUseCase: CreatePrivateChatUseCase,
+    private val createGroupChatUseCase: CreateGroupChatUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ChatListUiState(isLoading = true))
@@ -32,7 +36,7 @@ class ChatListViewModel @Inject constructor(
         loadChats()
     }
 
-    private fun loadChats() {
+    fun loadChats() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
             try {
@@ -48,6 +52,23 @@ class ChatListViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 val chat = createPrivateChatUseCase(targetUserId)
+                onSuccess(chat.id)
+            } catch (e: Exception) {
+                _uiState.update { it.copy(error = e.message) }
+            }
+        }
+    }
+
+    fun onCreateGroupChat(title: String, description: String, onSuccess: (String) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val chat = createGroupChatUseCase(
+                    CreateChatRequest(
+                        type = ChatType.GROUP,
+                        title = title,
+                        description = description
+                    )
+                )
                 onSuccess(chat.id)
             } catch (e: Exception) {
                 _uiState.update { it.copy(error = e.message) }

@@ -4,6 +4,7 @@ import ru.kubsu.borshchevyk.core.domain.message.ChatRepository
 import ru.kubsu.borshchevyk.core.model.domain.Chat
 import ru.kubsu.borshchevyk.core.model.dto.ChatResponse
 import ru.kubsu.borshchevyk.core.model.dto.CreateChatRequest
+import ru.kubsu.borshchevyk.core.model.dto.TargetUserRequest
 import ru.kubsu.borshchevyk.core.model.dto.UpdatePermissionsRequest
 import ru.kubsu.borshchevyk.core.network.ChatNetworkDataSource
 import javax.inject.Inject
@@ -14,6 +15,10 @@ class ChatRepositoryImpl @Inject constructor(
 
     override suspend fun createChat(request: CreateChatRequest): Chat {
         return networkDataSource.createChat(request).toDomain()
+    }
+
+    override suspend fun createPrivateChat(request: TargetUserRequest): Chat {
+        return networkDataSource.createPrivateChat(request).toDomain()
     }
 
     override suspend fun getUserChats(): List<Chat> {

@@ -13,6 +13,11 @@ data class ChatResponse(
 )
 
 @Serializable
+data class TargetUserRequest(
+    val targetUserId: String
+)
+
+@Serializable
 data class CreateChatRequest(
     val type: ChatType,
     val title: String? = null,
