@@ -1,5 +1,6 @@
 package ru.kubsu.borshchevyk.core.model.dto
 
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import ru.kubsu.borshchevyk.core.model.domain.MessageSource
 
@@ -16,7 +17,7 @@ data class MessageResponse(
     val authorId: String,
     val text: String,
     val createdAt: String,
-    val isDeleted: Boolean,
+    @SerialName("deleted") val isDeleted: Boolean = false,
     val source: MessageSource,
     val pinnedAt: String? = null,
     val pinnedBy: String? = null,
