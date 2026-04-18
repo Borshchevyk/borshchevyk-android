@@ -15,6 +15,7 @@ import ru.kubsu.borshchevyk.core.domain.message.ConnectWebSocketUseCase
 import ru.kubsu.borshchevyk.core.domain.message.CreateGroupChatUseCase
 import ru.kubsu.borshchevyk.core.domain.message.CreatePrivateChatUseCase
 import ru.kubsu.borshchevyk.core.domain.message.GetUserChatsUseCase
+import ru.kubsu.borshchevyk.core.domain.message.JoinChatUseCase
 import ru.kubsu.borshchevyk.core.domain.message.ObserveNewMessagesUseCase
 import ru.kubsu.borshchevyk.core.model.domain.Chat
 import ru.kubsu.borshchevyk.core.model.domain.ChatType
@@ -33,7 +34,8 @@ class ChatListViewModel @Inject constructor(
     private val createPrivateChatUseCase: CreatePrivateChatUseCase,
     private val createGroupChatUseCase: CreateGroupChatUseCase,
     private val connectWebSocketUseCase: ConnectWebSocketUseCase,
-    private val observeNewMessagesUseCase: ObserveNewMessagesUseCase
+    private val observeNewMessagesUseCase: ObserveNewMessagesUseCase,
+    private val joinChatUseCase: JoinChatUseCase
 ) : ViewModel() {
 
     private val TAG = "ChatListViewModel"
@@ -92,6 +94,17 @@ class ChatListViewModel @Inject constructor(
                         description = description
                     )
                 )
+                onSuccess(chat.id)
+            } catch (e: Exception) {
+                _uiState.update { it.copy(error = e.message) }
+            }
+        }
+    }
+
+    fun onJoinChat(inviteCode: String, onSuccess: (String) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val chat = joinChatUseCase(inviteCode)
                 onSuccess(chat.id)
             } catch (e: Exception) {
                 _uiState.update { it.copy(error = e.message) }

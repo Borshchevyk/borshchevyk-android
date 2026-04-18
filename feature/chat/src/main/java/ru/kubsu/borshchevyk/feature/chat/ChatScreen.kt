@@ -1,5 +1,6 @@
 package ru.kubsu.borshchevyk.feature.chat
 
+import android.widget.Toast
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -27,8 +28,11 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -53,6 +57,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -70,66 +77,209 @@ fun ChatRoute(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
+    if (uiState.showSettings) {
+        ChatSettingsScreen(
+            uiState = uiState,
+            onBackClick = { viewModel.toggleSettings() },
+            onInvite = { viewModel.onInviteUser(it) },
+            onGenerateLink = { viewModel.onGenerateInviteLink() }
+        )
+    } else {
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = { 
+                        Text(
+                            text = "Chat",
+                            style = BorshchevykTheme.typography.titleMedium,
+                            color = BorshchevykTheme.colors.onSurface
+                        ) 
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = onBackClick) {
+                            Icon(
+                                Icons.AutoMirrored.Filled.ArrowBack, 
+                                contentDescription = "Back",
+                                tint = BorshchevykTheme.colors.onSurface
+                            )
+                        }
+                    },
+                    actions = {
+                        IconButton(onClick = { viewModel.toggleSettings() }) {
+                            Icon(
+                                Icons.Default.Info, 
+                                contentDescription = "Chat Info",
+                                tint = BorshchevykTheme.colors.onSurface
+                            )
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = BorshchevykTheme.colors.background
+                    )
+                )
+            },
+            bottomBar = {
+                MessageInput(
+                    editingMessage = uiState.editingMessage,
+                    onSendMessage = viewModel::onSendMessage,
+                    onEditMessage = viewModel::onEditMessage,
+                    onCancelEdit = { viewModel.setEditingMessage(null) },
+                    onTyping = viewModel::onTyping
+                )
+            },
+            containerColor = BorshchevykTheme.colors.background,
+            modifier = modifier
+        ) { padding ->
+            ChatScreen(
+                uiState = uiState,
+                onPinToggle = { msg ->
+                    if (msg.isPinned) viewModel.onUnpinMessage(msg.id)
+                    else viewModel.onPinMessage(msg.id)
+                },
+                onReactionToggle = { msgId, reaction ->
+                    viewModel.onToggleReaction(msgId, reaction)
+                },
+                onEdit = { msg -> viewModel.setEditingMessage(msg) },
+                onDelete = { msgId, forAll ->
+                    viewModel.onDeleteMessage(msgId, forAll)
+                },
+                onMessageVisible = { msgId ->
+                    viewModel.onMessageVisible(msgId)
+                },
+                onLoadReaders = { msgId ->
+                    viewModel.onLoadReaders(msgId)
+                },
+                onLoadComments = { msgId ->
+                    viewModel.onLoadComments(msgId)
+                },
+                modifier = Modifier.padding(padding)
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ChatSettingsScreen(
+    uiState: ChatUiState,
+    onBackClick: () -> Unit,
+    onInvite: (String) -> Unit,
+    onGenerateLink: () -> Unit
+) {
+    var showInviteDialog by remember { mutableStateOf(false) }
+    val clipboardManager = LocalClipboardManager.current
+    val context = LocalContext.current
+
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { 
-                    Text(
-                        text = "Chat",
-                        style = BorshchevykTheme.typography.titleMedium,
-                        color = BorshchevykTheme.colors.onSurface
-                    ) 
-                },
+                title = { Text("Chat Settings", style = BorshchevykTheme.typography.titleMedium) },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack, 
-                            contentDescription = "Back",
-                            tint = BorshchevykTheme.colors.onSurface
-                        )
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = BorshchevykTheme.colors.background
-                )
+                }
             )
-        },
-        bottomBar = {
-            MessageInput(
-                editingMessage = uiState.editingMessage,
-                onSendMessage = viewModel::onSendMessage,
-                onEditMessage = viewModel::onEditMessage,
-                onCancelEdit = { viewModel.setEditingMessage(null) },
-                onTyping = viewModel::onTyping
-            )
-        },
-        containerColor = BorshchevykTheme.colors.background,
-        modifier = modifier
+        }
     ) { padding ->
-        ChatScreen(
-            uiState = uiState,
-            onPinToggle = { msg ->
-                if (msg.isPinned) viewModel.onUnpinMessage(msg.id)
-                else viewModel.onPinMessage(msg.id)
-            },
-            onReactionToggle = { msgId, reaction ->
-                viewModel.onToggleReaction(msgId, reaction)
-            },
-            onEdit = { msg -> viewModel.setEditingMessage(msg) },
-            onDelete = { msgId, forAll ->
-                viewModel.onDeleteMessage(msgId, forAll)
-            },
-            onMessageVisible = { msgId ->
-                viewModel.onMessageVisible(msgId)
-            },
-            onLoadReaders = { msgId ->
-                viewModel.onLoadReaders(msgId)
-            },
-            onLoadComments = { msgId ->
-                viewModel.onLoadComments(msgId)
-            },
-            modifier = Modifier.padding(padding)
-        )
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .padding(horizontal = 16.dp)
+        ) {
+            item {
+                Spacer(modifier = Modifier.height(16.dp))
+                if (uiState.isGroupChat) {
+                    Button(
+                        onClick = { showInviteDialog = true },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Invite User")
+                    }
+
+                    Button(
+                        onClick = onGenerateLink,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Generate Invite Link")
+                    }
+                    
+                    if (uiState.inviteLink != null) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 8.dp)
+                                .clickable {
+                                    clipboardManager.setText(AnnotatedString(uiState.inviteLink))
+                                    Toast.makeText(context, "Link copied to clipboard", Toast.LENGTH_SHORT).show()
+                                },
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = "Link: ${uiState.inviteLink}",
+                                style = BorshchevykTheme.typography.bodyMedium,
+                                color = BorshchevykTheme.colors.onSurface,
+                                modifier = Modifier.weight(1f)
+                            )
+                            Icon(
+                                imageVector = Icons.Default.ContentCopy,
+                                contentDescription = "Copy Link",
+                                tint = BorshchevykTheme.colors.primary,
+                                modifier = Modifier.size(20.dp).padding(start = 8.dp)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
+                Text("Members", style = BorshchevykTheme.typography.titleMedium)
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+            
+            items(uiState.members) { member ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text("User: ${member.userId}", style = BorshchevykTheme.typography.bodyLarge)
+                        Text("Role: ${member.role}", style = BorshchevykTheme.typography.bodyMedium, color = BorshchevykTheme.colors.onSurfaceVariant)
+                    }
+                }
+                HorizontalDivider()
+            }
+        }
+
+        if (showInviteDialog) {
+            var userIdToInvite by remember { mutableStateOf("") }
+            AlertDialog(
+                onDismissRequest = { showInviteDialog = false },
+                title = { Text("Invite User") },
+                text = {
+                    OutlinedTextField(
+                        value = userIdToInvite,
+                        onValueChange = { userIdToInvite = it },
+                        label = { Text("User ID") }
+                    )
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            onInvite(userIdToInvite)
+                            showInviteDialog = false
+                        }
+                    ) { Text("Invite") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showInviteDialog = false }) { Text("Cancel") }
+                }
+            )
+        }
     }
 }
 
