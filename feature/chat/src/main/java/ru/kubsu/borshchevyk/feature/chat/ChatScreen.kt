@@ -99,7 +99,8 @@ fun ChatRoute(
                 editingMessage = uiState.editingMessage,
                 onSendMessage = viewModel::onSendMessage,
                 onEditMessage = viewModel::onEditMessage,
-                onCancelEdit = { viewModel.setEditingMessage(null) }
+                onCancelEdit = { viewModel.setEditingMessage(null) },
+                onTyping = viewModel::onTyping
             )
         },
         containerColor = BorshchevykTheme.colors.background,
@@ -165,6 +166,18 @@ internal fun ChatScreen(
                 contentPadding = PaddingValues(16.dp),
                 reverseLayout = true
             ) {
+                val otherTypingUsers = uiState.typingUsers.filter { it != uiState.currentUserId }
+                if (otherTypingUsers.isNotEmpty()) {
+                    item {
+                        Text(
+                            text = if (otherTypingUsers.size == 1) "User is typing..." else "Multiple users are typing...",
+                            style = BorshchevykTheme.typography.labelSmall,
+                            color = BorshchevykTheme.colors.onSurfaceVariant,
+                            modifier = Modifier.padding(start = 16.dp, bottom = 8.dp)
+                        )
+                    }
+                }
+                
                 items(uiState.messages, key = { it.id }) { message ->
                     MessageBubble(
                         message = message,
@@ -455,7 +468,8 @@ internal fun MessageInput(
     editingMessage: Message?,
     onSendMessage: (String) -> Unit,
     onEditMessage: (String, String) -> Unit,
-    onCancelEdit: () -> Unit
+    onCancelEdit: () -> Unit,
+    onTyping: () -> Unit
 ) {
     var text by remember { mutableStateOf("") }
 
@@ -497,7 +511,10 @@ internal fun MessageInput(
             ) {
                 OutlinedTextField(
                     value = text,
-                    onValueChange = { text = it },
+                    onValueChange = { 
+                        text = it
+                        onTyping()
+                    },
                     placeholder = { 
                         Text(
                             "Type a message...",

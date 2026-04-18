@@ -130,4 +130,8 @@ interface NetworkDataSourceModule {
     @Binds
     @Singleton
     fun bindContactNetworkDataSource(impl: KtorContactNetworkDataSource): ContactNetworkDataSource
+
+    @Binds
+    @Singleton
+    fun bindWebSocketDataSource(impl: KrossbowWebSocketDataSource): WebSocketDataSource
 }
