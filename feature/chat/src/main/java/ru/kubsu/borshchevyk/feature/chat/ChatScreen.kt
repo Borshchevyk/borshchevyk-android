@@ -33,6 +33,7 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -65,7 +66,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import ru.kubsu.borshchevyk.core.model.domain.ChatMember
+import ru.kubsu.borshchevyk.core.model.domain.ChatMemberRole
 import ru.kubsu.borshchevyk.core.model.domain.Message
+import ru.kubsu.borshchevyk.core.model.dto.UpdatePermissionsRequest
 import ru.kubsu.borshchevyk.core.ui.theme.BorshchevykTheme
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -82,7 +86,8 @@ fun ChatRoute(
             uiState = uiState,
             onBackClick = { viewModel.toggleSettings() },
             onInvite = { viewModel.onInviteUser(it) },
-            onGenerateLink = { viewModel.onGenerateInviteLink() }
+            onGenerateLink = { viewModel.onGenerateInviteLink() },
+            onUpdatePermissions = { targetUserId, request -> viewModel.onUpdatePermissions(targetUserId, request) }
         )
     } else {
         Scaffold(
@@ -164,11 +169,17 @@ fun ChatSettingsScreen(
     uiState: ChatUiState,
     onBackClick: () -> Unit,
     onInvite: (String) -> Unit,
-    onGenerateLink: () -> Unit
+    onGenerateLink: () -> Unit,
+    onUpdatePermissions: (String, UpdatePermissionsRequest) -> Unit
 ) {
     var showInviteDialog by remember { mutableStateOf(false) }
+    var memberForPermissions by remember { mutableStateOf<ChatMember?>(null) }
     val clipboardManager = LocalClipboardManager.current
     val context = LocalContext.current
+
+    val currentUserMember = uiState.members.find { it.userId == uiState.currentUserId }
+    val canManagePermissions = uiState.isGroupChat && 
+        (currentUserMember?.role == ChatMemberRole.OWNER || currentUserMember?.role == ChatMemberRole.ADMIN)
 
     Scaffold(
         topBar = {
@@ -242,6 +253,9 @@ fun ChatSettingsScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .clickable(enabled = canManagePermissions && member.userId != uiState.currentUserId) { 
+                            memberForPermissions = member 
+                        }
                         .padding(vertical = 8.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
@@ -277,6 +291,57 @@ fun ChatSettingsScreen(
                 },
                 dismissButton = {
                     TextButton(onClick = { showInviteDialog = false }) { Text("Cancel") }
+                }
+            )
+        }
+
+        memberForPermissions?.let { member ->
+            var canSend by remember { mutableStateOf(member.canSendMessages) }
+            var canDelete by remember { mutableStateOf(member.canDeleteMessages) }
+            var canInvite by remember { mutableStateOf(member.canInviteUsers) }
+            var canChangeInfo by remember { mutableStateOf(member.canChangeInfo) }
+
+            AlertDialog(
+                onDismissRequest = { memberForPermissions = null },
+                title = { Text("Update Permissions") },
+                text = {
+                    Column {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Checkbox(checked = canSend, onCheckedChange = { canSend = it })
+                            Text("Send Messages")
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Checkbox(checked = canDelete, onCheckedChange = { canDelete = it })
+                            Text("Delete Messages")
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Checkbox(checked = canInvite, onCheckedChange = { canInvite = it })
+                            Text("Invite Users")
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Checkbox(checked = canChangeInfo, onCheckedChange = { canChangeInfo = it })
+                            Text("Change Chat Info")
+                        }
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            onUpdatePermissions(
+                                member.userId,
+                                UpdatePermissionsRequest(
+                                    canSendMessages = canSend,
+                                    canDeleteMessages = canDelete,
+                                    canInviteUsers = canInvite,
+                                    canChangeInfo = canChangeInfo
+                                )
+                            )
+                            memberForPermissions = null
+                        }
+                    ) { Text("Save") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { memberForPermissions = null }) { Text("Cancel") }
                 }
             )
         }
