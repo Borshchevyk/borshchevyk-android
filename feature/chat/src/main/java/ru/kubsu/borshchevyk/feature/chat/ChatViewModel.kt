@@ -40,10 +40,12 @@ import ru.kubsu.borshchevyk.core.domain.message.RemoveReactionUseCase
 import ru.kubsu.borshchevyk.core.domain.message.SendMessageUseCase
 import ru.kubsu.borshchevyk.core.domain.message.SendTypingEventUseCase
 import ru.kubsu.borshchevyk.core.domain.message.UnpinMessageUseCase
+import ru.kubsu.borshchevyk.core.domain.message.UpdateMemberPermissionsUseCase
 import ru.kubsu.borshchevyk.core.model.domain.ChatMember
 import ru.kubsu.borshchevyk.core.model.domain.ChatType
 import ru.kubsu.borshchevyk.core.model.domain.Message
 import ru.kubsu.borshchevyk.core.model.domain.MessageReaction
+import ru.kubsu.borshchevyk.core.model.dto.UpdatePermissionsRequest
 import javax.inject.Inject
 
 data class ChatUiState(
@@ -90,7 +92,8 @@ class ChatViewModel @Inject constructor(
     private val getChatMembersUseCase: GetChatMembersUseCase,
     private val inviteUserUseCase: InviteUserUseCase,
     private val generateInviteLinkUseCase: GenerateInviteLinkUseCase,
-    private val getUserChatsUseCase: GetUserChatsUseCase
+    private val getUserChatsUseCase: GetUserChatsUseCase,
+    private val updateMemberPermissionsUseCase: UpdateMemberPermissionsUseCase
 ) : ViewModel() {
 
     private val TAG = "ChatViewModel"
@@ -286,6 +289,18 @@ class ChatViewModel @Inject constructor(
             try {
                 val link = generateInviteLinkUseCase(chatId)
                 _uiState.update { it.copy(inviteLink = link) }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(error = e.message) }
+            }
+        }
+    }
+
+    fun onUpdatePermissions(targetUserId: String, request: UpdatePermissionsRequest) {
+        viewModelScope.launch {
+            try {
+                updateMemberPermissionsUseCase(chatId, targetUserId, request)
+                val membersPage = getChatMembersUseCase(chatId, 0, 100)
+                _uiState.update { it.copy(members = membersPage.content) }
             } catch (e: Exception) {
                 _uiState.update { it.copy(error = e.message) }
             }
