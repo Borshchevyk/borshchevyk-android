@@ -21,6 +21,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.GroupAdd
+import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
@@ -66,6 +67,7 @@ fun ChatListRoute(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var showCreateChatDialog by remember { mutableStateOf(false) }
     var showCreateGroupDialog by remember { mutableStateOf(false) }
+    var showJoinDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -82,6 +84,13 @@ fun ChatListRoute(
                         Icon(
                             Icons.Default.Search,
                             contentDescription = "Search",
+                            tint = BorshchevykTheme.colors.onSurface
+                        )
+                    }
+                    IconButton(onClick = { showJoinDialog = true }) {
+                        Icon(
+                            Icons.Default.Link,
+                            contentDescription = "Join by Link",
                             tint = BorshchevykTheme.colors.onSurface
                         )
                     }
@@ -148,6 +157,18 @@ fun ChatListRoute(
                 onCreate = { title, desc ->
                     showCreateGroupDialog = false
                     viewModel.onCreateGroupChat(title, desc) { newChatId ->
+                        onChatClick(newChatId)
+                    }
+                }
+            )
+        }
+
+        if (showJoinDialog) {
+            JoinChatDialog(
+                onDismiss = { showJoinDialog = false },
+                onJoin = { link ->
+                    showJoinDialog = false
+                    viewModel.onJoinChat(link) { newChatId ->
                         onChatClick(newChatId)
                     }
                 }
@@ -336,6 +357,40 @@ fun CreateGroupChatDialog(
                 onClick = { onCreate(title, description) },
                 enabled = title.isNotBlank()
             ) { Text("Create") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        }
+    )
+}
+
+@Composable
+fun JoinChatDialog(
+    onDismiss: () -> Unit,
+    onJoin: (String) -> Unit
+) {
+    var link by remember { mutableStateOf("") }
+    
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = BorshchevykTheme.colors.surface,
+        titleContentColor = BorshchevykTheme.colors.onSurface,
+        textContentColor = BorshchevykTheme.colors.onSurfaceVariant,
+        title = { Text("Join via Link", style = BorshchevykTheme.typography.titleMedium) },
+        text = {
+            OutlinedTextField(
+                value = link,
+                onValueChange = { link = it },
+                label = { Text("Invite Code") },
+                shape = RoundedCornerShape(12.dp),
+                singleLine = true
+            )
+        },
+        confirmButton = {
+            Button(
+                onClick = { onJoin(link) },
+                enabled = link.isNotBlank()
+            ) { Text("Join") }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) { Text("Cancel") }

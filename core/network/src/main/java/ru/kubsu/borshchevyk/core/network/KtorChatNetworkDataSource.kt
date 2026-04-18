@@ -9,10 +9,12 @@ import io.ktor.client.request.patch
 import io.ktor.client.request.post
 import io.ktor.client.request.put
 import io.ktor.client.request.setBody
+import ru.kubsu.borshchevyk.core.model.dto.ChatMemberResponse
 import ru.kubsu.borshchevyk.core.model.dto.ChatResponse
 import ru.kubsu.borshchevyk.core.model.dto.CreateChatRequest
 import ru.kubsu.borshchevyk.core.model.dto.EditMessageRequest
 import ru.kubsu.borshchevyk.core.model.dto.MessageResponse
+import ru.kubsu.borshchevyk.core.model.dto.PageResponse
 import ru.kubsu.borshchevyk.core.model.dto.SendMessageRequest
 import ru.kubsu.borshchevyk.core.model.dto.TargetUserRequest
 import ru.kubsu.borshchevyk.core.model.dto.UpdatePermissionsRequest
@@ -56,6 +58,27 @@ class KtorChatNetworkDataSource @Inject constructor(
 
     override suspend fun deleteChat(chatId: String) {
         httpClient.delete("api/v1/chats/$chatId")
+    }
+
+    override suspend fun getChatMembers(chatId: String, page: Int, size: Int): PageResponse<ChatMemberResponse> {
+        return httpClient.get("api/v1/chats/$chatId/members") {
+            parameter("page", page)
+            parameter("size", size)
+        }.body()
+    }
+
+    override suspend fun inviteUser(chatId: String, request: TargetUserRequest) {
+        httpClient.post("api/v1/chats/$chatId/members") {
+            setBody(request)
+        }
+    }
+
+    override suspend fun generateInviteLink(chatId: String): String {
+        return httpClient.post("api/v1/chats/$chatId/invite-link").body()
+    }
+
+    override suspend fun joinChatByLink(inviteCode: String): ChatResponse {
+        return httpClient.post("api/v1/chats/join/$inviteCode").body()
     }
 
     override suspend fun sendMessage(chatId: String, request: SendMessageRequest): MessageResponse {
