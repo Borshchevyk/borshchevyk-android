@@ -28,6 +28,8 @@ import ru.kubsu.borshchevyk.core.domain.message.GetMessageReadersUseCase
 import ru.kubsu.borshchevyk.core.domain.message.GetPinnedMessagesUseCase
 import ru.kubsu.borshchevyk.core.domain.message.GetUserChatsUseCase
 import ru.kubsu.borshchevyk.core.domain.message.InviteUserUseCase
+import ru.kubsu.borshchevyk.core.domain.message.KickUserUseCase
+import ru.kubsu.borshchevyk.core.domain.message.LeaveChatUseCase
 import ru.kubsu.borshchevyk.core.domain.message.LoadChatHistoryUseCase
 import ru.kubsu.borshchevyk.core.domain.message.MarkMessageAsReadUseCase
 import ru.kubsu.borshchevyk.core.domain.message.ObserveDeletedMessagesUseCase
@@ -42,6 +44,7 @@ import ru.kubsu.borshchevyk.core.domain.message.RemoveReactionUseCase
 import ru.kubsu.borshchevyk.core.domain.message.SendMessageUseCase
 import ru.kubsu.borshchevyk.core.domain.message.SendTypingEventUseCase
 import ru.kubsu.borshchevyk.core.domain.message.UnpinMessageUseCase
+import ru.kubsu.borshchevyk.core.domain.message.UpdateChatInfoUseCase
 import ru.kubsu.borshchevyk.core.domain.message.UpdateMemberPermissionsUseCase
 import ru.kubsu.borshchevyk.core.model.domain.ChatMember
 import ru.kubsu.borshchevyk.core.model.domain.ChatType
@@ -98,7 +101,10 @@ class ChatViewModel @Inject constructor(
     private val getUserChatsUseCase: GetUserChatsUseCase,
     private val updateMemberPermissionsUseCase: UpdateMemberPermissionsUseCase,
     private val clearChatHistoryUseCase: ClearChatHistoryUseCase,
-    private val deleteChatUseCase: DeleteChatUseCase
+    private val deleteChatUseCase: DeleteChatUseCase,
+    private val kickUserUseCase: KickUserUseCase,
+    private val leaveChatUseCase: LeaveChatUseCase,
+    private val updateChatInfoUseCase: UpdateChatInfoUseCase
 ) : ViewModel() {
 
     private val TAG = "ChatViewModel"
@@ -333,6 +339,40 @@ class ChatViewModel @Inject constructor(
             try {
                 deleteChatUseCase(chatId)
                 _uiState.update { it.copy(isChatDeleted = true) }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(error = e.message) }
+            }
+        }
+    }
+
+    fun onKickUser(targetUserId: String) {
+        viewModelScope.launch {
+            try {
+                kickUserUseCase(chatId, targetUserId)
+                val membersPage = getChatMembersUseCase(chatId, 0, 100)
+                _uiState.update { it.copy(members = membersPage.content) }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(error = e.message) }
+            }
+        }
+    }
+
+    fun onLeaveChat() {
+        viewModelScope.launch {
+            try {
+                leaveChatUseCase(chatId)
+                _uiState.update { it.copy(isChatDeleted = true) }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(error = e.message) }
+            }
+        }
+    }
+
+    fun onUpdateChatInfo(title: String?, description: String?) {
+        viewModelScope.launch {
+            try {
+                updateChatInfoUseCase(chatId, ru.kubsu.borshchevyk.core.model.dto.UpdateChatInfoRequest(title = title, description = description))
+                loadData()
             } catch (e: Exception) {
                 _uiState.update { it.copy(error = e.message) }
             }
