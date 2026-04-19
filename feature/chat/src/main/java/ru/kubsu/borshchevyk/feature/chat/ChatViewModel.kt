@@ -17,6 +17,8 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import ru.kubsu.borshchevyk.core.domain.auth.GetUserIdUseCase
 import ru.kubsu.borshchevyk.core.domain.message.AddReactionUseCase
+import ru.kubsu.borshchevyk.core.domain.message.ClearChatHistoryUseCase
+import ru.kubsu.borshchevyk.core.domain.message.DeleteChatUseCase
 import ru.kubsu.borshchevyk.core.domain.message.DeleteMessageUseCase
 import ru.kubsu.borshchevyk.core.domain.message.EditMessageUseCase
 import ru.kubsu.borshchevyk.core.domain.message.GenerateInviteLinkUseCase
@@ -61,6 +63,7 @@ data class ChatUiState(
     val showSettings: Boolean = false,
     val editingMessage: Message? = null,
     val typingUsers: Set<String> = emptySet(),
+    val isChatDeleted: Boolean = false,
     val isLoading: Boolean = false,
     val error: String? = null
 )
@@ -93,7 +96,9 @@ class ChatViewModel @Inject constructor(
     private val inviteUserUseCase: InviteUserUseCase,
     private val generateInviteLinkUseCase: GenerateInviteLinkUseCase,
     private val getUserChatsUseCase: GetUserChatsUseCase,
-    private val updateMemberPermissionsUseCase: UpdateMemberPermissionsUseCase
+    private val updateMemberPermissionsUseCase: UpdateMemberPermissionsUseCase,
+    private val clearChatHistoryUseCase: ClearChatHistoryUseCase,
+    private val deleteChatUseCase: DeleteChatUseCase
 ) : ViewModel() {
 
     private val TAG = "ChatViewModel"
@@ -301,6 +306,33 @@ class ChatViewModel @Inject constructor(
                 updateMemberPermissionsUseCase(chatId, targetUserId, request)
                 val membersPage = getChatMembersUseCase(chatId, 0, 100)
                 _uiState.update { it.copy(members = membersPage.content) }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(error = e.message) }
+            }
+        }
+    }
+
+    fun onClearHistory(forAll: Boolean) {
+        viewModelScope.launch {
+            try {
+                clearChatHistoryUseCase(chatId, forAll)
+                _uiState.update { state ->
+                    state.copy(
+                        messages = emptyList(),
+                        pinnedMessages = emptyList()
+                    )
+                }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(error = e.message) }
+            }
+        }
+    }
+
+    fun onDeleteChat() {
+        viewModelScope.launch {
+            try {
+                deleteChatUseCase(chatId)
+                _uiState.update { it.copy(isChatDeleted = true) }
             } catch (e: Exception) {
                 _uiState.update { it.copy(error = e.message) }
             }

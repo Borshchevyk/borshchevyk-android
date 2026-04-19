@@ -33,6 +33,7 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
@@ -81,13 +82,21 @@ fun ChatRoute(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
+    LaunchedEffect(uiState.isChatDeleted) {
+        if (uiState.isChatDeleted) {
+            onBackClick()
+        }
+    }
+
     if (uiState.showSettings) {
         ChatSettingsScreen(
             uiState = uiState,
             onBackClick = { viewModel.toggleSettings() },
             onInvite = { viewModel.onInviteUser(it) },
             onGenerateLink = { viewModel.onGenerateInviteLink() },
-            onUpdatePermissions = { targetUserId, request -> viewModel.onUpdatePermissions(targetUserId, request) }
+            onUpdatePermissions = { targetUserId, request -> viewModel.onUpdatePermissions(targetUserId, request) },
+            onClearHistory = { forAll -> viewModel.onClearHistory(forAll) },
+            onDeleteChat = { viewModel.onDeleteChat() }
         )
     } else {
         Scaffold(
@@ -170,10 +179,15 @@ fun ChatSettingsScreen(
     onBackClick: () -> Unit,
     onInvite: (String) -> Unit,
     onGenerateLink: () -> Unit,
-    onUpdatePermissions: (String, UpdatePermissionsRequest) -> Unit
+    onUpdatePermissions: (String, UpdatePermissionsRequest) -> Unit,
+    onClearHistory: (Boolean) -> Unit,
+    onDeleteChat: () -> Unit
 ) {
     var showInviteDialog by remember { mutableStateOf(false) }
     var memberForPermissions by remember { mutableStateOf<ChatMember?>(null) }
+    var showClearHistoryDialog by remember { mutableStateOf(false) }
+    var showDeleteChatDialog by remember { mutableStateOf(false) }
+    
     val clipboardManager = LocalClipboardManager.current
     val context = LocalContext.current
 
@@ -267,6 +281,81 @@ fun ChatSettingsScreen(
                 }
                 HorizontalDivider()
             }
+            
+            item {
+                Spacer(modifier = Modifier.height(32.dp))
+                
+                Button(
+                    onClick = { showClearHistoryDialog = true },
+                    colors = ButtonDefaults.buttonColors(containerColor = BorshchevykTheme.colors.error),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Clear History", color = BorshchevykTheme.colors.onError)
+                }
+                
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                Button(
+                    onClick = { showDeleteChatDialog = true },
+                    colors = ButtonDefaults.buttonColors(containerColor = BorshchevykTheme.colors.error),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Delete Chat", color = BorshchevykTheme.colors.onError)
+                }
+                
+                Spacer(modifier = Modifier.height(32.dp))
+            }
+        }
+
+        if (showClearHistoryDialog) {
+            var forAll by remember { mutableStateOf(false) }
+            AlertDialog(
+                onDismissRequest = { showClearHistoryDialog = false },
+                title = { Text("Clear History") },
+                text = {
+                    Column {
+                        Text("Are you sure you want to clear the history of this chat? This action cannot be undone.")
+                        if (!uiState.isGroupChat) {
+                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 16.dp)) {
+                                Checkbox(checked = forAll, onCheckedChange = { forAll = it })
+                                Text("Clear for everyone")
+                            }
+                        }
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            onClearHistory(forAll)
+                            showClearHistoryDialog = false
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = BorshchevykTheme.colors.error)
+                    ) { Text("Clear", color = BorshchevykTheme.colors.onError) }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showClearHistoryDialog = false }) { Text("Cancel") }
+                }
+            )
+        }
+        
+        if (showDeleteChatDialog) {
+            AlertDialog(
+                onDismissRequest = { showDeleteChatDialog = false },
+                title = { Text("Delete Chat") },
+                text = { Text("Are you sure you want to delete this chat? This action cannot be undone.") },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            onDeleteChat()
+                            showDeleteChatDialog = false
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = BorshchevykTheme.colors.error)
+                    ) { Text("Delete", color = BorshchevykTheme.colors.onError) }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showDeleteChatDialog = false }) { Text("Cancel") }
+                }
+            )
         }
 
         if (showInviteDialog) {
