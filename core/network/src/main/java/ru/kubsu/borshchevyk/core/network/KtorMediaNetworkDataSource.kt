@@ -4,18 +4,16 @@ import android.util.Log
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.request.delete
+import io.ktor.client.request.forms.MultiPartFormDataContent
+import io.ktor.client.request.forms.formData
 import io.ktor.client.request.get
 import io.ktor.client.request.post
-import io.ktor.client.request.put
 import io.ktor.client.request.setBody
-import io.ktor.client.statement.HttpResponse
-import io.ktor.http.ContentType
-import io.ktor.http.contentType
-import io.ktor.http.isSuccess
+import io.ktor.http.Headers
+import io.ktor.http.HttpHeaders
 import ru.kubsu.borshchevyk.core.model.dto.AttachmentResponse
+import ru.kubsu.borshchevyk.core.model.dto.AttachmentType
 import ru.kubsu.borshchevyk.core.model.dto.AttachmentUrlResult
-import ru.kubsu.borshchevyk.core.model.dto.RequestUploadUrlRequest
-import ru.kubsu.borshchevyk.core.model.dto.UploadUrlResult
 import ru.kubsu.borshchevyk.core.model.dto.ValidateAttachmentsRequest
 import ru.kubsu.borshchevyk.core.model.dto.ValidateAttachmentsResponse
 import javax.inject.Inject
@@ -26,14 +24,30 @@ class KtorMediaNetworkDataSource @Inject constructor(
 
     private val TAG = "MediaNetworkDataSource"
 
-    override suspend fun requestUploadUrl(request: RequestUploadUrlRequest): UploadUrlResult {
-        return httpClient.post("api/v1/media/upload-url") {
-            setBody(request)
+    override suspend fun uploadFile(
+        fileBytes: ByteArray,
+        fileName: String,
+        contentType: String,
+        type: AttachmentType,
+        width: Int?,
+        height: Int?,
+        duration: Double?
+    ): AttachmentResponse {
+        Log.d(TAG, "Uploading file: $fileName, type: $type, size: ${fileBytes.size}")
+        return httpClient.post("api/v1/media/upload") {
+            setBody(MultiPartFormDataContent(
+                formData {
+                    append("file", fileBytes, Headers.build {
+                        append(HttpHeaders.ContentType, contentType)
+                        append(HttpHeaders.ContentDisposition, "filename=\"$fileName\"")
+                    })
+                    append("type", type.name)
+                    width?.let { append("width", it.toString()) }
+                    height?.let { append("height", it.toString()) }
+                    duration?.let { append("duration", it.toString()) }
+                }
+            ))
         }.body()
-    }
-
-    override suspend fun completeUpload(attachmentId: String): AttachmentResponse {
-        return httpClient.put("api/v1/media/$attachmentId/complete").body()
     }
 
     override suspend fun getAttachmentUrl(attachmentId: String): AttachmentUrlResult {
@@ -48,29 +62,5 @@ class KtorMediaNetworkDataSource @Inject constructor(
         return httpClient.post("api/v1/media/validate") {
             setBody(request)
         }.body()
-    }
-
-    override suspend fun uploadFileToS3(url: String, fileBytes: ByteArray, contentType: String) {
-        val s3Client = HttpClient()
-        try {
-            Log.d(TAG, "Starting S3 PUT upload to: $url")
-            Log.d(TAG, "Content-Type: $contentType, size: ${fileBytes.size} bytes")
-            val response: HttpResponse = s3Client.put(url) {
-                this.contentType(ContentType.parse(contentType))
-                setBody(fileBytes)
-            }
-            if (response.status.isSuccess()) {
-                Log.i(TAG, "Successfully uploaded file to S3. Status: ${response.status}")
-            } else {
-                val errorBody = response.body<String>()
-                Log.e(TAG, "Failed to upload file to S3. Status: ${response.status}, Body: $errorBody")
-                throw Exception("S3 Upload failed with status ${response.status}")
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Exception during S3 upload", e)
-            throw e
-        } finally {
-            s3Client.close()
-        }
     }
 }
