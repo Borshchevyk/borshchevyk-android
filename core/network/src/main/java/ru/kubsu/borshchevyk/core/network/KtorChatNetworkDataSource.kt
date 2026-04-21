@@ -12,6 +12,7 @@ import ru.kubsu.borshchevyk.core.model.dto.ChatResponse
 import ru.kubsu.borshchevyk.core.model.dto.CreateChatRequest
 import ru.kubsu.borshchevyk.core.model.dto.MessageResponse
 import ru.kubsu.borshchevyk.core.model.dto.SendMessageRequest
+import ru.kubsu.borshchevyk.core.model.dto.TargetUserRequest
 import ru.kubsu.borshchevyk.core.model.dto.UpdatePermissionsRequest
 import javax.inject.Inject
 
@@ -20,7 +21,13 @@ class KtorChatNetworkDataSource @Inject constructor(
 ) : ChatNetworkDataSource {
 
     override suspend fun createChat(request: CreateChatRequest): ChatResponse {
-        return httpClient.post("api/v1/chats/") {
+        return httpClient.post("api/v1/chats") {
+            setBody(request)
+        }.body()
+    }
+
+    override suspend fun createPrivateChat(request: TargetUserRequest): ChatResponse {
+        return httpClient.post("api/v1/chats/private") {
             setBody(request)
         }.body()
     }

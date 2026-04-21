@@ -31,6 +31,7 @@ import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
@@ -82,68 +83,139 @@ fun ChatRoute(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
+    if (uiState.showSettings) {
+        ChatSettingsScreen(
+            uiState = uiState,
+            onBackClick = { viewModel.toggleSettings() },
+            onInvite = { viewModel.onInviteUser(it) },
+            onGenerateLink = { viewModel.onGenerateInviteLink() },
+            onUpdatePermissions = { targetUserId, request -> viewModel.onUpdatePermissions(targetUserId, request) }
+        )
+    } else {
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = { 
+                        Text(
+                            text = "Chat",
+                            style = BorshchevykTheme.typography.titleMedium,
+                            color = BorshchevykTheme.colors.onSurface
+                        ) 
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = onBackClick) {
+                            Icon(
+                                Icons.AutoMirrored.Filled.ArrowBack, 
+                                contentDescription = "Back",
+                                tint = BorshchevykTheme.colors.onSurface
+                            )
+                        }
+                    },
+                    actions = {
+                        IconButton(onClick = { viewModel.toggleSettings() }) {
+                            Icon(
+                                Icons.Default.Info, 
+                                contentDescription = "Chat Info",
+                                tint = BorshchevykTheme.colors.onSurface
+                            )
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = BorshchevykTheme.colors.background
+                    )
+                )
+            },
+            bottomBar = {
+                MessageInput(
+                    editingMessage = uiState.editingMessage,
+                    isSending = uiState.isSending,
+                    onSendMessage = { text, attachments -> viewModel.onSendMessage(text, attachments) },
+                    onEditMessage = viewModel::onEditMessage,
+                    onCancelEdit = { viewModel.setEditingMessage(null) },
+                    onTyping = { }
+                )
+            },
+            containerColor = BorshchevykTheme.colors.background,
+            modifier = modifier
+        ) { padding ->
+            ChatScreen(
+                uiState = uiState,
+                resolveAttachmentUrl = { viewModel.resolveAttachmentUrl(it) },
+                onPinToggle = { msg ->
+                    if (msg.isPinned) viewModel.onUnpinMessage(msg.id)
+                    else viewModel.onPinMessage(msg.id)
+                },
+                onReactionToggle = { msgId, reaction ->
+                    viewModel.onToggleReaction(msgId, reaction)
+                },
+                onEdit = { msg -> viewModel.setEditingMessage(msg) },
+                onDelete = { msgId, forAll ->
+                    viewModel.onDeleteMessage(msgId, forAll)
+                },
+                onMessageVisible = { msgId ->
+                    viewModel.onMessageVisible(msgId)
+                },
+                onLoadReaders = { msgId ->
+                    viewModel.onLoadReaders(msgId)
+                },
+                onLoadComments = { msgId ->
+                    viewModel.onLoadComments(msgId)
+                },
+                modifier = Modifier.padding(padding)
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ChatSettingsScreen(
+    uiState: ChatUiState,
+    onBackClick: () -> Unit,
+    onInvite: (String) -> Unit,
+    onGenerateLink: () -> Unit,
+    onUpdatePermissions: (String, ru.kubsu.borshchevyk.core.model.dto.UpdatePermissionsRequest) -> Unit
+) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { 
-                    Text(
-                        text = "Chat",
-                        style = BorshchevykTheme.typography.titleMedium,
-                        color = BorshchevykTheme.colors.onSurface
-                    ) 
-                },
+                title = { Text("Chat Settings", style = BorshchevykTheme.typography.titleMedium) },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack, 
-                            contentDescription = "Back",
-                            tint = BorshchevykTheme.colors.onSurface
-                        )
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = BorshchevykTheme.colors.background
-                )
+                }
             )
-        },
-        bottomBar = {
-            MessageInput(
-                editingMessage = null,
-                isSending = uiState.isSending,
-                onSendMessage = { text, attachments -> viewModel.onSendMessage(text, attachments) },
-                onEditMessage = { _, _ -> },
-                onCancelEdit = { },
-                onTyping = { }
-            )
-        },
-        containerColor = BorshchevykTheme.colors.background,
-        modifier = modifier
+        }
     ) { padding ->
-        ChatScreen(
-            uiState = uiState,
-            resolveAttachmentUrl = { viewModel.resolveAttachmentUrl(it) },
-            onPinToggle = { msg ->
-                if (msg.isPinned) viewModel.onUnpinMessage(msg.id)
-                else viewModel.onPinMessage(msg.id)
-            },
-            onReactionToggle = { msgId, reaction ->
-                viewModel.onToggleReaction(msgId, reaction)
-            },
-            onEdit = { },
-            onDelete = { msgId, forAll ->
-                viewModel.onDeleteMessage(msgId, forAll)
-            },
-            onMessageVisible = { msgId ->
-                viewModel.onMessageVisible(msgId)
-            },
-            onLoadReaders = { msgId ->
-                viewModel.onLoadReaders(msgId)
-            },
-            onLoadComments = { msgId ->
-                viewModel.onLoadComments(msgId)
-            },
-            modifier = Modifier.padding(padding)
-        )
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .padding(horizontal = 16.dp)
+        ) {
+            item {
+                Spacer(modifier = Modifier.height(16.dp))
+                Text("Members", style = BorshchevykTheme.typography.titleMedium)
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+            
+            items(uiState.members) { member ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text("User: ${member.userId}", style = BorshchevykTheme.typography.bodyLarge)
+                        Text("Role: ${member.role}", style = BorshchevykTheme.typography.bodyMedium, color = BorshchevykTheme.colors.onSurfaceVariant)
+                    }
+                }
+                HorizontalDivider()
+            }
+        }
     }
 }
 
@@ -521,7 +593,10 @@ internal fun MessageInput(
                 }
                 OutlinedTextField(
                     value = text,
-                    onValueChange = { text = it },
+                    onValueChange = { 
+                        text = it
+                        onTyping()
+                    },
                     placeholder = { Text("Type a message...", color = BorshchevykTheme.colors.onSurfaceVariant) },
                     modifier = Modifier.weight(1f).defaultMinSize(minHeight = 48.dp),
                     shape = RoundedCornerShape(24.dp),

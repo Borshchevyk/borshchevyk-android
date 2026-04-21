@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import ru.kubsu.borshchevyk.core.domain.message.CreateGroupChatUseCase
 import ru.kubsu.borshchevyk.core.domain.message.CreatePrivateChatUseCase
 import ru.kubsu.borshchevyk.core.domain.message.GetUserChatsUseCase
 import ru.kubsu.borshchevyk.core.model.domain.Chat
@@ -22,7 +23,8 @@ data class ChatListUiState(
 @HiltViewModel
 class ChatListViewModel @Inject constructor(
     private val getUserChatsUseCase: GetUserChatsUseCase,
-    private val createPrivateChatUseCase: CreatePrivateChatUseCase
+    private val createPrivateChatUseCase: CreatePrivateChatUseCase,
+    private val createGroupChatUseCase: CreateGroupChatUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ChatListUiState(isLoading = true))
@@ -48,6 +50,17 @@ class ChatListViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 val chat = createPrivateChatUseCase(targetUserId)
+                onSuccess(chat.id)
+            } catch (e: Exception) {
+                _uiState.update { it.copy(error = e.message) }
+            }
+        }
+    }
+
+    fun onCreateGroupChat(title: String, description: String?, onSuccess: (String) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val chat = createGroupChatUseCase(title, description)
                 onSuccess(chat.id)
             } catch (e: Exception) {
                 _uiState.update { it.copy(error = e.message) }

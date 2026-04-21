@@ -20,6 +20,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Group
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
@@ -63,7 +66,9 @@ fun ChatListRoute(
     viewModel: ChatListViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    var showCreateChatDialog by remember { mutableStateOf(false) }
+    var showCreatePrivateDialog by remember { mutableStateOf(false) }
+    var showCreateGroupDialog by remember { mutableStateOf(false) }
+    var showFabMenu by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -98,13 +103,41 @@ fun ChatListRoute(
             )
         },
         floatingActionButton = {
-            FloatingActionButton(
-                onClick = { showCreateChatDialog = true },
-                containerColor = BorshchevykTheme.colors.primary,
-                contentColor = BorshchevykTheme.colors.onPrimary,
-                shape = RoundedCornerShape(16.dp)
-            ) {
-                Icon(Icons.Default.Add, contentDescription = "New Chat")
+            Column(horizontalAlignment = Alignment.End) {
+                if (showFabMenu) {
+                    FloatingActionButton(
+                        onClick = { 
+                            showFabMenu = false
+                            showCreateGroupDialog = true 
+                        },
+                        containerColor = BorshchevykTheme.colors.primaryContainer,
+                        contentColor = BorshchevykTheme.colors.onPrimaryContainer,
+                        modifier = Modifier.padding(bottom = 8.dp),
+                        shape = CircleShape
+                    ) {
+                        Icon(Icons.Default.Group, contentDescription = "New Group Chat")
+                    }
+                    FloatingActionButton(
+                        onClick = { 
+                            showFabMenu = false
+                            showCreatePrivateDialog = true 
+                        },
+                        containerColor = BorshchevykTheme.colors.primaryContainer,
+                        contentColor = BorshchevykTheme.colors.onPrimaryContainer,
+                        modifier = Modifier.padding(bottom = 8.dp),
+                        shape = CircleShape
+                    ) {
+                        Icon(Icons.Default.Person, contentDescription = "New Private Chat")
+                    }
+                }
+                FloatingActionButton(
+                    onClick = { showFabMenu = !showFabMenu },
+                    containerColor = BorshchevykTheme.colors.primary,
+                    contentColor = BorshchevykTheme.colors.onPrimary,
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Icon(if (showFabMenu) Icons.Default.Close else Icons.Default.Add, contentDescription = "New Chat")
+                }
             }
         },
         containerColor = BorshchevykTheme.colors.background,
@@ -116,12 +149,24 @@ fun ChatListRoute(
             modifier = Modifier.padding(padding)
         )
         
-        if (showCreateChatDialog) {
+        if (showCreatePrivateDialog) {
             CreateChatDialog(
-                onDismiss = { showCreateChatDialog = false },
+                onDismiss = { showCreatePrivateDialog = false },
                 onCreate = { peerId ->
-                    showCreateChatDialog = false
+                    showCreatePrivateDialog = false
                     viewModel.onCreatePrivateChat(peerId) { newChatId ->
+                        onChatClick(newChatId)
+                    }
+                }
+            )
+        }
+
+        if (showCreateGroupDialog) {
+            CreateGroupChatDialog(
+                onDismiss = { showCreateGroupDialog = false },
+                onCreate = { title, desc ->
+                    showCreateGroupDialog = false
+                    viewModel.onCreateGroupChat(title, desc) { newChatId ->
                         onChatClick(newChatId)
                     }
                 }
@@ -227,7 +272,7 @@ fun CreateChatDialog(
         textContentColor = BorshchevykTheme.colors.onSurfaceVariant,
         title = { 
             Text(
-                "Start new chat",
+                "Start new private chat",
                 style = BorshchevykTheme.typography.titleMedium
             ) 
         },
@@ -269,6 +314,62 @@ fun CreateChatDialog(
             ) {
                 Text("Cancel")
             }
+        }
+    )
+}
+
+@Composable
+fun CreateGroupChatDialog(
+    onDismiss: () -> Unit,
+    onCreate: (String, String?) -> Unit
+) {
+    var title by remember { mutableStateOf("") }
+    var description by remember { mutableStateOf("") }
+    
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = BorshchevykTheme.colors.surface,
+        titleContentColor = BorshchevykTheme.colors.onSurface,
+        textContentColor = BorshchevykTheme.colors.onSurfaceVariant,
+        title = { Text("Create Group Chat", style = BorshchevykTheme.typography.titleMedium) },
+        text = {
+            Column {
+                OutlinedTextField(
+                    value = title,
+                    onValueChange = { title = it },
+                    label = { Text("Title") },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = BorshchevykTheme.colors.primary,
+                        unfocusedBorderColor = BorshchevykTheme.colors.outline
+                    )
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = description,
+                    onValueChange = { description = it },
+                    label = { Text("Description (Optional)") },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = BorshchevykTheme.colors.primary,
+                        unfocusedBorderColor = BorshchevykTheme.colors.outline
+                    )
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onCreate(title, description.ifBlank { null }) },
+                enabled = title.isNotBlank(),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = BorshchevykTheme.colors.primary
+                )
+            ) { Text("Create") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
         }
     )
 }

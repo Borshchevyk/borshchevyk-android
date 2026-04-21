@@ -18,6 +18,7 @@ import ru.kubsu.borshchevyk.core.domain.message.GetAttachmentUrlUseCase
 import ru.kubsu.borshchevyk.core.domain.message.GetMessageCommentsUseCase
 import ru.kubsu.borshchevyk.core.domain.message.GetMessageReadersUseCase
 import ru.kubsu.borshchevyk.core.domain.message.GetPinnedMessagesUseCase
+import ru.kubsu.borshchevyk.core.domain.message.GetUserChatsUseCase
 import ru.kubsu.borshchevyk.core.domain.message.LoadChatHistoryUseCase
 import ru.kubsu.borshchevyk.core.domain.message.MarkMessageAsReadUseCase
 import ru.kubsu.borshchevyk.core.domain.message.PinMessageUseCase
@@ -25,17 +26,25 @@ import ru.kubsu.borshchevyk.core.domain.message.RemoveReactionUseCase
 import ru.kubsu.borshchevyk.core.domain.message.SendMessageUseCase
 import ru.kubsu.borshchevyk.core.domain.message.UnpinMessageUseCase
 import ru.kubsu.borshchevyk.core.domain.message.UploadAttachmentUseCase
+import ru.kubsu.borshchevyk.core.model.domain.ChatMember
+import ru.kubsu.borshchevyk.core.model.domain.ChatType
 import ru.kubsu.borshchevyk.core.model.domain.Message
 import ru.kubsu.borshchevyk.core.model.domain.MessageReaction
+import ru.kubsu.borshchevyk.core.model.dto.UpdatePermissionsRequest
 import javax.inject.Inject
 
 data class ChatUiState(
     val chatId: String = "",
     val currentUserId: String = "",
+    val isGroupChat: Boolean = false,
     val messages: List<Message> = emptyList(),
     val pinnedMessages: List<Message> = emptyList(),
     val commentsByMessageId: Map<String, List<Message>> = emptyMap(),
     val readersByMessageId: Map<String, List<String>> = emptyMap(),
+    val members: List<ChatMember> = emptyList(),
+    val inviteLink: String? = null,
+    val showSettings: Boolean = false,
+    val editingMessage: Message? = null,
     val isSending: Boolean = false,
     val isLoading: Boolean = false,
     val error: String? = null
@@ -57,7 +66,8 @@ class ChatViewModel @Inject constructor(
     private val markMessageAsReadUseCase: MarkMessageAsReadUseCase,
     private val getUserIdUseCase: GetUserIdUseCase,
     private val uploadAttachmentUseCase: UploadAttachmentUseCase,
-    private val getAttachmentUrlUseCase: GetAttachmentUrlUseCase
+    private val getAttachmentUrlUseCase: GetAttachmentUrlUseCase,
+    private val getUserChatsUseCase: GetUserChatsUseCase
 ) : ViewModel() {
 
     private val chatId: String = checkNotNull(savedStateHandle["chatId"])
@@ -75,11 +85,15 @@ class ChatViewModel @Inject constructor(
             _uiState.update { it.copy(isLoading = true, error = null) }
             try {
                 val userId = getUserIdUseCase().firstOrNull() ?: ""
+                val chats = getUserChatsUseCase()
+                val chat = chats.find { it.id == chatId }
+                val isGroup = chat?.type == ChatType.GROUP
                 val history = loadChatHistoryUseCase(chatId)
                 val pinned = getPinnedMessagesUseCase(chatId)
                 _uiState.update { 
                     it.copy(
                         currentUserId = userId,
+                        isGroupChat = isGroup,
                         messages = history, 
                         pinnedMessages = pinned,
                         isLoading = false 
@@ -89,6 +103,10 @@ class ChatViewModel @Inject constructor(
                 _uiState.update { it.copy(isLoading = false, error = e.message) }
             }
         }
+    }
+
+    fun toggleSettings() {
+        _uiState.update { it.copy(showSettings = !it.showSettings) }
     }
 
     fun onSendMessage(text: String, attachments: List<AttachmentFile> = emptyList()) {
@@ -136,6 +154,15 @@ class ChatViewModel @Inject constructor(
             Log.e(TAG, "Failed to resolve attachment URL: ${e.message}", e)
             null
         }
+    }
+
+    fun setEditingMessage(message: Message?) {
+        _uiState.update { it.copy(editingMessage = message) }
+    }
+
+    fun onEditMessage(messageId: String, newText: String) {
+        // Mock implementation for now to satisfy ChatScreen
+        _uiState.update { it.copy(editingMessage = null) }
     }
 
     fun onDeleteMessage(messageId: String, forAll: Boolean = false) {
@@ -270,4 +297,8 @@ class ChatViewModel @Inject constructor(
             }
         }
     }
+
+    fun onInviteUser(userId: String) { /* Mock */ }
+    fun onGenerateInviteLink() { /* Mock */ }
+    fun onUpdatePermissions(targetUserId: String, request: UpdatePermissionsRequest) { /* Mock */ }
 }
