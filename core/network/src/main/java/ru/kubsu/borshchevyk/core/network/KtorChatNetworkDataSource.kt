@@ -20,7 +20,7 @@ class KtorChatNetworkDataSource @Inject constructor(
 ) : ChatNetworkDataSource {
 
     override suspend fun createChat(request: CreateChatRequest): ChatResponse {
-        return httpClient.post("api/v1/chats") {
+        return httpClient.post("api/v1/chats/") {
             setBody(request)
         }.body()
     }

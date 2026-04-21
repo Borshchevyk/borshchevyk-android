@@ -28,5 +28,6 @@ data class Message(
     val commentsCount: Int = 0,
     val parentMessageId: String? = null,
     val forwardedFromChatId: String? = null,
-    val forwardedFromUserId: String? = null
+    val forwardedFromUserId: String? = null,
+    val attachmentIds: List<String> = emptyList()
 )

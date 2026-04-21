@@ -1,0 +1,17 @@
+package ru.kubsu.borshchevyk.core.network
+
+import ru.kubsu.borshchevyk.core.model.dto.AttachmentResponse
+import ru.kubsu.borshchevyk.core.model.dto.AttachmentUrlResult
+import ru.kubsu.borshchevyk.core.model.dto.RequestUploadUrlRequest
+import ru.kubsu.borshchevyk.core.model.dto.UploadUrlResult
+import ru.kubsu.borshchevyk.core.model.dto.ValidateAttachmentsRequest
+import ru.kubsu.borshchevyk.core.model.dto.ValidateAttachmentsResponse
+
+interface MediaNetworkDataSource {
+    suspend fun requestUploadUrl(request: RequestUploadUrlRequest): UploadUrlResult
+    suspend fun completeUpload(attachmentId: String): AttachmentResponse
+    suspend fun getAttachmentUrl(attachmentId: String): AttachmentUrlResult
+    suspend fun deleteAttachment(attachmentId: String)
+    suspend fun validateAttachments(request: ValidateAttachmentsRequest): ValidateAttachmentsResponse
+    suspend fun uploadFileToS3(url: String, fileBytes: ByteArray, contentType: String)
+}

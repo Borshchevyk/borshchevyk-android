@@ -1,5 +1,6 @@
 package ru.kubsu.borshchevyk.feature.chat
 
+import android.util.Log
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -13,6 +14,7 @@ import kotlinx.coroutines.launch
 import ru.kubsu.borshchevyk.core.domain.auth.GetUserIdUseCase
 import ru.kubsu.borshchevyk.core.domain.message.AddReactionUseCase
 import ru.kubsu.borshchevyk.core.domain.message.DeleteMessageUseCase
+import ru.kubsu.borshchevyk.core.domain.message.GetAttachmentUrlUseCase
 import ru.kubsu.borshchevyk.core.domain.message.GetMessageCommentsUseCase
 import ru.kubsu.borshchevyk.core.domain.message.GetMessageReadersUseCase
 import ru.kubsu.borshchevyk.core.domain.message.GetPinnedMessagesUseCase
@@ -22,6 +24,7 @@ import ru.kubsu.borshchevyk.core.domain.message.PinMessageUseCase
 import ru.kubsu.borshchevyk.core.domain.message.RemoveReactionUseCase
 import ru.kubsu.borshchevyk.core.domain.message.SendMessageUseCase
 import ru.kubsu.borshchevyk.core.domain.message.UnpinMessageUseCase
+import ru.kubsu.borshchevyk.core.domain.message.UploadAttachmentUseCase
 import ru.kubsu.borshchevyk.core.model.domain.Message
 import ru.kubsu.borshchevyk.core.model.domain.MessageReaction
 import javax.inject.Inject
@@ -33,6 +36,7 @@ data class ChatUiState(
     val pinnedMessages: List<Message> = emptyList(),
     val commentsByMessageId: Map<String, List<Message>> = emptyMap(),
     val readersByMessageId: Map<String, List<String>> = emptyMap(),
+    val isSending: Boolean = false,
     val isLoading: Boolean = false,
     val error: String? = null
 )
@@ -51,10 +55,13 @@ class ChatViewModel @Inject constructor(
     private val getMessageReadersUseCase: GetMessageReadersUseCase,
     private val getMessageCommentsUseCase: GetMessageCommentsUseCase,
     private val markMessageAsReadUseCase: MarkMessageAsReadUseCase,
-    private val getUserIdUseCase: GetUserIdUseCase
+    private val getUserIdUseCase: GetUserIdUseCase,
+    private val uploadAttachmentUseCase: UploadAttachmentUseCase,
+    private val getAttachmentUrlUseCase: GetAttachmentUrlUseCase
 ) : ViewModel() {
 
     private val chatId: String = checkNotNull(savedStateHandle["chatId"])
+    private val TAG = "ChatViewModel"
 
     private val _uiState = MutableStateFlow(ChatUiState(chatId = chatId, isLoading = true))
     val uiState: StateFlow<ChatUiState> = _uiState.asStateFlow()
@@ -84,17 +91,50 @@ class ChatViewModel @Inject constructor(
         }
     }
 
-    fun onSendMessage(text: String) {
-        if (text.isBlank()) return
+    fun onSendMessage(text: String, attachments: List<AttachmentFile> = emptyList()) {
+        if (text.isBlank() && attachments.isEmpty()) return
         viewModelScope.launch {
+            _uiState.update { it.copy(isSending = true, error = null) }
             try {
-                val newMessage = sendMessageUseCase(chatId, text)
-                _uiState.update { 
-                    it.copy(messages = listOf(newMessage) + it.messages)
+                val attachmentIds = attachments.map { file ->
+                    val type = when {
+                        file.contentType.startsWith("image/") -> ru.kubsu.borshchevyk.core.model.dto.AttachmentType.PHOTO
+                        file.contentType.startsWith("video/") -> ru.kubsu.borshchevyk.core.model.dto.AttachmentType.VIDEO
+                        file.contentType.startsWith("audio/") -> ru.kubsu.borshchevyk.core.model.dto.AttachmentType.VOICE
+                        else -> ru.kubsu.borshchevyk.core.model.dto.AttachmentType.FILE
+                    }
+                    uploadAttachmentUseCase(
+                        fileBytes = file.bytes,
+                        originalFilename = file.originalFilename,
+                        contentType = file.contentType,
+                        extension = file.extension,
+                        type = type,
+                        width = file.width,
+                        height = file.height,
+                        duration = file.duration
+                    )
+                }
+
+                val newMessage = sendMessageUseCase(chatId, text, attachmentIds)
+                _uiState.update { state ->
+                    state.copy(
+                        messages = listOf(newMessage) + state.messages,
+                        isSending = false
+                    )
                 }
             } catch (e: Exception) {
-                _uiState.update { it.copy(error = e.message) }
+                Log.e(TAG, "Failed to send message", e)
+                _uiState.update { it.copy(error = e.message, isSending = false) }
             }
+        }
+    }
+
+    suspend fun resolveAttachmentUrl(attachmentId: String): String? {
+        return try {
+            getAttachmentUrlUseCase(attachmentId)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to resolve attachment URL: ${e.message}", e)
+            null
         }
     }
 
@@ -118,14 +158,11 @@ class ChatViewModel @Inject constructor(
         val currentUserId = _uiState.value.currentUserId
         val message = _uiState.value.messages.find { it.id == messageId } ?: return
 
-        // Ideally we only want to mark message as read if it's not ours and we haven't marked it yet.
-        // For now, let's fire and forget.
         if (message.authorId != currentUserId) {
             viewModelScope.launch {
                 try {
                     markMessageAsReadUseCase(chatId, messageId)
                 } catch (e: Exception) {
-                    // Ignore background errors for read receipts
                 }
             }
         }
@@ -165,7 +202,6 @@ class ChatViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 pinMessageUseCase(chatId, messageId)
-                // Refresh pinned messages
                 val pinned = getPinnedMessagesUseCase(chatId)
                 _uiState.update { state ->
                     val updatedMessages = state.messages.map { 
@@ -186,7 +222,6 @@ class ChatViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 unpinMessageUseCase(chatId, messageId)
-                // Refresh pinned messages
                 val pinned = getPinnedMessagesUseCase(chatId)
                 _uiState.update { state ->
                     val updatedMessages = state.messages.map { 

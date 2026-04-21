@@ -70,10 +70,11 @@ class MessageRepositoryImpl @Inject constructor(
         isDeleted = isDeleted,
         source = source,
         isPinned = pinnedAt != null,
-        reactions = reactions?.map { MessageReaction(userId = it.userId, reaction = it.reaction) } ?: emptyList(),
+        reactions = reactions?.map { MessageReaction(it.userId, it.reaction) } ?: emptyList(),
         commentsCount = commentsCount,
         parentMessageId = parentMessageId,
         forwardedFromChatId = forwardedFromChatId,
-        forwardedFromUserId = forwardedFromUserId
+        forwardedFromUserId = forwardedFromUserId,
+        attachmentIds = attachmentIds ?: emptyList()
     )
 }

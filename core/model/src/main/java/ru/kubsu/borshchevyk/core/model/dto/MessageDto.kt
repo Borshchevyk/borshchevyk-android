@@ -24,12 +24,14 @@ data class MessageResponse(
     val commentsCount: Int = 0,
     val parentMessageId: String? = null,
     val forwardedFromChatId: String? = null,
-    val forwardedFromUserId: String? = null
+    val forwardedFromUserId: String? = null,
+    val attachmentIds: List<String>? = null
 )
 
 @Serializable
 data class SendMessageRequest(
     val text: String,
     val source: MessageSource? = null,
-    val parentMessageId: String? = null
+    val parentMessageId: String? = null,
+    val attachmentIds: List<String>? = null
 )
