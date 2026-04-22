@@ -95,13 +95,24 @@ fun ChatRoute(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
+    LaunchedEffect(uiState.isChatDeleted) {
+        if (uiState.isChatDeleted) {
+            onBackClick()
+        }
+    }
+
     if (uiState.showSettings) {
         ChatSettingsScreen(
             uiState = uiState,
             onBackClick = { viewModel.toggleSettings() },
             onInvite = { viewModel.onInviteUser(it) },
             onGenerateLink = { viewModel.onGenerateInviteLink() },
-            onUpdatePermissions = { targetUserId, request -> viewModel.onUpdatePermissions(targetUserId, request) }
+            onUpdatePermissions = { targetUserId, request -> viewModel.onUpdatePermissions(targetUserId, request) },
+            onClearHistory = { forAll -> viewModel.onClearHistory(forAll) },
+            onDeleteChat = { viewModel.onDeleteChat() },
+            onKickUser = { targetUserId -> viewModel.onKickUser(targetUserId) },
+            onLeaveChat = { viewModel.onLeaveChat() },
+            onUpdateChatInfo = { title, desc -> viewModel.onUpdateChatInfo(title, desc) }
         )
     } else {
         Scaffold(
@@ -186,16 +197,26 @@ fun ChatSettingsScreen(
     onBackClick: () -> Unit,
     onInvite: (String) -> Unit,
     onGenerateLink: () -> Unit,
-    onUpdatePermissions: (String, UpdatePermissionsRequest) -> Unit
+    onUpdatePermissions: (String, UpdatePermissionsRequest) -> Unit,
+    onClearHistory: (Boolean) -> Unit,
+    onDeleteChat: () -> Unit,
+    onKickUser: (String) -> Unit,
+    onLeaveChat: () -> Unit,
+    onUpdateChatInfo: (String?, String?) -> Unit
 ) {
     var showInviteDialog by remember { mutableStateOf(false) }
     var memberForPermissions by remember { mutableStateOf<ChatMember?>(null) }
+    var showClearHistoryDialog by remember { mutableStateOf(false) }
+    var showDeleteChatDialog by remember { mutableStateOf(false) }
+    var showUpdateInfoDialog by remember { mutableStateOf(false) }
+
     val clipboardManager = LocalClipboardManager.current
     val context = LocalContext.current
 
     val currentUserMember = uiState.members.find { it.userId == uiState.currentUserId }
     val canManagePermissions = uiState.isGroupChat &&
-        (currentUserMember?.role == ChatMemberRole.OWNER || currentUserMember?.role == ChatMemberRole.ADMIN)    
+            (currentUserMember?.role == ChatMemberRole.OWNER || currentUserMember?.role == ChatMemberRole.ADMIN)
+    val canChangeInfo = uiState.isGroupChat && (currentUserMember?.canChangeInfo == true || canManagePermissions)
 
     Scaffold(
         topBar = {
@@ -217,6 +238,16 @@ fun ChatSettingsScreen(
         ) {
             item {
                 Spacer(modifier = Modifier.height(16.dp))
+                if (canChangeInfo) {
+                    Button(
+                        onClick = { showUpdateInfoDialog = true },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Edit Chat Info")
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+
                 if (uiState.isGroupChat) {
                     Button(
                         onClick = { showInviteDialog = true },
@@ -276,7 +307,7 @@ fun ChatSettingsScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(8.dp))
-                        .clickable(enabled = canManagePermissions && member.userId != uiState.currentUserId) {  
+                        .clickable(enabled = canManagePermissions && member.userId != uiState.currentUserId) {
                             memberForPermissions = member
                         }
                         .padding(vertical = 12.dp, horizontal = 8.dp),
@@ -285,13 +316,13 @@ fun ChatSettingsScreen(
                 ) {
                     Column {
                         Text(
-                            text = if (member.userId == uiState.currentUserId) "You (${member.userId})" else "User: ${member.userId}", 
+                            text = if (member.userId == uiState.currentUserId) "You (${member.userId})" else "User: ${member.userId}",
                             style = BorshchevykTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
                             color = BorshchevykTheme.colors.onSurface
                         )
                         Text(
-                            text = "Role: ${member.role}", 
-                            style = BorshchevykTheme.typography.bodyMedium, 
+                            text = "Role: ${member.role}",
+                            style = BorshchevykTheme.typography.bodyMedium,
                             color = BorshchevykTheme.colors.onSurfaceVariant
                         )
                     }
@@ -301,6 +332,94 @@ fun ChatSettingsScreen(
                 }
                 HorizontalDivider(color = BorshchevykTheme.colors.outline.copy(alpha = 0.5f))
             }
+
+            item {
+                Spacer(modifier = Modifier.height(32.dp))
+
+                Button(
+                    onClick = { showClearHistoryDialog = true },
+                    colors = ButtonDefaults.buttonColors(containerColor = BorshchevykTheme.colors.error),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Clear History", color = BorshchevykTheme.colors.onError)
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                if (uiState.isGroupChat) {
+                    Button(
+                        onClick = onLeaveChat,
+                        colors = ButtonDefaults.buttonColors(containerColor = BorshchevykTheme.colors.error),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Leave Chat", color = BorshchevykTheme.colors.onError)
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+
+                if (!uiState.isGroupChat || currentUserMember?.role == ChatMemberRole.OWNER) {
+                    Button(
+                        onClick = { showDeleteChatDialog = true },
+                        colors = ButtonDefaults.buttonColors(containerColor = BorshchevykTheme.colors.error),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Delete Chat", color = BorshchevykTheme.colors.onError)
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(32.dp))
+            }
+        }
+
+        if (showClearHistoryDialog) {
+            var forAll by remember { mutableStateOf(false) }
+            AlertDialog(
+                onDismissRequest = { showClearHistoryDialog = false },
+                title = { Text("Clear History") },
+                text = {
+                    Column {
+                        Text("Are you sure you want to clear the history of this chat? This action cannot be undone.")
+                        if (!uiState.isGroupChat) {
+                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 16.dp)) {
+                                Checkbox(checked = forAll, onCheckedChange = { forAll = it })
+                                Text("Clear for everyone")
+                            }
+                        }
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            onClearHistory(forAll)
+                            showClearHistoryDialog = false
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = BorshchevykTheme.colors.error)
+                    ) { Text("Clear", color = BorshchevykTheme.colors.onError) }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showClearHistoryDialog = false }) { Text("Cancel") }
+                }
+            )
+        }
+
+        if (showDeleteChatDialog) {
+            AlertDialog(
+                onDismissRequest = { showDeleteChatDialog = false },
+                title = { Text("Delete Chat") },
+                text = { Text("Are you sure you want to delete this chat? This action cannot be undone.") },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            onDeleteChat()
+                            showDeleteChatDialog = false
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = BorshchevykTheme.colors.error)
+                    ) { Text("Delete", color = BorshchevykTheme.colors.onError) }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showDeleteChatDialog = false }) { Text("Cancel") }
+                }
+            )
         }
 
         if (showInviteDialog) {
@@ -373,7 +492,59 @@ fun ChatSettingsScreen(
                     ) { Text("Save") }
                 },
                 dismissButton = {
-                    TextButton(onClick = { memberForPermissions = null }) { Text("Cancel") }
+                    Row {
+                        if (canManagePermissions && member.userId != uiState.currentUserId) {
+                            TextButton(
+                                onClick = {
+                                    onKickUser(member.userId)
+                                    memberForPermissions = null
+                                },
+                                colors = ButtonDefaults.textButtonColors(contentColor = BorshchevykTheme.colors.error)
+                            ) { Text("Kick User") }
+                        }
+                        TextButton(onClick = { memberForPermissions = null }) { Text("Cancel") }
+                    }
+                }
+            )
+        }
+
+        if (showUpdateInfoDialog) {
+            var title by remember { mutableStateOf("") }
+            var description by remember { mutableStateOf("") }
+
+            AlertDialog(
+                onDismissRequest = { showUpdateInfoDialog = false },
+                title = { Text("Update Chat Info") },
+                text = {
+                    Column {
+                        OutlinedTextField(
+                            value = title,
+                            onValueChange = { title = it },
+                            label = { Text("Title") },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        OutlinedTextField(
+                            value = description,
+                            onValueChange = { description = it },
+                            label = { Text("Description") },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            onUpdateChatInfo(
+                                title.ifBlank { null },
+                                description.ifBlank { null }
+                            )
+                            showUpdateInfoDialog = false
+                        }
+                    ) { Text("Update") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showUpdateInfoDialog = false }) { Text("Cancel") }
                 }
             )
         }
@@ -390,7 +561,7 @@ fun PermissionRow(label: String, checked: Boolean, onCheckedChange: (Boolean) ->
         verticalAlignment = Alignment.CenterVertically
     ) {
         Checkbox(
-            checked = checked, 
+            checked = checked,
             onCheckedChange = onCheckedChange,
             colors = androidx.compose.material3.CheckboxDefaults.colors(checkedColor = BorshchevykTheme.colors.primary)
         )
@@ -470,7 +641,7 @@ internal fun ChatScreen(
             }
         }
     }
-    
+
     if (messageIdForReaders != null) {
         val readers = uiState.readersByMessageId[messageIdForReaders]
         AlertDialog(
@@ -697,7 +868,7 @@ internal fun MessageBubble(
                 horizontalArrangement = if (isFromMe) Arrangement.End else Arrangement.Start
             ) {
                 reactionCounts.forEach { (emoji, count) ->
-                    val iReacted = message.reactions.any { it.reaction == emoji && it.userId == currentUserId } 
+                    val iReacted = message.reactions.any { it.reaction == emoji && it.userId == currentUserId }
                     Surface(
                         shape = RoundedCornerShape(12.dp),
                         color = if (iReacted) BorshchevykTheme.colors.primaryContainer else BorshchevykTheme.colors.surfaceVariant,

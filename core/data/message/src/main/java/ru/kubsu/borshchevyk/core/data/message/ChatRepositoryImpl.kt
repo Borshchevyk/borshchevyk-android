@@ -9,6 +9,7 @@ import ru.kubsu.borshchevyk.core.model.dto.ChatResponse
 import ru.kubsu.borshchevyk.core.model.dto.CreateChatRequest
 import ru.kubsu.borshchevyk.core.model.dto.PageResponse
 import ru.kubsu.borshchevyk.core.model.dto.TargetUserRequest
+import ru.kubsu.borshchevyk.core.model.dto.UpdateChatInfoRequest
 import ru.kubsu.borshchevyk.core.model.dto.UpdatePermissionsRequest
 import ru.kubsu.borshchevyk.core.network.ChatNetworkDataSource
 import javax.inject.Inject
@@ -54,6 +55,18 @@ class ChatRepositoryImpl @Inject constructor(
 
     override suspend fun inviteUser(chatId: String, request: TargetUserRequest) {
         networkDataSource.inviteUser(chatId, request)
+    }
+
+    override suspend fun kickUser(chatId: String, targetUserId: String) {
+        networkDataSource.kickUser(chatId, targetUserId)
+    }
+
+    override suspend fun leaveChat(chatId: String) {
+        networkDataSource.leaveChat(chatId)
+    }
+
+    override suspend fun updateChatInfo(chatId: String, request: UpdateChatInfoRequest) {
+        networkDataSource.updateChatInfo(chatId, request)
     }
 
     override suspend fun generateInviteLink(chatId: String): String {

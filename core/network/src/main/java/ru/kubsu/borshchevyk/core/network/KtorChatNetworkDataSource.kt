@@ -17,6 +17,7 @@ import ru.kubsu.borshchevyk.core.model.dto.MessageResponse
 import ru.kubsu.borshchevyk.core.model.dto.PageResponse
 import ru.kubsu.borshchevyk.core.model.dto.SendMessageRequest
 import ru.kubsu.borshchevyk.core.model.dto.TargetUserRequest
+import ru.kubsu.borshchevyk.core.model.dto.UpdateChatInfoRequest
 import ru.kubsu.borshchevyk.core.model.dto.UpdatePermissionsRequest
 import javax.inject.Inject
 
@@ -69,6 +70,20 @@ class KtorChatNetworkDataSource @Inject constructor(
 
     override suspend fun inviteUser(chatId: String, request: TargetUserRequest) {
         httpClient.post("api/v1/chats/$chatId/members") {
+            setBody(request)
+        }
+    }
+
+    override suspend fun kickUser(chatId: String, targetUserId: String) {
+        httpClient.delete("api/v1/chats/$chatId/members/$targetUserId")
+    }
+
+    override suspend fun leaveChat(chatId: String) {
+        httpClient.delete("api/v1/chats/$chatId/members/me")
+    }
+
+    override suspend fun updateChatInfo(chatId: String, request: UpdateChatInfoRequest) {
+        httpClient.patch("api/v1/chats/$chatId") {
             setBody(request)
         }
     }

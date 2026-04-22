@@ -17,6 +17,8 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import ru.kubsu.borshchevyk.core.domain.auth.GetUserIdUseCase
 import ru.kubsu.borshchevyk.core.domain.message.AddReactionUseCase
+import ru.kubsu.borshchevyk.core.domain.message.ClearChatHistoryUseCase
+import ru.kubsu.borshchevyk.core.domain.message.DeleteChatUseCase
 import ru.kubsu.borshchevyk.core.domain.message.DeleteMessageUseCase
 import ru.kubsu.borshchevyk.core.domain.message.EditMessageUseCase
 import ru.kubsu.borshchevyk.core.domain.message.GenerateInviteLinkUseCase
@@ -27,6 +29,8 @@ import ru.kubsu.borshchevyk.core.domain.message.GetMessageReadersUseCase
 import ru.kubsu.borshchevyk.core.domain.message.GetPinnedMessagesUseCase
 import ru.kubsu.borshchevyk.core.domain.message.GetUserChatsUseCase
 import ru.kubsu.borshchevyk.core.domain.message.InviteUserUseCase
+import ru.kubsu.borshchevyk.core.domain.message.KickUserUseCase
+import ru.kubsu.borshchevyk.core.domain.message.LeaveChatUseCase
 import ru.kubsu.borshchevyk.core.domain.message.LoadChatHistoryUseCase
 import ru.kubsu.borshchevyk.core.domain.message.MarkMessageAsReadUseCase
 import ru.kubsu.borshchevyk.core.domain.message.ObserveDeletedMessagesUseCase
@@ -41,6 +45,7 @@ import ru.kubsu.borshchevyk.core.domain.message.RemoveReactionUseCase
 import ru.kubsu.borshchevyk.core.domain.message.SendMessageUseCase
 import ru.kubsu.borshchevyk.core.domain.message.SendTypingEventUseCase
 import ru.kubsu.borshchevyk.core.domain.message.UnpinMessageUseCase
+import ru.kubsu.borshchevyk.core.domain.message.UpdateChatInfoUseCase
 import ru.kubsu.borshchevyk.core.domain.message.UpdateMemberPermissionsUseCase
 import ru.kubsu.borshchevyk.core.domain.message.UploadAttachmentUseCase
 import ru.kubsu.borshchevyk.core.model.domain.ChatMember
@@ -64,6 +69,7 @@ data class ChatUiState(
     val editingMessage: Message? = null,
     val typingUsers: Set<String> = emptySet(),
     val isSending: Boolean = false,
+    val isChatDeleted: Boolean = false,
     val isLoading: Boolean = false,
     val error: String? = null
 )
@@ -98,7 +104,12 @@ class ChatViewModel @Inject constructor(
     private val getUserChatsUseCase: GetUserChatsUseCase,
     private val updateMemberPermissionsUseCase: UpdateMemberPermissionsUseCase,
     private val uploadAttachmentUseCase: UploadAttachmentUseCase,
-    private val getAttachmentUrlUseCase: GetAttachmentUrlUseCase
+    private val getAttachmentUrlUseCase: GetAttachmentUrlUseCase,
+    private val clearChatHistoryUseCase: ClearChatHistoryUseCase,
+    private val deleteChatUseCase: DeleteChatUseCase,
+    private val kickUserUseCase: KickUserUseCase,
+    private val leaveChatUseCase: LeaveChatUseCase,
+    private val updateChatInfoUseCase: UpdateChatInfoUseCase
 ) : ViewModel() {
 
     private val TAG = "ChatViewModel"
@@ -314,6 +325,67 @@ class ChatViewModel @Inject constructor(
         }
     }
 
+    fun onClearHistory(forAll: Boolean) {
+        viewModelScope.launch {
+            try {
+                clearChatHistoryUseCase(chatId, forAll)
+                _uiState.update { state ->
+                    state.copy(
+                        messages = emptyList(),
+                        pinnedMessages = emptyList()
+                    )
+                }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(error = e.message) }
+            }
+        }
+    }
+
+    fun onDeleteChat() {
+        viewModelScope.launch {
+            try {
+                deleteChatUseCase(chatId)
+                _uiState.update { it.copy(isChatDeleted = true) }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(error = e.message) }
+            }
+        }
+    }
+
+    fun onKickUser(targetUserId: String) {
+        viewModelScope.launch {
+            try {
+                kickUserUseCase(chatId, targetUserId)
+                val membersPage = getChatMembersUseCase(chatId, 0, 100)
+                _uiState.update { it.copy(members = membersPage.content) }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(error = e.message) }
+            }
+        }
+    }
+
+    fun onLeaveChat() {
+        viewModelScope.launch {
+            try {
+                leaveChatUseCase(chatId)
+                _uiState.update { it.copy(isChatDeleted = true) }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(error = e.message) }
+            }
+        }
+    }
+
+    fun onUpdateChatInfo(title: String?, description: String?) {
+        viewModelScope.launch {
+            try {
+                updateChatInfoUseCase(chatId, ru.kubsu.borshchevyk.core.model.dto.UpdateChatInfoRequest(title = title, description = description))
+                loadData()
+            } catch (e: Exception) {
+                _uiState.update { it.copy(error = e.message) }
+            }
+        }
+    }
+
     fun onTyping() {
         viewModelScope.launch {
             sendTypingEventUseCase(chatId, true)
@@ -466,8 +538,8 @@ class ChatViewModel @Inject constructor(
                 pinMessageUseCase(chatId, messageId)
                 val pinned = getPinnedMessagesUseCase(chatId)
                 _uiState.update { state ->
-                    val updatedMessages = state.messages.map { 
-                        if (it.id == messageId) it.copy(isPinned = true) else it 
+                    val updatedMessages = state.messages.map {
+                        if (it.id == messageId) it.copy(isPinned = true) else it
                     }
                     state.copy(
                         messages = updatedMessages,
@@ -486,8 +558,8 @@ class ChatViewModel @Inject constructor(
                 unpinMessageUseCase(chatId, messageId)
                 val pinned = getPinnedMessagesUseCase(chatId)
                 _uiState.update { state ->
-                    val updatedMessages = state.messages.map { 
-                        if (it.id == messageId) it.copy(isPinned = false) else it 
+                    val updatedMessages = state.messages.map {
+                        if (it.id == messageId) it.copy(isPinned = false) else it
                     }
                     state.copy(
                         messages = updatedMessages,
