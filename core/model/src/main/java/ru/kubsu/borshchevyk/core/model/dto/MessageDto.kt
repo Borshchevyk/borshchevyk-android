@@ -41,8 +41,3 @@ data class SendMessageRequest(
 data class EditMessageRequest(
     val text: String
 )
-
-@Serializable
-data class EditMessageRequest(
-    val text: String
-)
