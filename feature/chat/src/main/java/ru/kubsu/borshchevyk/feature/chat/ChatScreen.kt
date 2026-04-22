@@ -1,6 +1,9 @@
 package ru.kubsu.borshchevyk.feature.chat
 
+import android.provider.OpenableColumns
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -26,13 +29,16 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
@@ -52,20 +58,28 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import coil.compose.AsyncImage
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import ru.kubsu.borshchevyk.core.model.domain.ChatMember
 import ru.kubsu.borshchevyk.core.model.domain.ChatMemberRole
 import ru.kubsu.borshchevyk.core.model.domain.Message
@@ -95,7 +109,7 @@ fun ChatRoute(
                 TopAppBar(
                     title = { 
                         Text(
-                            text = "Chat",
+                            text = if (uiState.isGroupChat) "Group Chat" else "Private Chat",
                             style = BorshchevykTheme.typography.titleMedium,
                             color = BorshchevykTheme.colors.onSurface
                         ) 
@@ -126,7 +140,8 @@ fun ChatRoute(
             bottomBar = {
                 MessageInput(
                     editingMessage = uiState.editingMessage,
-                    onSendMessage = viewModel::onSendMessage,
+                    isSending = uiState.isSending,
+                    onSendMessage = { text, attachments -> viewModel.onSendMessage(text, attachments) },
                     onEditMessage = viewModel::onEditMessage,
                     onCancelEdit = { viewModel.setEditingMessage(null) },
                     onTyping = viewModel::onTyping
@@ -137,6 +152,7 @@ fun ChatRoute(
         ) { padding ->
             ChatScreen(
                 uiState = uiState,
+                resolveAttachmentUrl = { viewModel.resolveAttachmentUrl(it) },
                 onPinToggle = { msg ->
                     if (msg.isPinned) viewModel.onUnpinMessage(msg.id)
                     else viewModel.onPinMessage(msg.id)
@@ -178,8 +194,8 @@ fun ChatSettingsScreen(
     val context = LocalContext.current
 
     val currentUserMember = uiState.members.find { it.userId == uiState.currentUserId }
-    val canManagePermissions = uiState.isGroupChat && 
-        (currentUserMember?.role == ChatMemberRole.OWNER || currentUserMember?.role == ChatMemberRole.ADMIN)
+    val canManagePermissions = uiState.isGroupChat &&
+        (currentUserMember?.role == ChatMemberRole.OWNER || currentUserMember?.role == ChatMemberRole.ADMIN)    
 
     Scaffold(
         topBar = {
@@ -204,18 +220,22 @@ fun ChatSettingsScreen(
                 if (uiState.isGroupChat) {
                     Button(
                         onClick = { showInviteDialog = true },
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = BorshchevykTheme.colors.primary)
                     ) {
                         Text("Invite User")
                     }
 
+                    Spacer(modifier = Modifier.height(8.dp))
+
                     Button(
                         onClick = onGenerateLink,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = BorshchevykTheme.colors.primaryContainer, contentColor = BorshchevykTheme.colors.primary)
                     ) {
                         Text("Generate Invite Link")
                     }
-                    
+
                     if (uiState.inviteLink != null) {
                         Row(
                             modifier = Modifier
@@ -232,7 +252,9 @@ fun ChatSettingsScreen(
                                 text = "Link: ${uiState.inviteLink}",
                                 style = BorshchevykTheme.typography.bodyMedium,
                                 color = BorshchevykTheme.colors.onSurface,
-                                modifier = Modifier.weight(1f)
+                                modifier = Modifier.weight(1f),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                             Icon(
                                 imageVector = Icons.Default.ContentCopy,
@@ -245,7 +267,7 @@ fun ChatSettingsScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
                 }
-                Text("Members", style = BorshchevykTheme.typography.titleMedium)
+                Text("Members (${uiState.members.size})", style = BorshchevykTheme.typography.titleMedium, color = BorshchevykTheme.colors.onSurface)
                 Spacer(modifier = Modifier.height(8.dp))
             }
             
@@ -253,19 +275,31 @@ fun ChatSettingsScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable(enabled = canManagePermissions && member.userId != uiState.currentUserId) { 
-                            memberForPermissions = member 
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable(enabled = canManagePermissions && member.userId != uiState.currentUserId) {  
+                            memberForPermissions = member
                         }
-                        .padding(vertical = 8.dp),
+                        .padding(vertical = 12.dp, horizontal = 8.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column {
-                        Text("User: ${member.userId}", style = BorshchevykTheme.typography.bodyLarge)
-                        Text("Role: ${member.role}", style = BorshchevykTheme.typography.bodyMedium, color = BorshchevykTheme.colors.onSurfaceVariant)
+                        Text(
+                            text = if (member.userId == uiState.currentUserId) "You (${member.userId})" else "User: ${member.userId}", 
+                            style = BorshchevykTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
+                            color = BorshchevykTheme.colors.onSurface
+                        )
+                        Text(
+                            text = "Role: ${member.role}", 
+                            style = BorshchevykTheme.typography.bodyMedium, 
+                            color = BorshchevykTheme.colors.onSurfaceVariant
+                        )
+                    }
+                    if (canManagePermissions && member.userId != uiState.currentUserId) {
+                         Icon(Icons.Default.Settings, contentDescription = "Edit Permissions", tint = BorshchevykTheme.colors.primary, modifier = Modifier.size(20.dp))
                     }
                 }
-                HorizontalDivider()
+                HorizontalDivider(color = BorshchevykTheme.colors.outline.copy(alpha = 0.5f))
             }
         }
 
@@ -273,12 +307,18 @@ fun ChatSettingsScreen(
             var userIdToInvite by remember { mutableStateOf("") }
             AlertDialog(
                 onDismissRequest = { showInviteDialog = false },
-                title = { Text("Invite User") },
+                containerColor = BorshchevykTheme.colors.surface,
+                title = { Text("Invite User", color = BorshchevykTheme.colors.onSurface) },
                 text = {
                     OutlinedTextField(
                         value = userIdToInvite,
                         onValueChange = { userIdToInvite = it },
-                        label = { Text("User ID") }
+                        label = { Text("User ID") },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = BorshchevykTheme.colors.primary,
+                            unfocusedBorderColor = BorshchevykTheme.colors.outline
+                        )
                     )
                 },
                 confirmButton = {
@@ -286,7 +326,9 @@ fun ChatSettingsScreen(
                         onClick = {
                             onInvite(userIdToInvite)
                             showInviteDialog = false
-                        }
+                        },
+                        enabled = userIdToInvite.isNotBlank(),
+                        colors = ButtonDefaults.buttonColors(containerColor = BorshchevykTheme.colors.primary)
                     ) { Text("Invite") }
                 },
                 dismissButton = {
@@ -303,25 +345,14 @@ fun ChatSettingsScreen(
 
             AlertDialog(
                 onDismissRequest = { memberForPermissions = null },
-                title = { Text("Update Permissions") },
+                containerColor = BorshchevykTheme.colors.surface,
+                title = { Text("Update Permissions for ${member.userId}", style = BorshchevykTheme.typography.titleMedium, color = BorshchevykTheme.colors.onSurface) },
                 text = {
                     Column {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Checkbox(checked = canSend, onCheckedChange = { canSend = it })
-                            Text("Send Messages")
-                        }
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Checkbox(checked = canDelete, onCheckedChange = { canDelete = it })
-                            Text("Delete Messages")
-                        }
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Checkbox(checked = canInvite, onCheckedChange = { canInvite = it })
-                            Text("Invite Users")
-                        }
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Checkbox(checked = canChangeInfo, onCheckedChange = { canChangeInfo = it })
-                            Text("Change Chat Info")
-                        }
+                        PermissionRow("Send Messages", canSend) { canSend = it }
+                        PermissionRow("Delete Messages", canDelete) { canDelete = it }
+                        PermissionRow("Invite Users", canInvite) { canInvite = it }
+                        PermissionRow("Change Chat Info", canChangeInfo) { canChangeInfo = it }
                     }
                 },
                 confirmButton = {
@@ -337,7 +368,8 @@ fun ChatSettingsScreen(
                                 )
                             )
                             memberForPermissions = null
-                        }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = BorshchevykTheme.colors.primary)
                     ) { Text("Save") }
                 },
                 dismissButton = {
@@ -349,8 +381,28 @@ fun ChatSettingsScreen(
 }
 
 @Composable
+fun PermissionRow(label: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onCheckedChange(!checked) }
+            .padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Checkbox(
+            checked = checked, 
+            onCheckedChange = onCheckedChange,
+            colors = androidx.compose.material3.CheckboxDefaults.colors(checkedColor = BorshchevykTheme.colors.primary)
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(text = label, style = BorshchevykTheme.typography.bodyLarge, color = BorshchevykTheme.colors.onSurface)
+    }
+}
+
+@Composable
 internal fun ChatScreen(
     uiState: ChatUiState,
+    resolveAttachmentUrl: suspend (String) -> String?,
     onPinToggle: (Message) -> Unit,
     onReactionToggle: (String, String) -> Unit,
     onEdit: (Message) -> Unit,
@@ -392,12 +444,13 @@ internal fun ChatScreen(
                         )
                     }
                 }
-                
+
                 items(uiState.messages, key = { it.id }) { message ->
                     MessageBubble(
                         message = message,
                         isFromMe = message.authorId == uiState.currentUserId,
                         currentUserId = uiState.currentUserId,
+                        resolveAttachmentUrl = resolveAttachmentUrl,
                         onPinToggle = { onPinToggle(message) },
                         onReactionToggle = { reaction -> onReactionToggle(message.id, reaction) },
                         onEdit = { onEdit(message) },
@@ -417,21 +470,24 @@ internal fun ChatScreen(
             }
         }
     }
-
+    
     if (messageIdForReaders != null) {
         val readers = uiState.readersByMessageId[messageIdForReaders]
         AlertDialog(
             onDismissRequest = { messageIdForReaders = null },
-            title = { Text("Readers") },
+            containerColor = BorshchevykTheme.colors.surface,
+            title = { Text("Readers", color = BorshchevykTheme.colors.onSurface) },
             text = {
                 if (readers == null) {
-                    CircularProgressIndicator()
+                    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(color = BorshchevykTheme.colors.primary)
+                    }
                 } else if (readers.isEmpty()) {
-                    Text("No one has read this yet.")
+                    Text("No one has read this yet.", color = BorshchevykTheme.colors.onSurfaceVariant)
                 } else {
                     LazyColumn {
                         items(readers) { readerId ->
-                            Text(text = "User ID: $readerId", modifier = Modifier.padding(vertical = 4.dp))
+                            Text(text = "User ID: $readerId", style = BorshchevykTheme.typography.bodyMedium, color = BorshchevykTheme.colors.onSurface, modifier = Modifier.padding(vertical = 4.dp))
                         }
                     }
                 }
@@ -446,17 +502,23 @@ internal fun ChatScreen(
         val comments = uiState.commentsByMessageId[messageIdForComments]
         AlertDialog(
             onDismissRequest = { messageIdForComments = null },
-            title = { Text("Comments") },
+            containerColor = BorshchevykTheme.colors.surface,
+            title = { Text("Comments", color = BorshchevykTheme.colors.onSurface) },
             text = {
                 if (comments == null) {
-                    CircularProgressIndicator()
+                    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(color = BorshchevykTheme.colors.primary)
+                    }
                 } else if (comments.isEmpty()) {
-                    Text("No comments yet.")
+                    Text("No comments yet.", color = BorshchevykTheme.colors.onSurfaceVariant)
                 } else {
                     LazyColumn {
                         items(comments) { comment ->
-                            Text(text = comment.text, modifier = Modifier.padding(vertical = 4.dp))
-                            HorizontalDivider()
+                            Column(Modifier.padding(vertical = 4.dp)) {
+                                Text(text = comment.authorId, style = BorshchevykTheme.typography.labelSmall, color = BorshchevykTheme.colors.primary)
+                                Text(text = comment.text, style = BorshchevykTheme.typography.bodyMedium, color = BorshchevykTheme.colors.onSurface)
+                            }
+                            HorizontalDivider(color = BorshchevykTheme.colors.outline.copy(alpha = 0.5f))
                         }
                     }
                 }
@@ -468,52 +530,13 @@ internal fun ChatScreen(
     }
 }
 
-@Composable
-internal fun PinnedMessagesBanner(
-    messages: List<Message>,
-    onUnpinClick: (Message) -> Unit
-) {
-    val message = messages.lastOrNull() ?: return
-    
-    Surface(
-        color = BorshchevykTheme.colors.surfaceVariant,
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                Icons.Default.Star,
-                contentDescription = "Pinned",
-                tint = BorshchevykTheme.colors.primary,
-                modifier = Modifier.size(20.dp)
-            )
-            Spacer(modifier = Modifier.width(12.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "Pinned Message",
-                    style = BorshchevykTheme.typography.labelSmall,
-                    color = BorshchevykTheme.colors.primary
-                )
-                Text(
-                    text = message.text,
-                    style = BorshchevykTheme.typography.bodyMedium,
-                    color = BorshchevykTheme.colors.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-        }
-    }
-}
-
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 internal fun MessageBubble(
     message: Message,
     isFromMe: Boolean,
     currentUserId: String,
+    resolveAttachmentUrl: suspend (String) -> String?,
     onPinToggle: () -> Unit,
     onReactionToggle: (String) -> Unit,
     onEdit: () -> Unit,
@@ -531,19 +554,9 @@ internal fun MessageBubble(
     }
     
     val bubbleShape = if (isFromMe) {
-        RoundedCornerShape(
-            topStart = 20.dp,
-            topEnd = 20.dp,
-            bottomStart = 20.dp,
-            bottomEnd = 4.dp
-        )
+        RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp, bottomStart = 20.dp, bottomEnd = 4.dp)
     } else {
-        RoundedCornerShape(
-            topStart = 20.dp,
-            topEnd = 20.dp,
-            bottomStart = 4.dp,
-            bottomEnd = 20.dp
-        )
+        RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp, bottomStart = 4.dp, bottomEnd = 20.dp)
     }
 
     Column(
@@ -563,11 +576,45 @@ internal fun MessageBubble(
                 Column(
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
                 ) {
-                    Text(
-                        text = message.text,
-                        style = BorshchevykTheme.typography.bodyLarge,
-                        color = if (isFromMe) BorshchevykTheme.colors.onPrimary else BorshchevykTheme.colors.onSurface
-                    )
+                    if (message.attachmentIds.isNotEmpty()) {
+                        message.attachmentIds.forEach { attachmentId ->
+                            var url by remember { mutableStateOf<String?>(null) }
+                            LaunchedEffect(attachmentId) {
+                                url = resolveAttachmentUrl(attachmentId)
+                            }
+                            if (url != null) {
+                                AsyncImage(
+                                    model = url,
+                                    contentDescription = "Attachment",
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(200.dp)
+                                        .padding(bottom = 8.dp)
+                                        .clip(RoundedCornerShape(12.dp)),
+                                    contentScale = ContentScale.Crop
+                                )
+                            } else {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(200.dp)
+                                        .padding(bottom = 8.dp)
+                                        .background(BorshchevykTheme.colors.surfaceVariant, RoundedCornerShape(12.dp)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    CircularProgressIndicator(color = if (isFromMe) BorshchevykTheme.colors.onPrimary else BorshchevykTheme.colors.primary)
+                                }
+                            }
+                        }
+                    }
+
+                    if (message.text.isNotBlank()) {
+                        Text(
+                            text = message.text,
+                            style = BorshchevykTheme.typography.bodyLarge,
+                            color = if (isFromMe) BorshchevykTheme.colors.onPrimary else BorshchevykTheme.colors.onSurface
+                        )
+                    }
                 }
             }
             
@@ -623,7 +670,7 @@ internal fun MessageBubble(
                     }
                 )
 
-                HorizontalDivider()
+                HorizontalDivider(color = BorshchevykTheme.colors.outline.copy(alpha = 0.5f))
                 val reactions = listOf("👍", "❤️", "😂", "😢", "🔥")
                 Row(modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)) {
                     reactions.forEach { emoji ->
@@ -641,7 +688,7 @@ internal fun MessageBubble(
                 }
             }
         }
-        
+
         // Display Reactions
         if (message.reactions.isNotEmpty()) {
             val reactionCounts = message.reactions.groupBy { it.reaction }.mapValues { it.value.size }
@@ -650,7 +697,7 @@ internal fun MessageBubble(
                 horizontalArrangement = if (isFromMe) Arrangement.End else Arrangement.Start
             ) {
                 reactionCounts.forEach { (emoji, count) ->
-                    val iReacted = message.reactions.any { it.reaction == emoji && it.userId == currentUserId }
+                    val iReacted = message.reactions.any { it.reaction == emoji && it.userId == currentUserId } 
                     Surface(
                         shape = RoundedCornerShape(12.dp),
                         color = if (iReacted) BorshchevykTheme.colors.primaryContainer else BorshchevykTheme.colors.surfaceVariant,
@@ -668,7 +715,7 @@ internal fun MessageBubble(
                             Text(
                                 text = count.toString(),
                                 style = BorshchevykTheme.typography.labelSmall,
-                                color = BorshchevykTheme.colors.onSurfaceVariant
+                                color = if (iReacted) BorshchevykTheme.colors.primary else BorshchevykTheme.colors.onSurfaceVariant
                             )
                         }
                     }
@@ -679,14 +726,67 @@ internal fun MessageBubble(
 }
 
 @Composable
+internal fun PinnedMessagesBanner(
+    messages: List<Message>,
+    onUnpinClick: (Message) -> Unit
+) {
+    val message = messages.lastOrNull() ?: return
+    Surface(
+        color = BorshchevykTheme.colors.surfaceVariant,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(Icons.Default.Star, contentDescription = "Pinned", tint = BorshchevykTheme.colors.primary, modifier = Modifier.size(20.dp))
+            Spacer(modifier = Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(text = "Pinned Message", style = BorshchevykTheme.typography.labelSmall, color = BorshchevykTheme.colors.primary)
+                Text(text = message.text, style = BorshchevykTheme.typography.bodyMedium, color = BorshchevykTheme.colors.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+        }
+    }
+}
+
+@Composable
 internal fun MessageInput(
     editingMessage: Message?,
-    onSendMessage: (String) -> Unit,
+    isSending: Boolean,
+    onSendMessage: (String, List<AttachmentFile>) -> Unit,
     onEditMessage: (String, String) -> Unit,
     onCancelEdit: () -> Unit,
     onTyping: () -> Unit
 ) {
     var text by remember { mutableStateOf("") }
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val selectedAttachments = remember { mutableStateListOf<AttachmentFile>() }
+
+    val filePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetMultipleContents()
+    ) { uris ->
+        scope.launch(Dispatchers.IO) {
+            val newAttachments = uris.mapNotNull { uri ->
+                var fileName = "unknown"
+                context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+                    val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                    if (cursor.moveToFirst() && nameIndex != -1) {
+                        fileName = cursor.getString(nameIndex)
+                    }
+                }
+                val contentType = context.contentResolver.getType(uri) ?: "application/octet-stream"
+                val extension = fileName.substringAfterLast('.', "")
+                val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                if (bytes != null) {
+                    AttachmentFile(uri = uri, bytes = bytes, originalFilename = fileName, contentType = contentType, extension = extension)
+                } else null
+            }
+            withContext(Dispatchers.Main) {
+                selectedAttachments.addAll(newAttachments)
+            }
+        }
+    }
 
     LaunchedEffect(editingMessage) {
         text = editingMessage?.text ?: ""
@@ -700,45 +800,49 @@ internal fun MessageInput(
         Column {
             if (editingMessage != null) {
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(BorshchevykTheme.colors.surfaceVariant)
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    modifier = Modifier.fillMaxWidth().background(BorshchevykTheme.colors.surfaceVariant).padding(horizontal = 16.dp, vertical = 8.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = "Editing message",
-                        style = BorshchevykTheme.typography.bodyMedium,
-                        color = BorshchevykTheme.colors.primary
-                    )
+                    Text(text = "Editing message", style = BorshchevykTheme.typography.bodyMedium, color = BorshchevykTheme.colors.primary)
                     IconButton(onClick = onCancelEdit, modifier = Modifier.size(24.dp)) {
                         Icon(Icons.Default.Close, contentDescription = "Cancel edit", tint = BorshchevykTheme.colors.onSurfaceVariant)
                     }
                 }
             }
 
-            Row(
-                modifier = Modifier
-                    .padding(horizontal = 16.dp, vertical = 12.dp)
-                    .imePadding(),
-                verticalAlignment = Alignment.Bottom
-            ) {
+            if (selectedAttachments.isNotEmpty()) {
+                Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
+                    selectedAttachments.forEach { attachment ->
+                        Box(modifier = Modifier.size(60.dp).padding(end = 8.dp).clip(RoundedCornerShape(8.dp)).background(BorshchevykTheme.colors.surfaceVariant)) {
+                            if (attachment.contentType.startsWith("image/")) {
+                                AsyncImage(model = attachment.uri, contentDescription = "Preview", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+                            } else {
+                                Icon(Icons.Default.AttachFile, contentDescription = "File", tint = BorshchevykTheme.colors.onSurfaceVariant, modifier = Modifier.align(Alignment.Center))
+                            }
+                            IconButton(
+                                onClick = { selectedAttachments.remove(attachment) },
+                                modifier = Modifier.size(20.dp).align(Alignment.TopEnd).background(BorshchevykTheme.colors.error, CircleShape)
+                            ) {
+                                Icon(Icons.Default.Close, contentDescription = "Remove", tint = BorshchevykTheme.colors.onError, modifier = Modifier.size(12.dp))
+                            }
+                        }
+                    }
+                }
+            }
+
+            Row(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp).imePadding(), verticalAlignment = Alignment.Bottom) {
+                IconButton(onClick = { filePickerLauncher.launch("*/*") }, modifier = Modifier.padding(bottom = 4.dp, end = 8.dp)) {
+                    Icon(Icons.Default.AttachFile, contentDescription = "Attach file", tint = BorshchevykTheme.colors.primary)
+                }
                 OutlinedTextField(
                     value = text,
                     onValueChange = { 
                         text = it
                         onTyping()
                     },
-                    placeholder = { 
-                        Text(
-                            "Type a message...",
-                            color = BorshchevykTheme.colors.onSurfaceVariant
-                        ) 
-                    },
-                    modifier = Modifier
-                        .weight(1f)
-                        .defaultMinSize(minHeight = 48.dp),
+                    placeholder = { Text("Type a message...", color = BorshchevykTheme.colors.onSurfaceVariant) },
+                    modifier = Modifier.weight(1f).defaultMinSize(minHeight = 48.dp),
                     shape = RoundedCornerShape(24.dp),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = BorshchevykTheme.colors.primary,
@@ -751,32 +855,27 @@ internal fun MessageInput(
                     ),
                     maxLines = 4
                 )
-                
                 Spacer(modifier = Modifier.width(12.dp))
-                
                 Box(
-                    modifier = Modifier
-                        .size(48.dp)
-                        .clip(CircleShape)
-                        .background(if (text.isNotBlank()) BorshchevykTheme.colors.primary else BorshchevykTheme.colors.surfaceVariant)
-                        .clickable(enabled = text.isNotBlank()) {
-                            if (text.isNotBlank()) {
+                    modifier = Modifier.size(48.dp).clip(CircleShape).background(if (isSending) BorshchevykTheme.colors.surfaceVariant else if (text.isNotBlank() || selectedAttachments.isNotEmpty()) BorshchevykTheme.colors.primary else BorshchevykTheme.colors.surfaceVariant)
+                        .clickable(enabled = !isSending && (text.isNotBlank() || selectedAttachments.isNotEmpty())) {
+                            if (text.isNotBlank() || selectedAttachments.isNotEmpty()) {
                                 if (editingMessage != null) {
                                     onEditMessage(editingMessage.id, text)
                                 } else {
-                                    onSendMessage(text)
+                                    onSendMessage(text, selectedAttachments.toList())
+                                    selectedAttachments.clear()
                                 }
                                 text = ""
                             }
                         },
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(
-                        if (editingMessage != null) Icons.Default.Check else Icons.AutoMirrored.Filled.Send, 
-                        contentDescription = "Send",
-                        tint = if (text.isNotBlank()) BorshchevykTheme.colors.onPrimary else BorshchevykTheme.colors.onSurfaceVariant,
-                        modifier = Modifier.size(24.dp)
-                    )
+                    if (isSending) {
+                        CircularProgressIndicator(color = BorshchevykTheme.colors.primary, modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                    } else {
+                        Icon(if (editingMessage != null) Icons.Default.Check else Icons.AutoMirrored.Filled.Send, contentDescription = "Send", tint = if (text.isNotBlank() || selectedAttachments.isNotEmpty()) BorshchevykTheme.colors.onPrimary else BorshchevykTheme.colors.onSurfaceVariant, modifier = Modifier.size(24.dp))
+                    }
                 }
             }
         }

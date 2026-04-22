@@ -133,5 +133,9 @@ interface NetworkDataSourceModule {
 
     @Binds
     @Singleton
+    fun bindMediaNetworkDataSource(impl: KtorMediaNetworkDataSource): MediaNetworkDataSource
+
+    @Binds
+    @Singleton
     fun bindWebSocketDataSource(impl: KrossbowWebSocketDataSource): WebSocketDataSource
 }

@@ -18,8 +18,6 @@ import ru.kubsu.borshchevyk.core.domain.message.GetUserChatsUseCase
 import ru.kubsu.borshchevyk.core.domain.message.JoinChatUseCase
 import ru.kubsu.borshchevyk.core.domain.message.ObserveNewMessagesUseCase
 import ru.kubsu.borshchevyk.core.model.domain.Chat
-import ru.kubsu.borshchevyk.core.model.domain.ChatType
-import ru.kubsu.borshchevyk.core.model.dto.CreateChatRequest
 import javax.inject.Inject
 
 data class ChatListUiState(
@@ -50,20 +48,23 @@ class ChatListViewModel @Inject constructor(
     private fun connectAndObserveWebSockets() {
         viewModelScope.launch {
             Log.d(TAG, "Initializing WebSocket connection...")
-            connectWebSocketUseCase()
-            
-            observeNewMessagesUseCase()
-                .onEach { messageDto ->
-                    Log.d(TAG, "WS: Received new message notification for chat ${messageDto.chatId}. Reloading chats.")
-                    loadChats()
-                }
-                .launchIn(this)
+            try {
+                connectWebSocketUseCase()
+                observeNewMessagesUseCase()
+                    .onEach { messageDto ->
+                        Log.d(TAG, "WS: Received new message notification for chat ${messageDto.chatId}. Reloading chats.")
+                        loadChats(showLoading = false)
+                    }
+                    .launchIn(this)
+            } catch (e: Exception) {
+                Log.e(TAG, "WebSocket connection failed", e)
+            }
         }
     }
 
-    fun loadChats() {
+    fun loadChats(showLoading: Boolean = true) {
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, error = null) }
+            if (showLoading) _uiState.update { it.copy(isLoading = true, error = null) }
             try {
                 val chats = getUserChatsUseCase()
                 _uiState.update { it.copy(chats = chats, isLoading = false) }
@@ -84,16 +85,10 @@ class ChatListViewModel @Inject constructor(
         }
     }
 
-    fun onCreateGroupChat(title: String, description: String, onSuccess: (String) -> Unit) {
+    fun onCreateGroupChat(title: String, description: String?, onSuccess: (String) -> Unit) {
         viewModelScope.launch {
             try {
-                val chat = createGroupChatUseCase(
-                    CreateChatRequest(
-                        type = ChatType.GROUP,
-                        title = title,
-                        description = description
-                    )
-                )
+                val chat = createGroupChatUseCase(title, description)
                 onSuccess(chat.id)
             } catch (e: Exception) {
                 _uiState.update { it.copy(error = e.message) }

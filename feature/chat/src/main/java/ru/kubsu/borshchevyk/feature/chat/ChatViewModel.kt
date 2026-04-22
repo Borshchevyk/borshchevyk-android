@@ -20,6 +20,7 @@ import ru.kubsu.borshchevyk.core.domain.message.AddReactionUseCase
 import ru.kubsu.borshchevyk.core.domain.message.DeleteMessageUseCase
 import ru.kubsu.borshchevyk.core.domain.message.EditMessageUseCase
 import ru.kubsu.borshchevyk.core.domain.message.GenerateInviteLinkUseCase
+import ru.kubsu.borshchevyk.core.domain.message.GetAttachmentUrlUseCase
 import ru.kubsu.borshchevyk.core.domain.message.GetChatMembersUseCase
 import ru.kubsu.borshchevyk.core.domain.message.GetMessageCommentsUseCase
 import ru.kubsu.borshchevyk.core.domain.message.GetMessageReadersUseCase
@@ -41,6 +42,7 @@ import ru.kubsu.borshchevyk.core.domain.message.SendMessageUseCase
 import ru.kubsu.borshchevyk.core.domain.message.SendTypingEventUseCase
 import ru.kubsu.borshchevyk.core.domain.message.UnpinMessageUseCase
 import ru.kubsu.borshchevyk.core.domain.message.UpdateMemberPermissionsUseCase
+import ru.kubsu.borshchevyk.core.domain.message.UploadAttachmentUseCase
 import ru.kubsu.borshchevyk.core.model.domain.ChatMember
 import ru.kubsu.borshchevyk.core.model.domain.ChatType
 import ru.kubsu.borshchevyk.core.model.domain.Message
@@ -61,6 +63,7 @@ data class ChatUiState(
     val showSettings: Boolean = false,
     val editingMessage: Message? = null,
     val typingUsers: Set<String> = emptySet(),
+    val isSending: Boolean = false,
     val isLoading: Boolean = false,
     val error: String? = null
 )
@@ -93,7 +96,9 @@ class ChatViewModel @Inject constructor(
     private val inviteUserUseCase: InviteUserUseCase,
     private val generateInviteLinkUseCase: GenerateInviteLinkUseCase,
     private val getUserChatsUseCase: GetUserChatsUseCase,
-    private val updateMemberPermissionsUseCase: UpdateMemberPermissionsUseCase
+    private val updateMemberPermissionsUseCase: UpdateMemberPermissionsUseCase,
+    private val uploadAttachmentUseCase: UploadAttachmentUseCase,
+    private val getAttachmentUrlUseCase: GetAttachmentUrlUseCase
 ) : ViewModel() {
 
     private val TAG = "ChatViewModel"
@@ -128,7 +133,8 @@ class ChatViewModel @Inject constructor(
                                 Log.d(TAG, "WS Updating existing message: ${messageDto.id}")
                                 val updatedMsg = existingMsg.copy(
                                     text = messageDto.text,
-                                    isDeleted = messageDto.isDeleted
+                                    isDeleted = messageDto.isDeleted,
+                                    attachmentIds = messageDto.attachmentIds ?: existingMsg.attachmentIds
                                 )
                                 state.copy(
                                     messages = state.messages.map { if (it.id == messageDto.id) updatedMsg else it },
@@ -149,7 +155,8 @@ class ChatViewModel @Inject constructor(
                                     commentsCount = 0,
                                     parentMessageId = null,
                                     forwardedFromChatId = null,
-                                    forwardedFromUserId = null
+                                    forwardedFromUserId = null,
+                                    attachmentIds = messageDto.attachmentIds ?: emptyList()
                                 )
                                 state.copy(messages = listOf(newMsg) + state.messages)
                             }
@@ -318,23 +325,56 @@ class ChatViewModel @Inject constructor(
         }
     }
 
-    fun onSendMessage(text: String) {
-        if (text.isBlank()) return
+    fun onSendMessage(text: String, attachments: List<AttachmentFile> = emptyList()) {
+        if (text.isBlank() && attachments.isEmpty()) return
         viewModelScope.launch {
+            _uiState.update { it.copy(isSending = true, error = null) }
             try {
-                val newMessage = sendMessageUseCase(chatId, text)
+                val attachmentIds = attachments.map { file ->
+                    val type = when {
+                        file.contentType.startsWith("image/") -> ru.kubsu.borshchevyk.core.model.dto.AttachmentType.PHOTO
+                        file.contentType.startsWith("video/") -> ru.kubsu.borshchevyk.core.model.dto.AttachmentType.VIDEO
+                        file.contentType.startsWith("audio/") -> ru.kubsu.borshchevyk.core.model.dto.AttachmentType.VOICE
+                        else -> ru.kubsu.borshchevyk.core.model.dto.AttachmentType.FILE
+                    }
+                    uploadAttachmentUseCase(
+                        fileBytes = file.bytes,
+                        originalFilename = file.originalFilename,
+                        contentType = file.contentType,
+                        extension = file.extension,
+                        type = type,
+                        width = file.width,
+                        height = file.height,
+                        duration = file.duration
+                    )
+                }
+
+                val newMessage = sendMessageUseCase(chatId, text, attachmentIds)
                 _uiState.update { state ->
                     if (!state.messages.any { it.id == newMessage.id }) {
-                        state.copy(messages = listOf(newMessage) + state.messages)
+                        state.copy(
+                            messages = listOf(newMessage) + state.messages,
+                            isSending = false
+                        )
                     } else {
-                        state
+                        state.copy(isSending = false)
                     }
                 }
                 sendTypingEventUseCase(chatId, false)
                 typingJob?.cancel()
             } catch (e: Exception) {
-                _uiState.update { it.copy(error = e.message) }
+                Log.e(TAG, "Failed to send message", e)
+                _uiState.update { it.copy(error = e.message, isSending = false) }
             }
+        }
+    }
+
+    suspend fun resolveAttachmentUrl(attachmentId: String): String? {
+        return try {
+            getAttachmentUrlUseCase(attachmentId)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to resolve attachment URL: ${e.message}", e)
+            null
         }
     }
 
@@ -364,6 +404,12 @@ class ChatViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 deleteMessageUseCase(chatId, messageId, forAll)
+                _uiState.update { state ->
+                    state.copy(
+                        messages = state.messages.filterNot { it.id == messageId },
+                        pinnedMessages = state.pinnedMessages.filterNot { it.id == messageId }
+                    )
+                }
             } catch (e: Exception) {
                 _uiState.update { it.copy(error = e.message) }
             }
@@ -418,6 +464,16 @@ class ChatViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 pinMessageUseCase(chatId, messageId)
+                val pinned = getPinnedMessagesUseCase(chatId)
+                _uiState.update { state ->
+                    val updatedMessages = state.messages.map { 
+                        if (it.id == messageId) it.copy(isPinned = true) else it 
+                    }
+                    state.copy(
+                        messages = updatedMessages,
+                        pinnedMessages = pinned
+                    )
+                }
             } catch (e: Exception) {
                 _uiState.update { it.copy(error = e.message) }
             }
@@ -428,6 +484,16 @@ class ChatViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 unpinMessageUseCase(chatId, messageId)
+                val pinned = getPinnedMessagesUseCase(chatId)
+                _uiState.update { state ->
+                    val updatedMessages = state.messages.map { 
+                        if (it.id == messageId) it.copy(isPinned = false) else it 
+                    }
+                    state.copy(
+                        messages = updatedMessages,
+                        pinnedMessages = pinned
+                    )
+                }
             } catch (e: Exception) {
                 _uiState.update { it.copy(error = e.message) }
             }
@@ -444,8 +510,22 @@ class ChatViewModel @Inject constructor(
             try {
                 if (hasReaction) {
                     removeReactionUseCase(chatId, messageId, reaction)
+                    _uiState.update { state ->
+                        state.copy(messages = state.messages.map { msg ->
+                            if (msg.id == messageId) {
+                                msg.copy(reactions = msg.reactions.filterNot { it.reaction == reaction && it.userId == currentUserId })
+                            } else msg
+                        })
+                    }
                 } else {
                     addReactionUseCase(chatId, messageId, reaction)
+                    _uiState.update { state ->
+                        state.copy(messages = state.messages.map { msg ->
+                            if (msg.id == messageId) {
+                                msg.copy(reactions = msg.reactions + MessageReaction(currentUserId, reaction))
+                            } else msg
+                        })
+                    }
                 }
             } catch (e: Exception) {
                 _uiState.update { it.copy(error = e.message) }
