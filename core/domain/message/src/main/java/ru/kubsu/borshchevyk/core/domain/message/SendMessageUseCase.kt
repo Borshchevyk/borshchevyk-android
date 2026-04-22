@@ -7,10 +7,13 @@ import javax.inject.Inject
 class SendMessageUseCase @Inject constructor(
     private val messageRepository: MessageRepository
 ) {
-    suspend operator fun invoke(chatId: String, text: String, attachmentIds: List<String> = emptyList()): Message {
+    suspend operator fun invoke(chatId: String, text: String, attachmentIds: List<String>? = null): Message {
         return messageRepository.sendMessage(
-            chatId,
-            SendMessageRequest(text = text, attachmentIds = attachmentIds.ifEmpty { null })
+            chatId, 
+            SendMessageRequest(
+                text = text,
+                attachmentIds = attachmentIds
+            )
         )
     }
 }

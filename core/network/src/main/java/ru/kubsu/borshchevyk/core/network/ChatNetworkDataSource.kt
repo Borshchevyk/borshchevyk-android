@@ -1,8 +1,11 @@
 package ru.kubsu.borshchevyk.core.network
 
+import ru.kubsu.borshchevyk.core.model.dto.ChatMemberResponse
 import ru.kubsu.borshchevyk.core.model.dto.ChatResponse
 import ru.kubsu.borshchevyk.core.model.dto.CreateChatRequest
+import ru.kubsu.borshchevyk.core.model.dto.EditMessageRequest
 import ru.kubsu.borshchevyk.core.model.dto.MessageResponse
+import ru.kubsu.borshchevyk.core.model.dto.PageResponse
 import ru.kubsu.borshchevyk.core.model.dto.SendMessageRequest
 import ru.kubsu.borshchevyk.core.model.dto.TargetUserRequest
 import ru.kubsu.borshchevyk.core.model.dto.UpdatePermissionsRequest
@@ -15,7 +18,13 @@ interface ChatNetworkDataSource {
     suspend fun clearChatHistory(chatId: String, forAll: Boolean)
     suspend fun deleteChat(chatId: String)
     
+    suspend fun getChatMembers(chatId: String, page: Int, size: Int): PageResponse<ChatMemberResponse>
+    suspend fun inviteUser(chatId: String, request: TargetUserRequest)
+    suspend fun generateInviteLink(chatId: String): String
+    suspend fun joinChatByLink(inviteCode: String): ChatResponse
+    
     suspend fun sendMessage(chatId: String, request: SendMessageRequest): MessageResponse
+    suspend fun editMessage(chatId: String, messageId: String, request: EditMessageRequest): MessageResponse
     suspend fun loadChatHistory(chatId: String, page: Int, size: Int): List<MessageResponse>
     suspend fun deleteMessage(chatId: String, messageId: String, forAll: Boolean)
     

@@ -1,6 +1,7 @@
 package ru.kubsu.borshchevyk.feature.chat
 
 import android.provider.OpenableColumns
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -31,9 +32,14 @@ import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -61,7 +67,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -71,7 +80,10 @@ import coil.compose.AsyncImage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import ru.kubsu.borshchevyk.core.model.domain.ChatMember
+import ru.kubsu.borshchevyk.core.model.domain.ChatMemberRole
 import ru.kubsu.borshchevyk.core.model.domain.Message
+import ru.kubsu.borshchevyk.core.model.dto.UpdatePermissionsRequest
 import ru.kubsu.borshchevyk.core.ui.theme.BorshchevykTheme
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -97,7 +109,7 @@ fun ChatRoute(
                 TopAppBar(
                     title = { 
                         Text(
-                            text = "Chat",
+                            text = if (uiState.isGroupChat) "Group Chat" else "Private Chat",
                             style = BorshchevykTheme.typography.titleMedium,
                             color = BorshchevykTheme.colors.onSurface
                         ) 
@@ -132,7 +144,7 @@ fun ChatRoute(
                     onSendMessage = { text, attachments -> viewModel.onSendMessage(text, attachments) },
                     onEditMessage = viewModel::onEditMessage,
                     onCancelEdit = { viewModel.setEditingMessage(null) },
-                    onTyping = { }
+                    onTyping = viewModel::onTyping
                 )
             },
             containerColor = BorshchevykTheme.colors.background,
@@ -174,8 +186,17 @@ fun ChatSettingsScreen(
     onBackClick: () -> Unit,
     onInvite: (String) -> Unit,
     onGenerateLink: () -> Unit,
-    onUpdatePermissions: (String, ru.kubsu.borshchevyk.core.model.dto.UpdatePermissionsRequest) -> Unit
+    onUpdatePermissions: (String, UpdatePermissionsRequest) -> Unit
 ) {
+    var showInviteDialog by remember { mutableStateOf(false) }
+    var memberForPermissions by remember { mutableStateOf<ChatMember?>(null) }
+    val clipboardManager = LocalClipboardManager.current
+    val context = LocalContext.current
+
+    val currentUserMember = uiState.members.find { it.userId == uiState.currentUserId }
+    val canManagePermissions = uiState.isGroupChat &&
+        (currentUserMember?.role == ChatMemberRole.OWNER || currentUserMember?.role == ChatMemberRole.ADMIN)    
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -196,7 +217,57 @@ fun ChatSettingsScreen(
         ) {
             item {
                 Spacer(modifier = Modifier.height(16.dp))
-                Text("Members", style = BorshchevykTheme.typography.titleMedium)
+                if (uiState.isGroupChat) {
+                    Button(
+                        onClick = { showInviteDialog = true },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = BorshchevykTheme.colors.primary)
+                    ) {
+                        Text("Invite User")
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Button(
+                        onClick = onGenerateLink,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = BorshchevykTheme.colors.primaryContainer, contentColor = BorshchevykTheme.colors.primary)
+                    ) {
+                        Text("Generate Invite Link")
+                    }
+
+                    if (uiState.inviteLink != null) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 8.dp)
+                                .clickable {
+                                    clipboardManager.setText(AnnotatedString(uiState.inviteLink))
+                                    Toast.makeText(context, "Link copied to clipboard", Toast.LENGTH_SHORT).show()
+                                },
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = "Link: ${uiState.inviteLink}",
+                                style = BorshchevykTheme.typography.bodyMedium,
+                                color = BorshchevykTheme.colors.onSurface,
+                                modifier = Modifier.weight(1f),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Icon(
+                                imageVector = Icons.Default.ContentCopy,
+                                contentDescription = "Copy Link",
+                                tint = BorshchevykTheme.colors.primary,
+                                modifier = Modifier.size(20.dp).padding(start = 8.dp)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
+                Text("Members (${uiState.members.size})", style = BorshchevykTheme.typography.titleMedium, color = BorshchevykTheme.colors.onSurface)
                 Spacer(modifier = Modifier.height(8.dp))
             }
             
@@ -204,18 +275,127 @@ fun ChatSettingsScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 8.dp),
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable(enabled = canManagePermissions && member.userId != uiState.currentUserId) {  
+                            memberForPermissions = member
+                        }
+                        .padding(vertical = 12.dp, horizontal = 8.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column {
-                        Text("User: ${member.userId}", style = BorshchevykTheme.typography.bodyLarge)
-                        Text("Role: ${member.role}", style = BorshchevykTheme.typography.bodyMedium, color = BorshchevykTheme.colors.onSurfaceVariant)
+                        Text(
+                            text = if (member.userId == uiState.currentUserId) "You (${member.userId})" else "User: ${member.userId}", 
+                            style = BorshchevykTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
+                            color = BorshchevykTheme.colors.onSurface
+                        )
+                        Text(
+                            text = "Role: ${member.role}", 
+                            style = BorshchevykTheme.typography.bodyMedium, 
+                            color = BorshchevykTheme.colors.onSurfaceVariant
+                        )
+                    }
+                    if (canManagePermissions && member.userId != uiState.currentUserId) {
+                         Icon(Icons.Default.Settings, contentDescription = "Edit Permissions", tint = BorshchevykTheme.colors.primary, modifier = Modifier.size(20.dp))
                     }
                 }
-                HorizontalDivider()
+                HorizontalDivider(color = BorshchevykTheme.colors.outline.copy(alpha = 0.5f))
             }
         }
+
+        if (showInviteDialog) {
+            var userIdToInvite by remember { mutableStateOf("") }
+            AlertDialog(
+                onDismissRequest = { showInviteDialog = false },
+                containerColor = BorshchevykTheme.colors.surface,
+                title = { Text("Invite User", color = BorshchevykTheme.colors.onSurface) },
+                text = {
+                    OutlinedTextField(
+                        value = userIdToInvite,
+                        onValueChange = { userIdToInvite = it },
+                        label = { Text("User ID") },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = BorshchevykTheme.colors.primary,
+                            unfocusedBorderColor = BorshchevykTheme.colors.outline
+                        )
+                    )
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            onInvite(userIdToInvite)
+                            showInviteDialog = false
+                        },
+                        enabled = userIdToInvite.isNotBlank(),
+                        colors = ButtonDefaults.buttonColors(containerColor = BorshchevykTheme.colors.primary)
+                    ) { Text("Invite") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showInviteDialog = false }) { Text("Cancel") }
+                }
+            )
+        }
+
+        memberForPermissions?.let { member ->
+            var canSend by remember { mutableStateOf(member.canSendMessages) }
+            var canDelete by remember { mutableStateOf(member.canDeleteMessages) }
+            var canInvite by remember { mutableStateOf(member.canInviteUsers) }
+            var canChangeInfo by remember { mutableStateOf(member.canChangeInfo) }
+
+            AlertDialog(
+                onDismissRequest = { memberForPermissions = null },
+                containerColor = BorshchevykTheme.colors.surface,
+                title = { Text("Update Permissions for ${member.userId}", style = BorshchevykTheme.typography.titleMedium, color = BorshchevykTheme.colors.onSurface) },
+                text = {
+                    Column {
+                        PermissionRow("Send Messages", canSend) { canSend = it }
+                        PermissionRow("Delete Messages", canDelete) { canDelete = it }
+                        PermissionRow("Invite Users", canInvite) { canInvite = it }
+                        PermissionRow("Change Chat Info", canChangeInfo) { canChangeInfo = it }
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            onUpdatePermissions(
+                                member.userId,
+                                UpdatePermissionsRequest(
+                                    canSendMessages = canSend,
+                                    canDeleteMessages = canDelete,
+                                    canInviteUsers = canInvite,
+                                    canChangeInfo = canChangeInfo
+                                )
+                            )
+                            memberForPermissions = null
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = BorshchevykTheme.colors.primary)
+                    ) { Text("Save") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { memberForPermissions = null }) { Text("Cancel") }
+                }
+            )
+        }
+    }
+}
+
+@Composable
+fun PermissionRow(label: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onCheckedChange(!checked) }
+            .padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Checkbox(
+            checked = checked, 
+            onCheckedChange = onCheckedChange,
+            colors = androidx.compose.material3.CheckboxDefaults.colors(checkedColor = BorshchevykTheme.colors.primary)
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(text = label, style = BorshchevykTheme.typography.bodyLarge, color = BorshchevykTheme.colors.onSurface)
     }
 }
 
@@ -253,6 +433,18 @@ internal fun ChatScreen(
                 contentPadding = PaddingValues(16.dp),
                 reverseLayout = true
             ) {
+                val otherTypingUsers = uiState.typingUsers.filter { it != uiState.currentUserId }
+                if (otherTypingUsers.isNotEmpty()) {
+                    item {
+                        Text(
+                            text = if (otherTypingUsers.size == 1) "User is typing..." else "Multiple users are typing...",
+                            style = BorshchevykTheme.typography.labelSmall,
+                            color = BorshchevykTheme.colors.onSurfaceVariant,
+                            modifier = Modifier.padding(start = 16.dp, bottom = 8.dp)
+                        )
+                    }
+                }
+
                 items(uiState.messages, key = { it.id }) { message ->
                     MessageBubble(
                         message = message,
@@ -283,16 +475,19 @@ internal fun ChatScreen(
         val readers = uiState.readersByMessageId[messageIdForReaders]
         AlertDialog(
             onDismissRequest = { messageIdForReaders = null },
-            title = { Text("Readers") },
+            containerColor = BorshchevykTheme.colors.surface,
+            title = { Text("Readers", color = BorshchevykTheme.colors.onSurface) },
             text = {
                 if (readers == null) {
-                    CircularProgressIndicator()
+                    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(color = BorshchevykTheme.colors.primary)
+                    }
                 } else if (readers.isEmpty()) {
-                    Text("No one has read this yet.")
+                    Text("No one has read this yet.", color = BorshchevykTheme.colors.onSurfaceVariant)
                 } else {
                     LazyColumn {
                         items(readers) { readerId ->
-                            Text(text = "User ID: $readerId", modifier = Modifier.padding(vertical = 4.dp))
+                            Text(text = "User ID: $readerId", style = BorshchevykTheme.typography.bodyMedium, color = BorshchevykTheme.colors.onSurface, modifier = Modifier.padding(vertical = 4.dp))
                         }
                     }
                 }
@@ -307,17 +502,23 @@ internal fun ChatScreen(
         val comments = uiState.commentsByMessageId[messageIdForComments]
         AlertDialog(
             onDismissRequest = { messageIdForComments = null },
-            title = { Text("Comments") },
+            containerColor = BorshchevykTheme.colors.surface,
+            title = { Text("Comments", color = BorshchevykTheme.colors.onSurface) },
             text = {
                 if (comments == null) {
-                    CircularProgressIndicator()
+                    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(color = BorshchevykTheme.colors.primary)
+                    }
                 } else if (comments.isEmpty()) {
-                    Text("No comments yet.")
+                    Text("No comments yet.", color = BorshchevykTheme.colors.onSurfaceVariant)
                 } else {
                     LazyColumn {
                         items(comments) { comment ->
-                            Text(text = comment.text, modifier = Modifier.padding(vertical = 4.dp))
-                            HorizontalDivider()
+                            Column(Modifier.padding(vertical = 4.dp)) {
+                                Text(text = comment.authorId, style = BorshchevykTheme.typography.labelSmall, color = BorshchevykTheme.colors.primary)
+                                Text(text = comment.text, style = BorshchevykTheme.typography.bodyMedium, color = BorshchevykTheme.colors.onSurface)
+                            }
+                            HorizontalDivider(color = BorshchevykTheme.colors.outline.copy(alpha = 0.5f))
                         }
                     }
                 }
@@ -401,7 +602,7 @@ internal fun MessageBubble(
                                         .background(BorshchevykTheme.colors.surfaceVariant, RoundedCornerShape(12.dp)),
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    CircularProgressIndicator()
+                                    CircularProgressIndicator(color = if (isFromMe) BorshchevykTheme.colors.onPrimary else BorshchevykTheme.colors.primary)
                                 }
                             }
                         }
@@ -452,6 +653,15 @@ internal fun MessageBubble(
                         onDelete(false)
                     }
                 )
+                if (isFromMe) {
+                    DropdownMenuItem(
+                        text = { Text("View Readers") },
+                        onClick = {
+                            showMenu = false
+                            onViewReaders()
+                        }
+                    )
+                }
                 DropdownMenuItem(
                     text = { Text("View Comments (${message.commentsCount})") },
                     onClick = {
@@ -460,7 +670,7 @@ internal fun MessageBubble(
                     }
                 )
 
-                HorizontalDivider()
+                HorizontalDivider(color = BorshchevykTheme.colors.outline.copy(alpha = 0.5f))
                 val reactions = listOf("👍", "❤️", "😂", "😢", "🔥")
                 Row(modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)) {
                     reactions.forEach { emoji ->
@@ -474,6 +684,40 @@ internal fun MessageBubble(
                                 .padding(8.dp),
                             fontSize = 20.sp
                         )
+                    }
+                }
+            }
+        }
+
+        // Display Reactions
+        if (message.reactions.isNotEmpty()) {
+            val reactionCounts = message.reactions.groupBy { it.reaction }.mapValues { it.value.size }
+            Row(
+                modifier = Modifier.padding(top = 4.dp, start = if (isFromMe) 0.dp else 8.dp, end = if (isFromMe) 8.dp else 0.dp),
+                horizontalArrangement = if (isFromMe) Arrangement.End else Arrangement.Start
+            ) {
+                reactionCounts.forEach { (emoji, count) ->
+                    val iReacted = message.reactions.any { it.reaction == emoji && it.userId == currentUserId } 
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = if (iReacted) BorshchevykTheme.colors.primaryContainer else BorshchevykTheme.colors.surfaceVariant,
+                        border = if (iReacted) androidx.compose.foundation.BorderStroke(1.dp, BorshchevykTheme.colors.primary) else null,
+                        modifier = Modifier
+                            .padding(end = 4.dp)
+                            .clickable { onReactionToggle(emoji) }
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(text = emoji, fontSize = 12.sp)
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = count.toString(),
+                                style = BorshchevykTheme.typography.labelSmall,
+                                color = if (iReacted) BorshchevykTheme.colors.primary else BorshchevykTheme.colors.onSurfaceVariant
+                            )
+                        }
                     }
                 }
             }
@@ -615,13 +859,15 @@ internal fun MessageInput(
                 Box(
                     modifier = Modifier.size(48.dp).clip(CircleShape).background(if (isSending) BorshchevykTheme.colors.surfaceVariant else if (text.isNotBlank() || selectedAttachments.isNotEmpty()) BorshchevykTheme.colors.primary else BorshchevykTheme.colors.surfaceVariant)
                         .clickable(enabled = !isSending && (text.isNotBlank() || selectedAttachments.isNotEmpty())) {
-                            if (editingMessage != null) {
-                                onEditMessage(editingMessage.id, text)
-                            } else {
-                                onSendMessage(text, selectedAttachments.toList())
-                                selectedAttachments.clear()
+                            if (text.isNotBlank() || selectedAttachments.isNotEmpty()) {
+                                if (editingMessage != null) {
+                                    onEditMessage(editingMessage.id, text)
+                                } else {
+                                    onSendMessage(text, selectedAttachments.toList())
+                                    selectedAttachments.clear()
+                                }
+                                text = ""
                             }
-                            text = ""
                         },
                     contentAlignment = Alignment.Center
                 ) {

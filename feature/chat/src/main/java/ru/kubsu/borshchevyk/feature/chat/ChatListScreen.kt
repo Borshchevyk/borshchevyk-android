@@ -20,9 +20,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Group
-import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.GroupAdd
+import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
@@ -68,7 +67,7 @@ fun ChatListRoute(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var showCreatePrivateDialog by remember { mutableStateOf(false) }
     var showCreateGroupDialog by remember { mutableStateOf(false) }
-    var showFabMenu by remember { mutableStateOf(false) }
+    var showJoinDialog by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -88,6 +87,13 @@ fun ChatListRoute(
                             tint = BorshchevykTheme.colors.onSurface
                         )
                     }
+                    IconButton(onClick = { showJoinDialog = true }) {
+                        Icon(
+                            Icons.Default.Link,
+                            contentDescription = "Join by Link",
+                            tint = BorshchevykTheme.colors.onSurface
+                        )
+                    }
                     IconButton(onClick = onProfileClick) {
                         Icon(
                             Icons.Default.Settings,
@@ -104,39 +110,23 @@ fun ChatListRoute(
         },
         floatingActionButton = {
             Column(horizontalAlignment = Alignment.End) {
-                if (showFabMenu) {
-                    FloatingActionButton(
-                        onClick = { 
-                            showFabMenu = false
-                            showCreateGroupDialog = true 
-                        },
-                        containerColor = BorshchevykTheme.colors.primaryContainer,
-                        contentColor = BorshchevykTheme.colors.onPrimaryContainer,
-                        modifier = Modifier.padding(bottom = 8.dp),
-                        shape = CircleShape
-                    ) {
-                        Icon(Icons.Default.Group, contentDescription = "New Group Chat")
-                    }
-                    FloatingActionButton(
-                        onClick = { 
-                            showFabMenu = false
-                            showCreatePrivateDialog = true 
-                        },
-                        containerColor = BorshchevykTheme.colors.primaryContainer,
-                        contentColor = BorshchevykTheme.colors.onPrimaryContainer,
-                        modifier = Modifier.padding(bottom = 8.dp),
-                        shape = CircleShape
-                    ) {
-                        Icon(Icons.Default.Person, contentDescription = "New Private Chat")
-                    }
-                }
                 FloatingActionButton(
-                    onClick = { showFabMenu = !showFabMenu },
+                    onClick = { showCreateGroupDialog = true },
+                    containerColor = BorshchevykTheme.colors.primaryContainer,
+                    contentColor = BorshchevykTheme.colors.onPrimaryContainer,
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.size(48.dp)
+                ) {
+                    Icon(Icons.Default.GroupAdd, contentDescription = "New Group")
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+                FloatingActionButton(
+                    onClick = { showCreatePrivateDialog = true },
                     containerColor = BorshchevykTheme.colors.primary,
                     contentColor = BorshchevykTheme.colors.onPrimary,
                     shape = RoundedCornerShape(16.dp)
                 ) {
-                    Icon(if (showFabMenu) Icons.Default.Close else Icons.Default.Add, contentDescription = "New Chat")
+                    Icon(Icons.Default.Add, contentDescription = "New Chat")
                 }
             }
         },
@@ -167,6 +157,18 @@ fun ChatListRoute(
                 onCreate = { title, desc ->
                     showCreateGroupDialog = false
                     viewModel.onCreateGroupChat(title, desc) { newChatId ->
+                        onChatClick(newChatId)
+                    }
+                }
+            )
+        }
+
+        if (showJoinDialog) {
+            JoinChatDialog(
+                onDismiss = { showJoinDialog = false },
+                onJoin = { link ->
+                    showJoinDialog = false
+                    viewModel.onJoinChat(link) { newChatId ->
                         onChatClick(newChatId)
                     }
                 }
@@ -367,6 +369,47 @@ fun CreateGroupChatDialog(
                     containerColor = BorshchevykTheme.colors.primary
                 )
             ) { Text("Create") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        }
+    )
+}
+
+@Composable
+fun JoinChatDialog(
+    onDismiss: () -> Unit,
+    onJoin: (String) -> Unit
+) {
+    var link by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = BorshchevykTheme.colors.surface,
+        titleContentColor = BorshchevykTheme.colors.onSurface,
+        textContentColor = BorshchevykTheme.colors.onSurfaceVariant,
+        title = { Text("Join via Link", style = BorshchevykTheme.typography.titleMedium) },
+        text = {
+            OutlinedTextField(
+                value = link,
+                onValueChange = { link = it },
+                label = { Text("Invite Code") },
+                shape = RoundedCornerShape(12.dp),
+                singleLine = true,
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = BorshchevykTheme.colors.primary,
+                    unfocusedBorderColor = BorshchevykTheme.colors.outline
+                )
+            )
+        },
+        confirmButton = {
+            Button(
+                onClick = { onJoin(link) },
+                enabled = link.isNotBlank(),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = BorshchevykTheme.colors.primary
+                )
+            ) { Text("Join") }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) { Text("Cancel") }

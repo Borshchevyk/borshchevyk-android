@@ -1,23 +1,60 @@
 package ru.kubsu.borshchevyk.core.data.message
-
+import kotlinx.coroutines.flow.Flow
 import ru.kubsu.borshchevyk.core.domain.message.MessageRepository
 import ru.kubsu.borshchevyk.core.model.domain.Message
 import ru.kubsu.borshchevyk.core.model.domain.MessageReaction
+import ru.kubsu.borshchevyk.core.model.dto.EditMessageRequest
 import ru.kubsu.borshchevyk.core.model.dto.MessageResponse
+import ru.kubsu.borshchevyk.core.model.dto.NotificationDto
+import ru.kubsu.borshchevyk.core.model.dto.ReactionEvent
+import ru.kubsu.borshchevyk.core.model.dto.ReadReceiptEvent
 import ru.kubsu.borshchevyk.core.model.dto.SendMessageRequest
+import ru.kubsu.borshchevyk.core.model.dto.TypingEvent
 import ru.kubsu.borshchevyk.core.network.ChatNetworkDataSource
+import ru.kubsu.borshchevyk.core.network.WebSocketDataSource
 import javax.inject.Inject
 
 class MessageRepositoryImpl @Inject constructor(
-    private val networkDataSource: ChatNetworkDataSource
+    private val networkDataSource: ChatNetworkDataSource,
+    private val webSocketDataSource: WebSocketDataSource
 ) : MessageRepository {
 
     override suspend fun sendMessage(chatId: String, request: SendMessageRequest): Message {
         return networkDataSource.sendMessage(chatId, request).toDomain()
     }
 
+    override suspend fun editMessage(chatId: String, messageId: String, newText: String): Message {
+        return networkDataSource.editMessage(chatId, messageId, EditMessageRequest(text = newText)).toDomain()
+    }
+
     override suspend fun loadChatHistory(chatId: String, page: Int, size: Int): List<Message> {
         return networkDataSource.loadChatHistory(chatId, page, size).map { it.toDomain() }
+    }
+
+    override suspend fun connectWebSocket() {
+        webSocketDataSource.connect()
+    }
+
+    override suspend fun disconnectWebSocket() {
+        webSocketDataSource.disconnect()
+    }
+
+    override fun observeNewMessages(): Flow<NotificationDto.MessageDto> = webSocketDataSource.observeNewMessages()
+
+    override fun observeDeletedMessages(): Flow<String> = webSocketDataSource.observeDeletedMessages()
+
+    override fun observeTyping(chatId: String): Flow<TypingEvent> = webSocketDataSource.observeTyping(chatId)
+
+    override fun observeReactions(chatId: String): Flow<ReactionEvent> = webSocketDataSource.observeReactions(chatId)
+
+    override fun observePins(chatId: String): Flow<String> = webSocketDataSource.observePins(chatId)
+
+    override fun observeUnpins(chatId: String): Flow<String> = webSocketDataSource.observeUnpins(chatId)
+
+    override fun observeReadReceipts(chatId: String): Flow<ReadReceiptEvent> = webSocketDataSource.observeReadReceipts(chatId)
+
+    override suspend fun sendTypingEvent(chatId: String, isTyping: Boolean) {
+        webSocketDataSource.sendTypingEvent(chatId, isTyping)
     }
 
     override suspend fun deleteMessage(chatId: String, messageId: String, forAll: Boolean) {
@@ -70,7 +107,7 @@ class MessageRepositoryImpl @Inject constructor(
         isDeleted = isDeleted,
         source = source,
         isPinned = pinnedAt != null,
-        reactions = reactions?.map { MessageReaction(it.userId, it.reaction) } ?: emptyList(),
+        reactions = reactions?.map { MessageReaction(userId = it.userId, reaction = it.reaction) } ?: emptyList(),
         commentsCount = commentsCount,
         parentMessageId = parentMessageId,
         forwardedFromChatId = forwardedFromChatId,
