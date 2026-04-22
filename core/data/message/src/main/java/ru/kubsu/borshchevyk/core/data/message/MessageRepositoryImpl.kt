@@ -111,6 +111,7 @@ class MessageRepositoryImpl @Inject constructor(
         commentsCount = commentsCount,
         parentMessageId = parentMessageId,
         forwardedFromChatId = forwardedFromChatId,
-        forwardedFromUserId = forwardedFromUserId
+        forwardedFromUserId = forwardedFromUserId,
+        attachmentIds = attachmentIds ?: emptyList()
     )
 }

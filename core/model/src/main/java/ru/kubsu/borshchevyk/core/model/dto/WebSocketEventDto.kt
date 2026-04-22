@@ -16,7 +16,8 @@ data class NotificationDto(
         val text: String,
         val createdAt: String,
         @SerialName("deleted") val isDeleted: Boolean = false,
-        val status: String? = null
+        val status: String? = null,
+        val attachmentIds: List<String>? = null
     )
 }
 

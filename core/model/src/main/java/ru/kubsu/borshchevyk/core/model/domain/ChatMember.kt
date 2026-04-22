@@ -16,8 +16,8 @@ data class ChatMember(
     val role: ChatMemberRole,
     val joinedAt: String,
     val canSendMessages: Boolean = true,
-    val canDeleteMessages: Boolean = true,
-    val canInviteUsers: Boolean = true,
-    val canChangeInfo: Boolean = true,
+    val canDeleteMessages: Boolean = false,
+    val canInviteUsers: Boolean = false,
+    val canChangeInfo: Boolean = false,
     val historyClearedAt: String? = null
 )
