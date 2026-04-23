@@ -1,4 +1,4 @@
-package ru.kubsu.borshchevyk.feature.chat.ui
+package ru.kubsu.borshchevyk.feature.chat.ui.chat
 
 import android.widget.Toast
 import androidx.compose.foundation.clickable
@@ -46,11 +46,11 @@ import ru.kubsu.borshchevyk.core.model.domain.ChatMemberRole
 import ru.kubsu.borshchevyk.core.model.dto.UpdatePermissionsRequest
 import ru.kubsu.borshchevyk.core.ui.theme.BorshchevykTheme
 import ru.kubsu.borshchevyk.feature.chat.ChatSettingsUiState
-import ru.kubsu.borshchevyk.feature.chat.ui.components.ClearHistoryDialog
-import ru.kubsu.borshchevyk.feature.chat.ui.components.DeleteChatDialog
-import ru.kubsu.borshchevyk.feature.chat.ui.components.InviteUserDialog
-import ru.kubsu.borshchevyk.feature.chat.ui.components.UpdateChatInfoDialog
-import ru.kubsu.borshchevyk.feature.chat.ui.components.UpdatePermissionsDialog
+import ru.kubsu.borshchevyk.feature.chat.ui.chat.components.ClearHistoryDialog
+import ru.kubsu.borshchevyk.feature.chat.ui.chat.components.DeleteChatDialog
+import ru.kubsu.borshchevyk.feature.chat.ui.chat.components.InviteUserDialog
+import ru.kubsu.borshchevyk.feature.chat.ui.chat.components.UpdateChatInfoDialog
+import ru.kubsu.borshchevyk.feature.chat.ui.chat.components.UpdatePermissionsDialog
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

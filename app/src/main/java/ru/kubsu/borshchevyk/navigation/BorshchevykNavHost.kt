@@ -7,12 +7,12 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import kotlinx.serialization.Serializable
 import ru.kubsu.borshchevyk.feature.auth.AuthRoute
-import ru.kubsu.borshchevyk.feature.chat.ChatListRoute
+import ru.kubsu.borshchevyk.feature.chat.ui.chatlist.ChatListRoute
 import ru.kubsu.borshchevyk.feature.profile.ProfileRoute
 import ru.kubsu.borshchevyk.feature.search.SearchRoute
-import ru.kubsu.borshchevyk.feature.chat.ui.ChatRoute as ChatScreenRoute
+import ru.kubsu.borshchevyk.feature.chat.ui.chat.ChatRoute as ChatScreenRoute
 
-import ru.kubsu.borshchevyk.feature.chat.ui.ChatSettingsRoute as ChatSettingsScreenRoute
+import ru.kubsu.borshchevyk.feature.chat.ui.chat.ChatSettingsRoute as ChatSettingsScreenRoute
 
 @Serializable
 object AuthRoute

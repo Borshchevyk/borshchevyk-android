@@ -1,4 +1,4 @@
-package ru.kubsu.borshchevyk.feature.chat.ui
+package ru.kubsu.borshchevyk.feature.chat.ui.chat
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -20,10 +20,10 @@ import androidx.compose.ui.unit.dp
 import ru.kubsu.borshchevyk.core.model.domain.Message
 import ru.kubsu.borshchevyk.core.ui.theme.BorshchevykTheme
 import ru.kubsu.borshchevyk.feature.chat.ChatUiState
-import ru.kubsu.borshchevyk.feature.chat.ui.components.CommentsDialog
-import ru.kubsu.borshchevyk.feature.chat.ui.components.MessageBubble
-import ru.kubsu.borshchevyk.feature.chat.ui.components.PinnedMessagesBanner
-import ru.kubsu.borshchevyk.feature.chat.ui.components.ReadersDialog
+import ru.kubsu.borshchevyk.feature.chat.ui.chat.components.CommentsDialog
+import ru.kubsu.borshchevyk.feature.chat.ui.chat.components.MessageBubble
+import ru.kubsu.borshchevyk.feature.chat.ui.chat.components.PinnedMessagesBanner
+import ru.kubsu.borshchevyk.feature.chat.ui.chat.components.ReadersDialog
 
 @Composable
 internal fun ChatScreen(

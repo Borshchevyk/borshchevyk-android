@@ -1,4 +1,4 @@
-package ru.kubsu.borshchevyk.feature.chat.ui.components
+package ru.kubsu.borshchevyk.feature.chat.ui.chat.components
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box

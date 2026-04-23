@@ -1,4 +1,4 @@
-package ru.kubsu.borshchevyk.feature.chat.ui.components
+package ru.kubsu.borshchevyk.feature.chat.ui.chat.components
 
 import android.provider.OpenableColumns
 import androidx.activity.compose.rememberLauncherForActivityResult

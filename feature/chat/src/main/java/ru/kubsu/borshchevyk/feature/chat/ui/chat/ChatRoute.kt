@@ -1,4 +1,4 @@
-package ru.kubsu.borshchevyk.feature.chat.ui
+package ru.kubsu.borshchevyk.feature.chat.ui.chat
 
 import android.widget.Toast
 import androidx.compose.foundation.layout.Box
@@ -28,7 +28,7 @@ import ru.kubsu.borshchevyk.feature.chat.ChatEffect
 import ru.kubsu.borshchevyk.feature.chat.ChatIntent
 import ru.kubsu.borshchevyk.feature.chat.ChatUiState
 import ru.kubsu.borshchevyk.feature.chat.ChatViewModel
-import ru.kubsu.borshchevyk.feature.chat.ui.components.MessageInput
+import ru.kubsu.borshchevyk.feature.chat.ui.chat.components.MessageInput
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

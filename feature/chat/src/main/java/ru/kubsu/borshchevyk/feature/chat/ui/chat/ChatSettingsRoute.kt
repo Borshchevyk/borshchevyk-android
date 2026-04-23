@@ -1,4 +1,4 @@
-package ru.kubsu.borshchevyk.feature.chat.ui
+package ru.kubsu.borshchevyk.feature.chat.ui.chat
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
