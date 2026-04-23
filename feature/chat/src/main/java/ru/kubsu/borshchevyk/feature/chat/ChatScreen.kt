@@ -101,90 +101,118 @@ fun ChatRoute(
     chatViewModel: ChatViewModel = hiltViewModel()
 ) {
     val uiState by chatViewModel.uiState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
 
-    LaunchedEffect(uiState.isChatDeleted) {
-        if (uiState.isChatDeleted) {
-            onBackClick()
+    LaunchedEffect(Unit) {
+        chatViewModel.effect.collect { effect ->
+            when (effect) {
+                is ChatEffect.ShowError -> {
+                    Toast.makeText(context, effect.message, Toast.LENGTH_SHORT).show()
+                }
+                is ChatEffect.NavigateBack -> {
+                    onBackClick()
+                }
+            }
         }
     }
 
-    if (uiState.showSettings) {
-        ChatSettingsRoute(
-            onBackClick = { chatViewModel.toggleSettings() },
-            onChatDeletedLocally = { chatViewModel.onChatDeletedLocally() }
-        )
-    } else {
-        Scaffold(
-            topBar = {
-                TopAppBar(
-                    title = { 
-                        Text(
-                            text = if (uiState.isGroupChat) "Group Chat" else "Private Chat",
-                            style = BorshchevykTheme.typography.titleMedium,
-                            color = BorshchevykTheme.colors.onSurface
-                        ) 
-                    },
-                    navigationIcon = {
-                        IconButton(onClick = onBackClick) {
-                            Icon(
-                                Icons.AutoMirrored.Filled.ArrowBack, 
-                                contentDescription = "Back",
-                                tint = BorshchevykTheme.colors.onSurface
+    when (val state = uiState) {
+        is ChatUiState.Loading -> {
+            Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = BorshchevykTheme.colors.primary)
+            }
+        }
+        is ChatUiState.Error -> {
+            Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text("Error: \${state.message}", color = BorshchevykTheme.colors.error)
+            }
+        }
+        is ChatUiState.Content -> {
+            LaunchedEffect(state.isChatDeleted) {
+                if (state.isChatDeleted) {
+                    onBackClick()
+                }
+            }
+
+            if (state.showSettings) {
+                ChatSettingsRoute(
+                    onBackClick = { chatViewModel.handleIntent(ChatIntent.ToggleSettings) },
+                    onChatDeletedLocally = { chatViewModel.handleIntent(ChatIntent.ChatDeletedLocally) }
+                )
+            } else {
+                Scaffold(
+                    topBar = {
+                        TopAppBar(
+                            title = { 
+                                Text(
+                                    text = if (state.context.isGroupChat) "Group Chat" else "Private Chat",
+                                    style = BorshchevykTheme.typography.titleMedium,
+                                    color = BorshchevykTheme.colors.onSurface
+                                ) 
+                            },
+                            navigationIcon = {
+                                IconButton(onClick = onBackClick) {
+                                    Icon(
+                                        Icons.AutoMirrored.Filled.ArrowBack, 
+                                        contentDescription = "Back",
+                                        tint = BorshchevykTheme.colors.onSurface
+                                    )
+                                }
+                            },
+                            actions = {
+                                IconButton(onClick = { chatViewModel.handleIntent(ChatIntent.ToggleSettings) }) {
+                                    Icon(
+                                        Icons.Default.Info, 
+                                        contentDescription = "Chat Info",
+                                        tint = BorshchevykTheme.colors.onSurface
+                                    )
+                                }
+                            },
+                            colors = TopAppBarDefaults.topAppBarColors(
+                                containerColor = BorshchevykTheme.colors.background
                             )
-                        }
+                        )
                     },
-                    actions = {
-                        IconButton(onClick = { chatViewModel.toggleSettings() }) {
-                            Icon(
-                                Icons.Default.Info, 
-                                contentDescription = "Chat Info",
-                                tint = BorshchevykTheme.colors.onSurface
-                            )
-                        }
+                    bottomBar = {
+                        MessageInput(
+                            editingMessage = state.input.editingMessage,
+                            isSending = state.input.isSending,
+                            onSendMessage = { text, attachments -> chatViewModel.handleIntent(ChatIntent.SendMessage(text, attachments)) },
+                            onEditMessage = { id, text -> chatViewModel.handleIntent(ChatIntent.EditMessage(id, text)) },
+                            onCancelEdit = { chatViewModel.handleIntent(ChatIntent.SetEditingMessage(null)) },
+                            onTyping = { chatViewModel.handleIntent(ChatIntent.Typing) }
+                        )
                     },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = BorshchevykTheme.colors.background
+                    containerColor = BorshchevykTheme.colors.background,
+                    modifier = modifier
+                ) { padding ->
+                    ChatScreen(
+                        contentState = state,
+                        onResolveAttachmentUrl = { attId -> chatViewModel.handleIntent(ChatIntent.ResolveAttachmentUrl(attId)) },
+                        onPinToggle = { msg ->
+                            if (msg.isPinned) chatViewModel.handleIntent(ChatIntent.UnpinMessage(msg.id))
+                            else chatViewModel.handleIntent(ChatIntent.PinMessage(msg.id))
+                        },
+                        onReactionToggle = { msgId, reaction ->
+                            chatViewModel.handleIntent(ChatIntent.ToggleReaction(msgId, reaction))
+                        },
+                        onEdit = { msg -> chatViewModel.handleIntent(ChatIntent.SetEditingMessage(msg)) },
+                        onDelete = { msgId, forAll ->
+                            chatViewModel.handleIntent(ChatIntent.DeleteMessage(msgId, forAll))
+                        },
+                        onMessageVisible = { msgId ->
+                            chatViewModel.handleIntent(ChatIntent.MessageVisible(msgId))
+                        },
+                        onLoadReaders = { msgId ->
+                            chatViewModel.handleIntent(ChatIntent.LoadReaders(msgId))
+                        },
+                        onLoadComments = { msgId ->
+                            chatViewModel.handleIntent(ChatIntent.LoadComments(msgId))
+                        },
+                        modifier = Modifier.padding(padding)
                     )
-                )
-            },
-            bottomBar = {
-                MessageInput(
-                    editingMessage = uiState.editingMessage,
-                    isSending = uiState.isSending,
-                    onSendMessage = { text, attachments -> chatViewModel.onSendMessage(text, attachments) },
-                    onEditMessage = chatViewModel::onEditMessage,
-                    onCancelEdit = { chatViewModel.setEditingMessage(null) },
-                    onTyping = chatViewModel::onTyping
-                )
-            },
-            containerColor = BorshchevykTheme.colors.background,
-            modifier = modifier
-        ) { padding ->
-            ChatScreen(
-                uiState = uiState,
-                resolveAttachmentUrl = { chatViewModel.resolveAttachmentUrl(it) },
-                onPinToggle = { msg ->
-                    if (msg.isPinned) chatViewModel.onUnpinMessage(msg.id)
-                    else chatViewModel.onPinMessage(msg.id)
-                },
-                onReactionToggle = { msgId, reaction ->
-                    chatViewModel.onToggleReaction(msgId, reaction)
-                },
-                onEdit = { msg -> chatViewModel.setEditingMessage(msg) },
-                onDelete = { msgId, forAll ->
-                    chatViewModel.onDeleteMessage(msgId, forAll)
-                },
-                onMessageVisible = { msgId ->
-                    chatViewModel.onMessageVisible(msgId)
-                },
-                onLoadReaders = { msgId ->
-                    chatViewModel.onLoadReaders(msgId)
-                },
-                onLoadComments = { msgId ->
-                    chatViewModel.onLoadComments(msgId)
-                },
-                modifier = Modifier.padding(padding)
-            )
+                }
+            }
         }
     }
 }
@@ -308,7 +336,7 @@ fun ChatSettingsScreen(
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Text(
-                                text = "Link: ${uiState.inviteLink}",
+                                text = "Link: \${uiState.inviteLink}",
                                 style = BorshchevykTheme.typography.bodyMedium,
                                 color = BorshchevykTheme.colors.onSurface,
                                 modifier = Modifier.weight(1f),
@@ -326,7 +354,7 @@ fun ChatSettingsScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
                 }
-                Text("Members (${uiState.members.size})", style = BorshchevykTheme.typography.titleMedium, color = BorshchevykTheme.colors.onSurface)
+                Text("Members (\${uiState.members.size})", style = BorshchevykTheme.typography.titleMedium, color = BorshchevykTheme.colors.onSurface)
                 Spacer(modifier = Modifier.height(8.dp))
             }
             
@@ -344,12 +372,12 @@ fun ChatSettingsScreen(
                 ) {
                     Column {
                         Text(
-                            text = if (member.userId == uiState.currentUserId) "You (${member.userId})" else "User: ${member.userId}",
+                            text = if (member.userId == uiState.currentUserId) "You (\${member.userId})" else "User: \${member.userId}",
                             style = BorshchevykTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
                             color = BorshchevykTheme.colors.onSurface
                         )
                         Text(
-                            text = "Role: ${member.role}",
+                            text = "Role: \${member.role}",
                             style = BorshchevykTheme.typography.bodyMedium,
                             color = BorshchevykTheme.colors.onSurfaceVariant
                         )
@@ -493,7 +521,7 @@ fun ChatSettingsScreen(
             AlertDialog(
                 onDismissRequest = { memberForPermissions = null },
                 containerColor = BorshchevykTheme.colors.surface,
-                title = { Text("Update Permissions for ${member.userId}", style = BorshchevykTheme.typography.titleMedium, color = BorshchevykTheme.colors.onSurface) },
+                title = { Text("Update Permissions for \${member.userId}", style = BorshchevykTheme.typography.titleMedium, color = BorshchevykTheme.colors.onSurface) },
                 text = {
                     Column {
                         PermissionRow("Send Messages", canSend) { canSend = it }
@@ -600,8 +628,8 @@ fun PermissionRow(label: String, checked: Boolean, onCheckedChange: (Boolean) ->
 
 @Composable
 internal fun ChatScreen(
-    uiState: ChatUiState,
-    resolveAttachmentUrl: suspend (String) -> String?,
+    contentState: ChatUiState.Content,
+    onResolveAttachmentUrl: (String) -> Unit,
     onPinToggle: (Message) -> Unit,
     onReactionToggle: (String, String) -> Unit,
     onEdit: (Message) -> Unit,
@@ -615,63 +643,58 @@ internal fun ChatScreen(
     var messageIdForComments by remember { mutableStateOf<String?>(null) }
 
     Column(modifier = modifier.fillMaxSize()) {
-        if (uiState.pinnedMessages.isNotEmpty()) {
+        if (contentState.feed.pinnedMessages.isNotEmpty()) {
             PinnedMessagesBanner(
-                messages = uiState.pinnedMessages,
+                messages = contentState.feed.pinnedMessages,
                 onUnpinClick = { msg -> onPinToggle(msg) }
             )
         }
         
-        if (uiState.isLoading && uiState.messages.isEmpty()) {
-            Box(modifier = Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = BorshchevykTheme.colors.primary)
-            }
-        } else {
-            LazyColumn(
-                modifier = Modifier.weight(1f).fillMaxWidth(),
-                contentPadding = PaddingValues(16.dp),
-                reverseLayout = true
-            ) {
-                val otherTypingUsers = uiState.typingUsers.filter { it != uiState.currentUserId }
-                if (otherTypingUsers.isNotEmpty()) {
-                    item {
-                        Text(
-                            text = if (otherTypingUsers.size == 1) "User is typing..." else "Multiple users are typing...",
-                            style = BorshchevykTheme.typography.labelSmall,
-                            color = BorshchevykTheme.colors.onSurfaceVariant,
-                            modifier = Modifier.padding(start = 16.dp, bottom = 8.dp)
-                        )
-                    }
-                }
-
-                items(uiState.messages, key = { it.id }) { message ->
-                    MessageBubble(
-                        message = message,
-                        isFromMe = message.authorId == uiState.currentUserId,
-                        currentUserId = uiState.currentUserId,
-                        resolveAttachmentUrl = resolveAttachmentUrl,
-                        onPinToggle = { onPinToggle(message) },
-                        onReactionToggle = { reaction -> onReactionToggle(message.id, reaction) },
-                        onEdit = { onEdit(message) },
-                        onDelete = { forAll -> onDelete(message.id, forAll) },
-                        onMessageVisible = { onMessageVisible(message.id) },
-                        onViewReaders = {
-                            onLoadReaders(message.id)
-                            messageIdForReaders = message.id
-                        },
-                        onViewComments = {
-                            onLoadComments(message.id)
-                            messageIdForComments = message.id
-                        }
+        LazyColumn(
+            modifier = Modifier.weight(1f).fillMaxWidth(),
+            contentPadding = PaddingValues(16.dp),
+            reverseLayout = true
+        ) {
+            val otherTypingUsers = contentState.input.typingUsers.filter { it != contentState.context.currentUserId }
+            if (otherTypingUsers.isNotEmpty()) {
+                item {
+                    Text(
+                        text = if (otherTypingUsers.size == 1) "User is typing..." else "Multiple users are typing...",
+                        style = BorshchevykTheme.typography.labelSmall,
+                        color = BorshchevykTheme.colors.onSurfaceVariant,
+                        modifier = Modifier.padding(start = 16.dp, bottom = 8.dp)
                     )
-                    Spacer(modifier = Modifier.height(12.dp))
                 }
+            }
+
+            items(contentState.feed.messages, key = { it.id }) { message ->
+                MessageBubble(
+                    message = message,
+                    isFromMe = message.authorId == contentState.context.currentUserId,
+                    currentUserId = contentState.context.currentUserId,
+                    attachmentUrls = contentState.feed.attachmentUrls,
+                    onResolveAttachmentUrl = onResolveAttachmentUrl,
+                    onPinToggle = { onPinToggle(message) },
+                    onReactionToggle = { reaction -> onReactionToggle(message.id, reaction) },
+                    onEdit = { onEdit(message) },
+                    onDelete = { forAll -> onDelete(message.id, forAll) },
+                    onMessageVisible = { onMessageVisible(message.id) },
+                    onViewReaders = {
+                        onLoadReaders(message.id)
+                        messageIdForReaders = message.id
+                    },
+                    onViewComments = {
+                        onLoadComments(message.id)
+                        messageIdForComments = message.id
+                    }
+                )
+                Spacer(modifier = Modifier.height(12.dp))
             }
         }
     }
 
     if (messageIdForReaders != null) {
-        val readers = uiState.readersByMessageId[messageIdForReaders]
+        val readers = contentState.feed.readersByMessageId[messageIdForReaders]
         AlertDialog(
             onDismissRequest = { messageIdForReaders = null },
             containerColor = BorshchevykTheme.colors.surface,
@@ -686,7 +709,7 @@ internal fun ChatScreen(
                 } else {
                     LazyColumn {
                         items(readers) { readerId ->
-                            Text(text = "User ID: $readerId", style = BorshchevykTheme.typography.bodyMedium, color = BorshchevykTheme.colors.onSurface, modifier = Modifier.padding(vertical = 4.dp))
+                            Text(text = "User ID: \$readerId", style = BorshchevykTheme.typography.bodyMedium, color = BorshchevykTheme.colors.onSurface, modifier = Modifier.padding(vertical = 4.dp))
                         }
                     }
                 }
@@ -698,7 +721,7 @@ internal fun ChatScreen(
     }
 
     if (messageIdForComments != null) {
-        val comments = uiState.commentsByMessageId[messageIdForComments]
+        val comments = contentState.feed.commentsByMessageId[messageIdForComments]
         AlertDialog(
             onDismissRequest = { messageIdForComments = null },
             containerColor = BorshchevykTheme.colors.surface,
@@ -735,7 +758,8 @@ internal fun MessageBubble(
     message: Message,
     isFromMe: Boolean,
     currentUserId: String,
-    resolveAttachmentUrl: suspend (String) -> String?,
+    attachmentUrls: Map<String, String>,
+    onResolveAttachmentUrl: (String) -> Unit,
     onPinToggle: () -> Unit,
     onReactionToggle: (String) -> Unit,
     onEdit: () -> Unit,
@@ -778,7 +802,8 @@ internal fun MessageBubble(
                     if (message.attachments.isNotEmpty()) {
                         AttachmentGallery(
                             attachments = message.attachments,
-                            resolveAttachmentUrl = resolveAttachmentUrl,
+                            attachmentUrls = attachmentUrls,
+                            onResolveAttachmentUrl = onResolveAttachmentUrl,
                             isFromMe = isFromMe
                         )
                         Spacer(modifier = Modifier.height(8.dp))
@@ -839,7 +864,7 @@ internal fun MessageBubble(
                     )
                 }
                 DropdownMenuItem(
-                    text = { Text("View Comments (${message.commentsCount})") },
+                    text = { Text("View Comments (\${message.commentsCount})") },
                     onClick = {
                         showMenu = false
                         onViewComments()
@@ -904,14 +929,15 @@ internal fun MessageBubble(
 @Composable
 internal fun AttachmentGallery(
     attachments: List<ru.kubsu.borshchevyk.core.model.domain.Attachment>,
-    resolveAttachmentUrl: suspend (String) -> String?,
+    attachmentUrls: Map<String, String>,
+    onResolveAttachmentUrl: (String) -> Unit,
     isFromMe: Boolean
 ) {
     if (attachments.isEmpty()) return
 
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         attachments.forEach { attachment ->
-            AttachmentItem(attachment, resolveAttachmentUrl, isFromMe)
+            AttachmentItem(attachment, attachmentUrls, onResolveAttachmentUrl, isFromMe)
         }
     }
 }
@@ -919,14 +945,17 @@ internal fun AttachmentGallery(
 @Composable
 internal fun AttachmentItem(
     attachment: ru.kubsu.borshchevyk.core.model.domain.Attachment,
-    resolveAttachmentUrl: suspend (String) -> String?,
+    attachmentUrls: Map<String, String>,
+    onResolveAttachmentUrl: (String) -> Unit,
     isFromMe: Boolean
 ) {
-    var url by remember { mutableStateOf<String?>(null) }
+    val url = attachmentUrls[attachment.id]
     var loadError by remember { mutableStateOf(false) }
 
     LaunchedEffect(attachment.id) {
-        url = resolveAttachmentUrl(attachment.id)
+        if (url == null) {
+            onResolveAttachmentUrl(attachment.id)
+        }
     }
 
     val context = LocalContext.current
@@ -977,7 +1006,7 @@ internal fun FileAttachmentCard(
         when {
             mb >= 1.0 -> "%.2f MB".format(java.util.Locale.US, mb)
             kb >= 1.0 -> "%.2f KB".format(java.util.Locale.US, kb)
-            else -> "${attachment.sizeBytes} B"
+            else -> "\${attachment.sizeBytes} B"
         }
     }
 
