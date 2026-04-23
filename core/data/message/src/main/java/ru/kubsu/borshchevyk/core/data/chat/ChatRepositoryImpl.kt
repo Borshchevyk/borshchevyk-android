@@ -1,6 +1,6 @@
-package ru.kubsu.borshchevyk.core.data.message
+package ru.kubsu.borshchevyk.core.data.chat
 
-import ru.kubsu.borshchevyk.core.domain.message.ChatRepository
+import ru.kubsu.borshchevyk.core.domain.chat.ChatRepository
 import ru.kubsu.borshchevyk.core.model.domain.Chat
 import ru.kubsu.borshchevyk.core.model.domain.ChatMember
 import ru.kubsu.borshchevyk.core.model.domain.ChatMemberRole

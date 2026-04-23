@@ -1,4 +1,4 @@
-package ru.kubsu.borshchevyk.core.domain.message
+package ru.kubsu.borshchevyk.core.domain.chat
 
 import ru.kubsu.borshchevyk.core.model.dto.UpdatePermissionsRequest
 import javax.inject.Inject

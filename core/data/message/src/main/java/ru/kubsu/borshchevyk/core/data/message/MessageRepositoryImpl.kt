@@ -12,12 +12,12 @@ import ru.kubsu.borshchevyk.core.model.dto.ReactionEvent
 import ru.kubsu.borshchevyk.core.model.dto.ReadReceiptEvent
 import ru.kubsu.borshchevyk.core.model.dto.SendMessageRequest
 import ru.kubsu.borshchevyk.core.model.dto.TypingEvent
-import ru.kubsu.borshchevyk.core.network.ChatNetworkDataSource
+import ru.kubsu.borshchevyk.core.network.MessageNetworkDataSource
 import ru.kubsu.borshchevyk.core.network.WebSocketDataSource
 import javax.inject.Inject
 
 class MessageRepositoryImpl @Inject constructor(
-    private val networkDataSource: ChatNetworkDataSource,
+    private val networkDataSource: MessageNetworkDataSource,
     private val webSocketDataSource: WebSocketDataSource
 ) : MessageRepository {
 

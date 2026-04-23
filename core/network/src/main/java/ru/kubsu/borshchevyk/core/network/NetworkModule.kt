@@ -129,6 +129,10 @@ interface NetworkDataSourceModule {
 
     @Binds
     @Singleton
+    fun bindMessageNetworkDataSource(impl: KtorMessageNetworkDataSource): MessageNetworkDataSource
+
+    @Binds
+    @Singleton
     fun bindContactNetworkDataSource(impl: KtorContactNetworkDataSource): ContactNetworkDataSource
 
     @Binds

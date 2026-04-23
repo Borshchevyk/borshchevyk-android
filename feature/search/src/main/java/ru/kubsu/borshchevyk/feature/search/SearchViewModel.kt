@@ -8,7 +8,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import ru.kubsu.borshchevyk.core.domain.message.CreatePrivateChatUseCase
+import ru.kubsu.borshchevyk.core.domain.chat.CreatePrivateChatUseCase
 import ru.kubsu.borshchevyk.core.domain.user.SearchUsersUseCase
 import ru.kubsu.borshchevyk.core.model.domain.User
 import javax.inject.Inject

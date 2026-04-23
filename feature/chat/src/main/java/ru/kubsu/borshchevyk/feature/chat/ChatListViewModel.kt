@@ -11,11 +11,11 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import ru.kubsu.borshchevyk.core.domain.chat.CreateGroupChatUseCase
+import ru.kubsu.borshchevyk.core.domain.chat.CreatePrivateChatUseCase
+import ru.kubsu.borshchevyk.core.domain.chat.GetUserChatsUseCase
+import ru.kubsu.borshchevyk.core.domain.chat.JoinChatUseCase
 import ru.kubsu.borshchevyk.core.domain.message.ConnectWebSocketUseCase
-import ru.kubsu.borshchevyk.core.domain.message.CreateGroupChatUseCase
-import ru.kubsu.borshchevyk.core.domain.message.CreatePrivateChatUseCase
-import ru.kubsu.borshchevyk.core.domain.message.GetUserChatsUseCase
-import ru.kubsu.borshchevyk.core.domain.message.JoinChatUseCase
 import ru.kubsu.borshchevyk.core.domain.message.ObserveNewMessagesUseCase
 import ru.kubsu.borshchevyk.core.model.domain.Chat
 import javax.inject.Inject
