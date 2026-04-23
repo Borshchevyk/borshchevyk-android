@@ -9,7 +9,12 @@ data class ChatResponse(
     val type: ChatType,
     val title: String? = null,
     val description: String? = null,
-    val createdAt: String
+    val createdAt: String,
+    val partnerId: String? = null,
+    val partnerName: String? = null,
+    val partnerAvatarUrl: String? = null,
+    val partnerLastOnline: String? = null,
+    val allowedReactions: Set<String>? = null
 )
 
 @Serializable

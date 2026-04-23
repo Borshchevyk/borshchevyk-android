@@ -106,6 +106,8 @@ class MessageRepositoryImpl @Inject constructor(
         authorId = authorId,
         text = text,
         createdAt = createdAt,
+        updatedAt = updatedAt,
+        status = status,
         isDeleted = isDeleted,
         source = source,
         isPinned = pinnedAt != null,
@@ -120,7 +122,9 @@ class MessageRepositoryImpl @Inject constructor(
                 type = it.type ?: AttachmentType.FILE,
                 originalFilename = it.originalFilename ?: "file",
                 extension = it.extension ?: "",
-                sizeBytes = it.sizeBytes ?: 0L
+                sizeBytes = it.sizeBytes ?: 0L,
+                thumbnailKey = it.thumbnailKey,
+                updatedAt = it.updatedAt
             )
         } ?: attachmentIdsOld?.map { 
             Attachment(id = it, type = AttachmentType.FILE) 

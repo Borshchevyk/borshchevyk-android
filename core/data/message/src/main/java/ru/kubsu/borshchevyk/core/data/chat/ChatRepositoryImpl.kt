@@ -80,8 +80,12 @@ class ChatRepositoryImpl @Inject constructor(
     private fun ChatResponse.toDomain(): Chat = Chat(
         id = id,
         type = type,
-        title = title,
+        title = if (type == ru.kubsu.borshchevyk.core.model.domain.ChatType.PRIVATE) partnerName ?: title else title,
         description = description,
+        partnerId = partnerId,
+        partnerAvatarUrl = partnerAvatarUrl,
+        partnerLastOnline = partnerLastOnline,
+        allowedReactions = allowedReactions,
         createdAt = createdAt
     )
 

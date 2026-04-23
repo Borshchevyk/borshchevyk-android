@@ -16,7 +16,9 @@ data class MessageAttachmentResponse(
     val type: AttachmentType? = null,
     val originalFilename: String? = null,
     val extension: String? = null,
-    val sizeBytes: Long? = null
+    val sizeBytes: Long? = null,
+    val thumbnailKey: String? = null,
+    val updatedAt: String? = null
 )
 
 @Serializable
@@ -26,8 +28,10 @@ data class MessageResponse(
     val authorId: String,
     val text: String,
     val createdAt: String,
+    val updatedAt: String? = null,
     @SerialName("deleted") val isDeleted: Boolean = false,
     val source: MessageSource,
+    val status: ru.kubsu.borshchevyk.core.model.domain.MessageStatus? = null,
     val pinnedAt: String? = null,
     val pinnedBy: String? = null,
     val reactions: List<MessageReactionResponse>? = null,

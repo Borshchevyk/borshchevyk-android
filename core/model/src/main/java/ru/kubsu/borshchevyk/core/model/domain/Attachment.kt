@@ -10,5 +10,7 @@ data class Attachment(
     val originalFilename: String = "file",
     val extension: String = "",
     val sizeBytes: Long = 0,
-    val url: String? = null
+    val url: String? = null,
+    val thumbnailKey: String? = null,
+    val updatedAt: String? = null
 )

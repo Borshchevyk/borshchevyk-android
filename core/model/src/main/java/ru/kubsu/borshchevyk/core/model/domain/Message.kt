@@ -21,6 +21,8 @@ data class Message(
     val authorId: String,
     val text: String,
     val createdAt: String,
+    val updatedAt: String? = null,
+    val status: MessageStatus? = null,
     val isDeleted: Boolean = false,
     val source: MessageSource = MessageSource.ONLINE,
     val isPinned: Boolean = false,

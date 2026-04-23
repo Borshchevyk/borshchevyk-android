@@ -15,5 +15,9 @@ data class Chat(
     val type: ChatType,
     val title: String? = null,
     val description: String? = null,
+    val partnerId: String? = null,
+    val partnerAvatarUrl: String? = null,
+    val partnerLastOnline: String? = null,
+    val allowedReactions: Set<String>? = null,
     val createdAt: String
 )
