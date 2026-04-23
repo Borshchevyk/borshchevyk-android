@@ -3,10 +3,12 @@ package ru.kubsu.borshchevyk.feature.profile
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import ru.kubsu.borshchevyk.core.domain.auth.GetTagUseCase
@@ -16,19 +18,10 @@ import ru.kubsu.borshchevyk.core.domain.user.GetPrivacySettingsUseCase
 import ru.kubsu.borshchevyk.core.domain.user.GetUserProfileUseCase
 import ru.kubsu.borshchevyk.core.domain.user.UpdatePrivacySettingsUseCase
 import ru.kubsu.borshchevyk.core.domain.user.UpdateProfileUseCase
-import ru.kubsu.borshchevyk.core.model.domain.PrivacySettings
 import ru.kubsu.borshchevyk.core.model.domain.User
 import ru.kubsu.borshchevyk.core.model.dto.UpdatePrivacySettingsRequest
 import ru.kubsu.borshchevyk.core.model.dto.UpdateProfileRequest
 import javax.inject.Inject
-
-data class ProfileUiState(
-    val userId: String = "",
-    val user: User? = null,
-    val privacySettings: PrivacySettings? = null,
-    val isLoading: Boolean = false,
-    val error: String? = null
-)
 
 @HiltViewModel
 class ProfileViewModel @Inject constructor(
@@ -44,13 +37,33 @@ class ProfileViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(ProfileUiState(isLoading = true))
     val uiState: StateFlow<ProfileUiState> = _uiState.asStateFlow()
 
+    private val _effect = Channel<ProfileEffect>(Channel.BUFFERED)
+    val effect = _effect.receiveAsFlow()
+
     init {
         loadData()
     }
 
+    fun handleIntent(intent: ProfileIntent) {
+        when (intent) {
+            is ProfileIntent.ReloadData -> loadData()
+            is ProfileIntent.UpdateProfile -> onUpdateProfile(intent.firstName, intent.lastName, intent.bio)
+            is ProfileIntent.UpdatePrivacy -> onUpdatePrivacy(intent.request)
+            is ProfileIntent.Logout -> onLogout()
+            is ProfileIntent.OpenEditProfile -> sendEffect(ProfileEffect.NavigateToEditProfile)
+            is ProfileIntent.OpenEditPrivacy -> sendEffect(ProfileEffect.NavigateToEditPrivacy)
+        }
+    }
+
+    private fun sendEffect(effect: ProfileEffect) {
+        viewModelScope.launch {
+            _effect.send(effect)
+        }
+    }
+
     private fun loadData() {
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, error = null) }
+            _uiState.update { it.copy(isLoading = true) }
             try {
                 val userId = getUserIdUseCase().firstOrNull()
                 val tag = getTagUseCase().firstOrNull()
@@ -73,42 +86,52 @@ class ProfileViewModel @Inject constructor(
                     it.copy(
                         userId = userId ?: "", 
                         user = User(userId = userId ?: "", tag = tag ?: "User"), 
-                        isLoading = false,
-                        error = e.message
+                        isLoading = false
                     )
                 }
+                sendEffect(ProfileEffect.ShowError(e.message ?: "Failed to load profile"))
             }
         }
     }
 
-    fun onUpdateProfile(firstName: String, lastName: String, bio: String) {
+    private fun onUpdateProfile(firstName: String, lastName: String, bio: String) {
         viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true) }
             try {
                 val updatedUser = updateProfileUseCase(
                     UpdateProfileRequest(firstName = firstName, lastName = lastName, bio = bio)
                 )
-                _uiState.update { it.copy(user = updatedUser) }
+                _uiState.update { it.copy(user = updatedUser, isLoading = false) }
+                sendEffect(ProfileEffect.NavigateBack)
             } catch (e: Exception) {
-                _uiState.update { it.copy(error = e.message) }
+                _uiState.update { it.copy(isLoading = false) }
+                sendEffect(ProfileEffect.ShowError(e.message ?: "Failed to update profile"))
             }
         }
     }
 
-    fun onUpdatePrivacy(request: UpdatePrivacySettingsRequest) {
+    private fun onUpdatePrivacy(request: UpdatePrivacySettingsRequest) {
         viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true) }
             try {
                 val updatedSettings = updatePrivacySettingsUseCase(request)
-                _uiState.update { it.copy(privacySettings = updatedSettings) }
+                _uiState.update { it.copy(privacySettings = updatedSettings, isLoading = false) }
+                // Optionally navigate back after saving privacy settings
             } catch (e: Exception) {
-                _uiState.update { it.copy(error = e.message) }
+                _uiState.update { it.copy(isLoading = false) }
+                sendEffect(ProfileEffect.ShowError(e.message ?: "Failed to update privacy settings"))
             }
         }
     }
 
-    fun onLogout(onLoggedOut: () -> Unit) {
+    private fun onLogout() {
         viewModelScope.launch {
-            logoutUseCase()
-            onLoggedOut()
+            try {
+                logoutUseCase()
+                sendEffect(ProfileEffect.LogoutSuccess)
+            } catch(e: Exception) {
+                sendEffect(ProfileEffect.ShowError(e.message ?: "Failed to logout"))
+            }
         }
     }
 }
