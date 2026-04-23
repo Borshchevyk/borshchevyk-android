@@ -11,11 +11,17 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Done
+import androidx.compose.material.icons.filled.DoneAll
+import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -94,6 +100,36 @@ internal fun MessageBubble(
                             style = BorshchevykTheme.typography.bodyLarge,
                             color = if (isFromMe) BorshchevykTheme.colors.onPrimary else BorshchevykTheme.colors.onSurface
                         )
+                    }
+
+                    val isEdited = message.updatedAt != null && message.updatedAt != message.createdAt
+                    if (isEdited || isFromMe) {
+                        Row(
+                            modifier = Modifier.padding(top = 4.dp).align(Alignment.End),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            if (isEdited) {
+                                Text(
+                                    text = "(edited)",
+                                    style = BorshchevykTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                                    color = if (isFromMe) BorshchevykTheme.colors.onPrimary.copy(alpha = 0.7f) else BorshchevykTheme.colors.onSurfaceVariant.copy(alpha = 0.7f)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                            }
+                            if (isFromMe) {
+                                val statusIcon = when (message.status) {
+                                    ru.kubsu.borshchevyk.core.model.domain.MessageStatus.READ -> Icons.Default.DoneAll
+                                    ru.kubsu.borshchevyk.core.model.domain.MessageStatus.ERROR -> Icons.Default.ErrorOutline
+                                    else -> Icons.Default.Done // SENT or RECEIVED_BY_SERVER
+                                }
+                                Icon(
+                                    imageVector = statusIcon,
+                                    contentDescription = "Status",
+                                    modifier = Modifier.size(14.dp),
+                                    tint = if (message.status == ru.kubsu.borshchevyk.core.model.domain.MessageStatus.ERROR) BorshchevykTheme.colors.error else BorshchevykTheme.colors.onPrimary.copy(alpha = 0.7f)
+                                )
+                            }
+                        }
                     }
                 }
             }

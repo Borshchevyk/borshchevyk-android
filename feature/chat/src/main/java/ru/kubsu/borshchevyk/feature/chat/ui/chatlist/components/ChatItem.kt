@@ -18,9 +18,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import coil.compose.AsyncImage
 import ru.kubsu.borshchevyk.core.model.domain.Chat
 import ru.kubsu.borshchevyk.core.ui.theme.BorshchevykTheme
 
@@ -39,18 +41,30 @@ internal fun ChatItem(
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(
-            modifier = Modifier
-                .size(48.dp)
-                .clip(CircleShape)
-                .background(BorshchevykTheme.colors.primaryContainer),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = initial,
-                style = BorshchevykTheme.typography.titleMedium,
-                color = BorshchevykTheme.colors.primary
+        if (!chat.partnerAvatarUrl.isNullOrBlank()) {
+            AsyncImage(
+                model = chat.partnerAvatarUrl,
+                contentDescription = "Avatar",
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(CircleShape)
+                    .background(BorshchevykTheme.colors.surfaceVariant),
+                contentScale = ContentScale.Crop
             )
+        } else {
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(CircleShape)
+                    .background(BorshchevykTheme.colors.primaryContainer),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = initial,
+                    style = BorshchevykTheme.typography.titleMedium,
+                    color = BorshchevykTheme.colors.primary
+                )
+            }
         }
         
         Spacer(modifier = Modifier.width(16.dp))
