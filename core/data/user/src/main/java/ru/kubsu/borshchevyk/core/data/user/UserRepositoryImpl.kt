@@ -7,7 +7,7 @@ import ru.kubsu.borshchevyk.core.model.dto.PrivacySettingsResponse
 import ru.kubsu.borshchevyk.core.model.dto.UpdatePrivacySettingsRequest
 import ru.kubsu.borshchevyk.core.model.dto.UpdateProfileRequest
 import ru.kubsu.borshchevyk.core.model.dto.UserProfileResponse
-import ru.kubsu.borshchevyk.core.network.UserNetworkDataSource
+import ru.kubsu.borshchevyk.core.network.user.UserNetworkDataSource
 import javax.inject.Inject
 
 class UserRepositoryImpl @Inject constructor(

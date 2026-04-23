@@ -1,4 +1,4 @@
-package ru.kubsu.borshchevyk.core.network
+package ru.kubsu.borshchevyk.core.network.auth
 
 interface TokenProvider {
     suspend fun getAccessToken(): String?

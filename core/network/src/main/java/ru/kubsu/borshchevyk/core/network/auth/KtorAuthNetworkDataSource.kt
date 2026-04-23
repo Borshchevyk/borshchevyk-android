@@ -1,9 +1,11 @@
-package ru.kubsu.borshchevyk.core.network
+package ru.kubsu.borshchevyk.core.network.auth
 
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.withContext
 import ru.kubsu.borshchevyk.core.model.dto.ChallengeRequest
 import ru.kubsu.borshchevyk.core.model.dto.ChallengeResponse
 import ru.kubsu.borshchevyk.core.model.dto.LoginRequest
@@ -13,39 +15,51 @@ import ru.kubsu.borshchevyk.core.model.dto.RegisterRequest
 import ru.kubsu.borshchevyk.core.model.dto.RegisterResponse
 import ru.kubsu.borshchevyk.core.model.dto.VerifyRequest
 import ru.kubsu.borshchevyk.core.model.dto.VerifyResponse
+import ru.kubsu.borshchevyk.core.network.di.IoDispatcher
 import javax.inject.Inject
 
 class KtorAuthNetworkDataSource @Inject constructor(
-    private val httpClient: HttpClient
+    private val httpClient: HttpClient,
+    @IoDispatcher private val ioDispatcher: CoroutineDispatcher
 ) : AuthNetworkDataSource {
 
     override suspend fun register(request: RegisterRequest): RegisterResponse {
-        return httpClient.post("api/v1/auth/register") {
-            setBody(request)
-        }.body()
+        return withContext(ioDispatcher) {
+            httpClient.post("api/v1/auth/register") {
+                setBody(request)
+            }.body()
+        }
     }
 
     override suspend fun login(request: LoginRequest): LoginResponse {
-        return httpClient.post("api/v1/auth/login") {
-            setBody(request)
-        }.body()
+        return withContext(ioDispatcher) {
+            httpClient.post("api/v1/auth/login") {
+                setBody(request)
+            }.body()
+        }
     }
 
     override suspend fun challenge(request: ChallengeRequest): ChallengeResponse {
-        return httpClient.post("api/v1/auth/challenge") {
-            setBody(request)
-        }.body()
+        return withContext(ioDispatcher) {
+            httpClient.post("api/v1/auth/challenge") {
+                setBody(request)
+            }.body()
+        }
     }
 
     override suspend fun verify(request: VerifyRequest): VerifyResponse {
-        return httpClient.post("api/v1/auth/verify") {
-            setBody(request)
-        }.body()
+        return withContext(ioDispatcher) {
+            httpClient.post("api/v1/auth/verify") {
+                setBody(request)
+            }.body()
+        }
     }
 
     override suspend fun refresh(request: RefreshRequest): VerifyResponse {
-        return httpClient.post("api/v1/auth/refresh") {
-            setBody(request)
-        }.body()
+        return withContext(ioDispatcher) {
+            httpClient.post("api/v1/auth/refresh") {
+                setBody(request)
+            }.body()
+        }
     }
 }

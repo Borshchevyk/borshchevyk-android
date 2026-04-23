@@ -4,7 +4,7 @@ import ru.kubsu.borshchevyk.core.domain.user.ContactRepository
 import ru.kubsu.borshchevyk.core.model.domain.Contact
 import ru.kubsu.borshchevyk.core.model.dto.AddContactRequest
 import ru.kubsu.borshchevyk.core.model.dto.ContactResponse
-import ru.kubsu.borshchevyk.core.network.ContactNetworkDataSource
+import ru.kubsu.borshchevyk.core.network.user.ContactNetworkDataSource
 import javax.inject.Inject
 
 class ContactRepositoryImpl @Inject constructor(

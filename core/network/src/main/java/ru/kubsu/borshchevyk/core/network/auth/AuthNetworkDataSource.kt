@@ -1,4 +1,4 @@
-package ru.kubsu.borshchevyk.core.network
+package ru.kubsu.borshchevyk.core.network.auth
 
 import ru.kubsu.borshchevyk.core.model.dto.ChallengeRequest
 import ru.kubsu.borshchevyk.core.model.dto.ChallengeResponse

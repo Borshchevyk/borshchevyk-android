@@ -1,4 +1,4 @@
-package ru.kubsu.borshchevyk.core.network
+package ru.kubsu.borshchevyk.core.network.media
 
 import android.util.Log
 import io.ktor.client.HttpClient
@@ -11,15 +11,19 @@ import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.http.Headers
 import io.ktor.http.HttpHeaders
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.withContext
 import ru.kubsu.borshchevyk.core.model.dto.AttachmentResponse
 import ru.kubsu.borshchevyk.core.model.dto.AttachmentType
 import ru.kubsu.borshchevyk.core.model.dto.AttachmentUrlResult
 import ru.kubsu.borshchevyk.core.model.dto.ValidateAttachmentsRequest
 import ru.kubsu.borshchevyk.core.model.dto.ValidateAttachmentsResponse
+import ru.kubsu.borshchevyk.core.network.di.IoDispatcher
 import javax.inject.Inject
 
 class KtorMediaNetworkDataSource @Inject constructor(
-    private val httpClient: HttpClient
+    private val httpClient: HttpClient,
+    @IoDispatcher private val ioDispatcher: CoroutineDispatcher
 ) : MediaNetworkDataSource {
 
     private val TAG = "MediaNetworkDataSource"
@@ -51,16 +55,22 @@ class KtorMediaNetworkDataSource @Inject constructor(
     }
 
     override suspend fun getAttachmentUrl(attachmentId: String): AttachmentUrlResult {
-        return httpClient.get("api/v1/media/$attachmentId/url").body()
+        return withContext(ioDispatcher) {
+            httpClient.get("api/v1/media/$attachmentId/url").body()
+        }
     }
 
     override suspend fun deleteAttachment(attachmentId: String) {
-        httpClient.delete("api/v1/media/$attachmentId")
+        return withContext(ioDispatcher) {
+            httpClient.delete("api/v1/media/$attachmentId")
+        }
     }
 
     override suspend fun validateAttachments(request: ValidateAttachmentsRequest): ValidateAttachmentsResponse {
-        return httpClient.post("api/v1/media/validate") {
-            setBody(request)
-        }.body()
+        return withContext(ioDispatcher) {
+            httpClient.post("api/v1/media/validate") {
+                setBody(request)
+            }.body()
+        }
     }
 }

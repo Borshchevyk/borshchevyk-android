@@ -4,7 +4,7 @@ import ru.kubsu.borshchevyk.core.domain.message.MediaRepository
 import ru.kubsu.borshchevyk.core.model.dto.AttachmentResponse
 import ru.kubsu.borshchevyk.core.model.dto.AttachmentType
 import ru.kubsu.borshchevyk.core.model.dto.ValidateAttachmentsRequest
-import ru.kubsu.borshchevyk.core.network.MediaNetworkDataSource
+import ru.kubsu.borshchevyk.core.network.media.MediaNetworkDataSource
 import javax.inject.Inject
 
 class MediaRepositoryImpl @Inject constructor(

@@ -11,7 +11,7 @@ import ru.kubsu.borshchevyk.core.model.dto.PageResponse
 import ru.kubsu.borshchevyk.core.model.dto.TargetUserRequest
 import ru.kubsu.borshchevyk.core.model.dto.UpdateChatInfoRequest
 import ru.kubsu.borshchevyk.core.model.dto.UpdatePermissionsRequest
-import ru.kubsu.borshchevyk.core.network.ChatNetworkDataSource
+import ru.kubsu.borshchevyk.core.network.chat.ChatNetworkDataSource
 import javax.inject.Inject
 
 class ChatRepositoryImpl @Inject constructor(

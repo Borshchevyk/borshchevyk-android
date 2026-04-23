@@ -18,7 +18,7 @@ import ru.kubsu.borshchevyk.core.model.dto.ChallengeRequest
 import ru.kubsu.borshchevyk.core.model.dto.LoginRequest
 import ru.kubsu.borshchevyk.core.model.dto.RegisterRequest
 import ru.kubsu.borshchevyk.core.model.dto.VerifyRequest
-import ru.kubsu.borshchevyk.core.network.AuthNetworkDataSource
+import ru.kubsu.borshchevyk.core.network.auth.AuthNetworkDataSource
 import ru.kubsu.borshchevyk.core.security.KeyManager
 import java.security.MessageDigest
 import javax.inject.Inject

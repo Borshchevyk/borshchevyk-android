@@ -1,4 +1,4 @@
-package ru.kubsu.borshchevyk.core.network
+package ru.kubsu.borshchevyk.core.network.websocket
 
 import android.util.Log
 import io.ktor.client.HttpClient
@@ -18,6 +18,7 @@ import ru.kubsu.borshchevyk.core.model.dto.NotificationDto
 import ru.kubsu.borshchevyk.core.model.dto.ReactionEvent
 import ru.kubsu.borshchevyk.core.model.dto.ReadReceiptEvent
 import ru.kubsu.borshchevyk.core.model.dto.TypingEvent
+import ru.kubsu.borshchevyk.core.network.auth.TokenProvider
 import javax.inject.Inject
 import javax.inject.Singleton
 

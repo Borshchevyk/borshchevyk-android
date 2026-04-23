@@ -1,4 +1,4 @@
-package ru.kubsu.borshchevyk.core.network
+package ru.kubsu.borshchevyk.core.network.di
 
 import android.util.Log
 import dagger.Binds
@@ -26,6 +26,21 @@ import io.ktor.serialization.kotlinx.json.json
 import kotlinx.serialization.json.Json
 import ru.kubsu.borshchevyk.core.model.dto.RefreshRequest
 import ru.kubsu.borshchevyk.core.model.dto.VerifyResponse
+import ru.kubsu.borshchevyk.core.network.auth.AuthNetworkDataSource
+import ru.kubsu.borshchevyk.core.network.auth.KtorAuthNetworkDataSource
+import ru.kubsu.borshchevyk.core.network.auth.TokenProvider
+import ru.kubsu.borshchevyk.core.network.chat.ChatNetworkDataSource
+import ru.kubsu.borshchevyk.core.network.chat.KtorChatNetworkDataSource
+import ru.kubsu.borshchevyk.core.network.media.KtorMediaNetworkDataSource
+import ru.kubsu.borshchevyk.core.network.media.MediaNetworkDataSource
+import ru.kubsu.borshchevyk.core.network.message.KtorMessageNetworkDataSource
+import ru.kubsu.borshchevyk.core.network.message.MessageNetworkDataSource
+import ru.kubsu.borshchevyk.core.network.user.ContactNetworkDataSource
+import ru.kubsu.borshchevyk.core.network.user.KtorContactNetworkDataSource
+import ru.kubsu.borshchevyk.core.network.user.KtorUserNetworkDataSource
+import ru.kubsu.borshchevyk.core.network.user.UserNetworkDataSource
+import ru.kubsu.borshchevyk.core.network.websocket.KrossbowWebSocketDataSource
+import ru.kubsu.borshchevyk.core.network.websocket.WebSocketDataSource
 import javax.inject.Singleton
 
 @Module

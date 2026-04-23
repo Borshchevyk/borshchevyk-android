@@ -1,4 +1,4 @@
-package ru.kubsu.borshchevyk.core.network
+package ru.kubsu.borshchevyk.core.network.user
 
 import ru.kubsu.borshchevyk.core.model.dto.PrivacySettingsResponse
 import ru.kubsu.borshchevyk.core.model.dto.UpdatePrivacySettingsRequest

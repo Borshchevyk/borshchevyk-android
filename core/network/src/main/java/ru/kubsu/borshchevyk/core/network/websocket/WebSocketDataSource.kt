@@ -1,4 +1,4 @@
-package ru.kubsu.borshchevyk.core.network
+package ru.kubsu.borshchevyk.core.network.websocket
 
 import kotlinx.coroutines.flow.Flow
 import ru.kubsu.borshchevyk.core.model.dto.NotificationDto
