@@ -12,6 +12,8 @@ import ru.kubsu.borshchevyk.feature.profile.ProfileRoute
 import ru.kubsu.borshchevyk.feature.search.SearchRoute
 import ru.kubsu.borshchevyk.feature.chat.ui.ChatRoute as ChatScreenRoute
 
+import ru.kubsu.borshchevyk.feature.chat.ui.ChatSettingsRoute as ChatSettingsScreenRoute
+
 @Serializable
 object AuthRoute
 
@@ -26,6 +28,9 @@ object ProfileRoute
 
 @Serializable
 data class ChatRoute(val chatId: String)
+
+@Serializable
+data class ChatSettingsRoute(val chatId: String)
 
 @Composable
 fun BorshchevykNavHost(
@@ -87,6 +92,21 @@ fun BorshchevykNavHost(
             ChatScreenRoute(
                 onBackClick = {
                     navController.popBackStack()
+                },
+                onSettingsClick = { chatId ->
+                    navController.navigate(ChatSettingsRoute(chatId = chatId))
+                }
+            )
+        }
+
+        composable<ChatSettingsRoute> {
+            ChatSettingsScreenRoute(
+                onBackClick = {
+                    navController.popBackStack()
+                },
+                onChatDeletedLocally = {
+                    // Navigate back to ChatListRoute
+                    navController.popBackStack(ChatListRoute, inclusive = false)
                 }
             )
         }

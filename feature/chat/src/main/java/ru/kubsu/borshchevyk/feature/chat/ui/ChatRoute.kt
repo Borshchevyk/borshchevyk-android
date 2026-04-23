@@ -34,6 +34,7 @@ import ru.kubsu.borshchevyk.feature.chat.ui.components.MessageInput
 @Composable
 fun ChatRoute(
     onBackClick: () -> Unit,
+    onSettingsClick: (String) -> Unit,
     modifier: Modifier = Modifier,
     chatViewModel: ChatViewModel = hiltViewModel()
 ) {
@@ -48,6 +49,9 @@ fun ChatRoute(
                 }
                 is ChatEffect.NavigateBack -> {
                     onBackClick()
+                }
+                is ChatEffect.NavigateToSettings -> {
+                    onSettingsClick(effect.chatId)
                 }
             }
         }
@@ -71,84 +75,77 @@ fun ChatRoute(
                 }
             }
 
-            if (state.showSettings) {
-                ChatSettingsRoute(
-                    onBackClick = { chatViewModel.handleIntent(ChatIntent.ToggleSettings) },
-                    onChatDeletedLocally = { chatViewModel.handleIntent(ChatIntent.ChatDeletedLocally) }
-                )
-            } else {
-                Scaffold(
-                    topBar = {
-                        TopAppBar(
-                            title = { 
-                                Text(
-                                    text = if (state.context.isGroupChat) "Group Chat" else "Private Chat",
-                                    style = BorshchevykTheme.typography.titleMedium,
-                                    color = BorshchevykTheme.colors.onSurface
-                                ) 
-                            },
-                            navigationIcon = {
-                                IconButton(onClick = onBackClick) {
-                                    Icon(
-                                        Icons.AutoMirrored.Filled.ArrowBack, 
-                                        contentDescription = "Back",
-                                        tint = BorshchevykTheme.colors.onSurface
-                                    )
-                                }
-                            },
-                            actions = {
-                                IconButton(onClick = { chatViewModel.handleIntent(ChatIntent.ToggleSettings) }) {
-                                    Icon(
-                                        Icons.Default.Info, 
-                                        contentDescription = "Chat Info",
-                                        tint = BorshchevykTheme.colors.onSurface
-                                    )
-                                }
-                            },
-                            colors = TopAppBarDefaults.topAppBarColors(
-                                containerColor = BorshchevykTheme.colors.background
-                            )
+            Scaffold(
+                topBar = {
+                    TopAppBar(
+                        title = { 
+                            Text(
+                                text = if (state.context.isGroupChat) "Group Chat" else "Private Chat",
+                                style = BorshchevykTheme.typography.titleMedium,
+                                color = BorshchevykTheme.colors.onSurface
+                            ) 
+                        },
+                        navigationIcon = {
+                            IconButton(onClick = onBackClick) {
+                                Icon(
+                                    Icons.AutoMirrored.Filled.ArrowBack, 
+                                    contentDescription = "Back",
+                                    tint = BorshchevykTheme.colors.onSurface
+                                )
+                            }
+                        },
+                        actions = {
+                            IconButton(onClick = { chatViewModel.handleIntent(ChatIntent.OpenSettings) }) {
+                                Icon(
+                                    Icons.Default.Info, 
+                                    contentDescription = "Chat Info",
+                                    tint = BorshchevykTheme.colors.onSurface
+                                )
+                            }
+                        },
+                        colors = TopAppBarDefaults.topAppBarColors(
+                            containerColor = BorshchevykTheme.colors.background
                         )
-                    },
-                    bottomBar = {
-                        MessageInput(
-                            editingMessage = state.input.editingMessage,
-                            isSending = state.input.isSending,
-                            onSendMessage = { text, attachments -> chatViewModel.handleIntent(ChatIntent.SendMessage(text, attachments)) },
-                            onEditMessage = { id, text -> chatViewModel.handleIntent(ChatIntent.EditMessage(id, text)) },
-                            onCancelEdit = { chatViewModel.handleIntent(ChatIntent.SetEditingMessage(null)) },
-                            onTyping = { chatViewModel.handleIntent(ChatIntent.Typing) }
-                        )
-                    },
-                    containerColor = BorshchevykTheme.colors.background,
-                    modifier = modifier
-                ) { padding ->
-                    ChatScreen(
-                        contentState = state,
-                        onResolveAttachmentUrl = { attId -> chatViewModel.handleIntent(ChatIntent.ResolveAttachmentUrl(attId)) },
-                        onPinToggle = { msg ->
-                            if (msg.isPinned) chatViewModel.handleIntent(ChatIntent.UnpinMessage(msg.id))
-                            else chatViewModel.handleIntent(ChatIntent.PinMessage(msg.id))
-                        },
-                        onReactionToggle = { msgId, reaction ->
-                            chatViewModel.handleIntent(ChatIntent.ToggleReaction(msgId, reaction))
-                        },
-                        onEdit = { msg -> chatViewModel.handleIntent(ChatIntent.SetEditingMessage(msg)) },
-                        onDelete = { msgId, forAll ->
-                            chatViewModel.handleIntent(ChatIntent.DeleteMessage(msgId, forAll))
-                        },
-                        onMessageVisible = { msgId ->
-                            chatViewModel.handleIntent(ChatIntent.MessageVisible(msgId))
-                        },
-                        onLoadReaders = { msgId ->
-                            chatViewModel.handleIntent(ChatIntent.LoadReaders(msgId))
-                        },
-                        onLoadComments = { msgId ->
-                            chatViewModel.handleIntent(ChatIntent.LoadComments(msgId))
-                        },
-                        modifier = Modifier.padding(padding)
                     )
-                }
+                },
+                bottomBar = {
+                    MessageInput(
+                        editingMessage = state.input.editingMessage,
+                        isSending = state.input.isSending,
+                        onSendMessage = { text, attachments -> chatViewModel.handleIntent(ChatIntent.SendMessage(text, attachments)) },
+                        onEditMessage = { id, text -> chatViewModel.handleIntent(ChatIntent.EditMessage(id, text)) },
+                        onCancelEdit = { chatViewModel.handleIntent(ChatIntent.SetEditingMessage(null)) },
+                        onTyping = { chatViewModel.handleIntent(ChatIntent.Typing) }
+                    )
+                },
+                containerColor = BorshchevykTheme.colors.background,
+                modifier = modifier
+            ) { padding ->
+                ChatScreen(
+                    contentState = state,
+                    onResolveAttachmentUrl = { attId -> chatViewModel.handleIntent(ChatIntent.ResolveAttachmentUrl(attId)) },
+                    onPinToggle = { msg ->
+                        if (msg.isPinned) chatViewModel.handleIntent(ChatIntent.UnpinMessage(msg.id))
+                        else chatViewModel.handleIntent(ChatIntent.PinMessage(msg.id))
+                    },
+                    onReactionToggle = { msgId, reaction ->
+                        chatViewModel.handleIntent(ChatIntent.ToggleReaction(msgId, reaction))
+                    },
+                    onEdit = { msg -> chatViewModel.handleIntent(ChatIntent.SetEditingMessage(msg)) },
+                    onDelete = { msgId, forAll ->
+                        chatViewModel.handleIntent(ChatIntent.DeleteMessage(msgId, forAll))
+                    },
+                    onMessageVisible = { msgId ->
+                        chatViewModel.handleIntent(ChatIntent.MessageVisible(msgId))
+                    },
+                    onLoadReaders = { msgId ->
+                        chatViewModel.handleIntent(ChatIntent.LoadReaders(msgId))
+                    },
+                    onLoadComments = { msgId ->
+                        chatViewModel.handleIntent(ChatIntent.LoadComments(msgId))
+                    },
+                    modifier = Modifier.padding(padding)
+                )
             }
         }
     }

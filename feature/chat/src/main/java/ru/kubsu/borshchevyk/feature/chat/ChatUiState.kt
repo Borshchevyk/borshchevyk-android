@@ -33,7 +33,6 @@ sealed interface ChatUiState {
         val context: ChatContext,
         val feed: MessageFeed = MessageFeed(),
         val input: InputState = InputState(),
-        val showSettings: Boolean = false,
         val isChatDeleted: Boolean = false
     ) : ChatUiState
 }

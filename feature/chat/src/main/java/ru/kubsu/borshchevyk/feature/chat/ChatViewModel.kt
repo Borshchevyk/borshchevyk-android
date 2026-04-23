@@ -59,7 +59,7 @@ class ChatViewModel @Inject constructor(
 
     fun handleIntent(intent: ChatIntent) {
         when (intent) {
-            is ChatIntent.ToggleSettings -> toggleSettings()
+            is ChatIntent.OpenSettings -> openSettings()
             is ChatIntent.ChatDeletedLocally -> onChatDeletedLocally()
             is ChatIntent.Typing -> onTyping()
             is ChatIntent.SendMessage -> onSendMessage(intent.text, intent.attachments)
@@ -160,9 +160,9 @@ class ChatViewModel @Inject constructor(
         }
     }
 
-    private fun toggleSettings() {
-        _uiState.update { state ->
-            if (state is ChatUiState.Content) state.copy(showSettings = !state.showSettings) else state
+    private fun openSettings() {
+        viewModelScope.launch {
+            _effect.send(ChatEffect.NavigateToSettings(chatId))
         }
     }
 

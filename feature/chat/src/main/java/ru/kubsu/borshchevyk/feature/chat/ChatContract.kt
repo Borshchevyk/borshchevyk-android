@@ -15,7 +15,7 @@ data class AttachmentFile(
 )
 
 sealed interface ChatIntent {
-    object ToggleSettings : ChatIntent
+    object OpenSettings : ChatIntent
     object ChatDeletedLocally : ChatIntent
     object Typing : ChatIntent
     
@@ -35,4 +35,5 @@ sealed interface ChatIntent {
 sealed interface ChatEffect {
     data class ShowError(val message: String) : ChatEffect
     object NavigateBack : ChatEffect
+    data class NavigateToSettings(val chatId: String) : ChatEffect
 }
