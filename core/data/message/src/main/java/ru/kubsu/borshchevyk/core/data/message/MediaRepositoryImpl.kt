@@ -32,7 +32,12 @@ class MediaRepositoryImpl @Inject constructor(
     }
 
     override suspend fun getAttachmentUrl(attachmentId: String): String {
-        return networkDataSource.getAttachmentUrl(attachmentId).url
+        val relativeUrl = networkDataSource.getAttachmentUrl(attachmentId).url
+        return if (relativeUrl.startsWith("http")) {
+            relativeUrl
+        } else {
+            "https://borshchevik.su${if (relativeUrl.startsWith("/")) "" else "/"}$relativeUrl"
+        }
     }
 
     override suspend fun deleteAttachment(attachmentId: String) {

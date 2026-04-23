@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -33,12 +34,16 @@ import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
@@ -77,6 +82,8 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
+import coil.compose.SubcomposeAsyncImage
+import coil.request.ImageRequest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -747,36 +754,13 @@ internal fun MessageBubble(
                 Column(
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
                 ) {
-                    if (message.attachmentIds.isNotEmpty()) {
-                        message.attachmentIds.forEach { attachmentId ->
-                            var url by remember { mutableStateOf<String?>(null) }
-                            LaunchedEffect(attachmentId) {
-                                url = resolveAttachmentUrl(attachmentId)
-                            }
-                            if (url != null) {
-                                AsyncImage(
-                                    model = url,
-                                    contentDescription = "Attachment",
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(200.dp)
-                                        .padding(bottom = 8.dp)
-                                        .clip(RoundedCornerShape(12.dp)),
-                                    contentScale = ContentScale.Crop
-                                )
-                            } else {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(200.dp)
-                                        .padding(bottom = 8.dp)
-                                        .background(BorshchevykTheme.colors.surfaceVariant, RoundedCornerShape(12.dp)),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    CircularProgressIndicator(color = if (isFromMe) BorshchevykTheme.colors.onPrimary else BorshchevykTheme.colors.primary)
-                                }
-                            }
-                        }
+                    if (message.attachments.isNotEmpty()) {
+                        AttachmentGallery(
+                            attachments = message.attachments,
+                            resolveAttachmentUrl = resolveAttachmentUrl,
+                            isFromMe = isFromMe
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
                     }
 
                     if (message.text.isNotBlank()) {
@@ -891,6 +875,132 @@ internal fun MessageBubble(
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+internal fun AttachmentGallery(
+    attachments: List<ru.kubsu.borshchevyk.core.model.domain.Attachment>,
+    resolveAttachmentUrl: suspend (String) -> String?,
+    isFromMe: Boolean
+) {
+    if (attachments.isEmpty()) return
+
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        attachments.forEach { attachment ->
+            AttachmentItem(attachment, resolveAttachmentUrl, isFromMe)
+        }
+    }
+}
+
+@Composable
+internal fun AttachmentItem(
+    attachment: ru.kubsu.borshchevyk.core.model.domain.Attachment,
+    resolveAttachmentUrl: suspend (String) -> String?,
+    isFromMe: Boolean
+) {
+    var url by remember { mutableStateOf<String?>(null) }
+    var loadError by remember { mutableStateOf(false) }
+
+    LaunchedEffect(attachment.id) {
+        url = resolveAttachmentUrl(attachment.id)
+    }
+
+    val context = LocalContext.current
+    val imageRequest = remember(url) {
+        url?.let {
+            ImageRequest.Builder(context)
+                .data(it)
+                .crossfade(true)
+                .build()
+        }
+    }
+
+    if (attachment.type == ru.kubsu.borshchevyk.core.model.dto.AttachmentType.PHOTO && url != null && !loadError) {
+        SubcomposeAsyncImage(
+            model = imageRequest,
+            contentDescription = "Attachment",
+            modifier = Modifier
+                .fillMaxWidth(0.8f)
+                .aspectRatio(16f / 9f)
+                .clip(RoundedCornerShape(12.dp)),
+            contentScale = ContentScale.Crop,
+            loading = {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp),
+                        color = if (isFromMe) BorshchevykTheme.colors.onPrimary else BorshchevykTheme.colors.primary
+                    )
+                }
+            },
+            error = {
+                loadError = true
+                FileAttachmentCard(attachment, isFromMe)
+            }
+        )
+    } else {
+        FileAttachmentCard(attachment, isFromMe)
+    }
+}
+
+@Composable
+internal fun FileAttachmentCard(
+    attachment: ru.kubsu.borshchevyk.core.model.domain.Attachment,
+    isFromMe: Boolean
+) {
+    val formattedSize = remember(attachment.sizeBytes) {
+        val kb = attachment.sizeBytes / 1024.0
+        val mb = kb / 1024.0
+        when {
+            mb >= 1.0 -> "%.2f MB".format(java.util.Locale.US, mb)
+            kb >= 1.0 -> "%.2f KB".format(java.util.Locale.US, kb)
+            else -> "${attachment.sizeBytes} B"
+        }
+    }
+
+    Card(
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isFromMe) BorshchevykTheme.colors.primaryContainer else BorshchevykTheme.colors.background
+        ),
+        modifier = Modifier.fillMaxWidth(0.8f)
+    ) {
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = when(attachment.type) {
+                    ru.kubsu.borshchevyk.core.model.dto.AttachmentType.VOICE -> Icons.Default.Description // Placeholder
+                    else -> Icons.Default.Description
+                },
+                contentDescription = "File",
+                tint = if (isFromMe) BorshchevykTheme.colors.primary else BorshchevykTheme.colors.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = attachment.originalFilename,
+                    style = BorshchevykTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                    color = BorshchevykTheme.colors.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = formattedSize,
+                    style = BorshchevykTheme.typography.labelSmall,
+                    color = BorshchevykTheme.colors.onSurfaceVariant
+                )
+            }
+            IconButton(onClick = { /* TODO: Download */ }, modifier = Modifier.size(32.dp)) {
+                Icon(
+                    Icons.Default.Download,
+                    contentDescription = "Download",
+                    modifier = Modifier.size(20.dp),
+                    tint = BorshchevykTheme.colors.primary
+                )
             }
         }
     }

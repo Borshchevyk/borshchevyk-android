@@ -11,6 +11,15 @@ data class MessageReactionResponse(
 )
 
 @Serializable
+data class MessageAttachmentResponse(
+    val id: String,
+    val type: AttachmentType? = null,
+    val originalFilename: String? = null,
+    val extension: String? = null,
+    val sizeBytes: Long? = null
+)
+
+@Serializable
 data class MessageResponse(
     val id: String,
     val chatId: String,
@@ -26,7 +35,8 @@ data class MessageResponse(
     val parentMessageId: String? = null,
     val forwardedFromChatId: String? = null,
     val forwardedFromUserId: String? = null,
-    val attachmentIds: List<String>? = null
+    val attachments: List<MessageAttachmentResponse>? = null,
+    @SerialName("attachmentIds") val attachmentIdsOld: List<String>? = null // Support old string format
 )
 
 @Serializable
