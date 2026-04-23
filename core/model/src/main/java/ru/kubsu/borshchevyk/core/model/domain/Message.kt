@@ -29,5 +29,5 @@ data class Message(
     val parentMessageId: String? = null,
     val forwardedFromChatId: String? = null,
     val forwardedFromUserId: String? = null,
-    val attachmentIds: List<String> = emptyList()
+    val attachments: List<Attachment> = emptyList()
 )

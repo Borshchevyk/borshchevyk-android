@@ -48,10 +48,12 @@ import ru.kubsu.borshchevyk.core.domain.message.UnpinMessageUseCase
 import ru.kubsu.borshchevyk.core.domain.message.UpdateChatInfoUseCase
 import ru.kubsu.borshchevyk.core.domain.message.UpdateMemberPermissionsUseCase
 import ru.kubsu.borshchevyk.core.domain.message.UploadAttachmentUseCase
+import ru.kubsu.borshchevyk.core.model.domain.Attachment
 import ru.kubsu.borshchevyk.core.model.domain.ChatMember
 import ru.kubsu.borshchevyk.core.model.domain.ChatType
 import ru.kubsu.borshchevyk.core.model.domain.Message
 import ru.kubsu.borshchevyk.core.model.domain.MessageReaction
+import ru.kubsu.borshchevyk.core.model.dto.AttachmentType
 import ru.kubsu.borshchevyk.core.model.dto.UpdatePermissionsRequest
 import javax.inject.Inject
 
@@ -129,30 +131,44 @@ class ChatViewModel @Inject constructor(
         observeNewMessagesUseCase()
             .onEach { messageDto ->
                 if (messageDto.chatId.equals(chatId, ignoreCase = true)) {
-                    Log.d(TAG, "WS Received MessageDto: id=${messageDto.id}, isDeleted=${messageDto.isDeleted}")
-                    
                     _uiState.update { state ->
                         if (messageDto.isDeleted) {
-                            Log.d(TAG, "WS Filtering deleted message: ${messageDto.id}")
                             state.copy(
                                 messages = state.messages.filterNot { it.id == messageDto.id },
                                 pinnedMessages = state.pinnedMessages.filterNot { it.id == messageDto.id }
                             )
                         } else {
                             val existingMsg = state.messages.find { it.id == messageDto.id }
+                            
+                            val mappedAttachments = messageDto.attachments?.map { 
+                                Attachment(
+                                    id = it.id,
+                                    type = it.type ?: AttachmentType.FILE,
+                                    originalFilename = it.originalFilename ?: "file",
+                                    extension = it.extension ?: "",
+                                    sizeBytes = it.sizeBytes ?: 0L
+                                )
+                            } ?: messageDto.attachmentIdsOld?.map { 
+                                Attachment(
+                                    id = it.id,
+                                    type = it.type ?: AttachmentType.FILE,
+                                    originalFilename = it.originalFilename ?: "file",
+                                    extension = it.extension ?: "",
+                                    sizeBytes = it.sizeBytes ?: 0L
+                                )
+                            } ?: emptyList()
+
                             if (existingMsg != null) {
-                                Log.d(TAG, "WS Updating existing message: ${messageDto.id}")
                                 val updatedMsg = existingMsg.copy(
                                     text = messageDto.text,
                                     isDeleted = messageDto.isDeleted,
-                                    attachmentIds = messageDto.attachmentIds ?: existingMsg.attachmentIds
+                                    attachments = if (mappedAttachments.isNotEmpty()) mappedAttachments else existingMsg.attachments
                                 )
                                 state.copy(
                                     messages = state.messages.map { if (it.id == messageDto.id) updatedMsg else it },
                                     pinnedMessages = state.pinnedMessages.map { if (it.id == messageDto.id) updatedMsg else it }
                                 )
                             } else {
-                                Log.d(TAG, "WS Adding new message: ${messageDto.id}")
                                 val newMsg = Message(
                                     id = messageDto.id,
                                     chatId = messageDto.chatId,
@@ -167,7 +183,7 @@ class ChatViewModel @Inject constructor(
                                     parentMessageId = null,
                                     forwardedFromChatId = null,
                                     forwardedFromUserId = null,
-                                    attachmentIds = messageDto.attachmentIds ?: emptyList()
+                                    attachments = mappedAttachments
                                 )
                                 state.copy(messages = listOf(newMsg) + state.messages)
                             }
@@ -179,7 +195,6 @@ class ChatViewModel @Inject constructor(
 
         observeDeletedMessagesUseCase()
             .onEach { messageId ->
-                Log.d(TAG, "WS Received Local Delete ID: $messageId")
                 _uiState.update { state ->
                     state.copy(
                         messages = state.messages.filterNot { it.id == messageId },
@@ -191,7 +206,6 @@ class ChatViewModel @Inject constructor(
 
         observeTypingUseCase(chatId)
             .onEach { event ->
-                Log.d(TAG, "WS Received Typing Event: user=${event.userId}, isTyping=${event.isTyping}")
                 _uiState.update { state ->
                     val newTypingUsers = state.typingUsers.toMutableSet()
                     if (event.isTyping) newTypingUsers.add(event.userId) else newTypingUsers.remove(event.userId)
@@ -202,7 +216,6 @@ class ChatViewModel @Inject constructor(
 
         observeReactionsUseCase(chatId)
             .onEach { event ->
-                Log.d(TAG, "WS Received Reaction Event: msg=${event.messageId}, reaction=${event.reaction}, added=${event.isAdded}")
                 _uiState.update { state ->
                     state.copy(messages = state.messages.map { msg ->
                         if (msg.id == event.messageId) {
@@ -223,7 +236,6 @@ class ChatViewModel @Inject constructor(
 
         observePinsUseCase(chatId)
             .onEach { messageId ->
-                Log.d(TAG, "WS Received Pin: $messageId")
                 val pinned = getPinnedMessagesUseCase(chatId)
                 _uiState.update { state ->
                     val updatedMessages = state.messages.map { 
@@ -236,7 +248,6 @@ class ChatViewModel @Inject constructor(
 
         observeUnpinsUseCase(chatId)
             .onEach { messageId ->
-                Log.d(TAG, "WS Received Unpin: $messageId")
                 val pinned = getPinnedMessagesUseCase(chatId)
                 _uiState.update { state ->
                     val updatedMessages = state.messages.map { 
@@ -249,7 +260,6 @@ class ChatViewModel @Inject constructor(
             
         observeReadReceiptsUseCase(chatId)
             .onEach { event ->
-                Log.d(TAG, "WS Received Read Receipt: msg=${event.messageId}, user=${event.userId}")
                 val readers = getMessageReadersUseCase(chatId, event.messageId)
                 _uiState.update { state ->
                     val newReadersMap = state.readersByMessageId.toMutableMap()

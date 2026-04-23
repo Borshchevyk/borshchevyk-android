@@ -1,8 +1,10 @@
 package ru.kubsu.borshchevyk.core.data.message
 import kotlinx.coroutines.flow.Flow
 import ru.kubsu.borshchevyk.core.domain.message.MessageRepository
+import ru.kubsu.borshchevyk.core.model.domain.Attachment
 import ru.kubsu.borshchevyk.core.model.domain.Message
 import ru.kubsu.borshchevyk.core.model.domain.MessageReaction
+import ru.kubsu.borshchevyk.core.model.dto.AttachmentType
 import ru.kubsu.borshchevyk.core.model.dto.EditMessageRequest
 import ru.kubsu.borshchevyk.core.model.dto.MessageResponse
 import ru.kubsu.borshchevyk.core.model.dto.NotificationDto
@@ -112,6 +114,16 @@ class MessageRepositoryImpl @Inject constructor(
         parentMessageId = parentMessageId,
         forwardedFromChatId = forwardedFromChatId,
         forwardedFromUserId = forwardedFromUserId,
-        attachmentIds = attachmentIds ?: emptyList()
+        attachments = attachments?.map { 
+            Attachment(
+                id = it.id,
+                type = it.type ?: AttachmentType.FILE,
+                originalFilename = it.originalFilename ?: "file",
+                extension = it.extension ?: "",
+                sizeBytes = it.sizeBytes ?: 0L
+            )
+        } ?: attachmentIdsOld?.map { 
+            Attachment(id = it, type = AttachmentType.FILE) 
+        } ?: emptyList()
     )
 }
