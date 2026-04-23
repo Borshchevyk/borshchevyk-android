@@ -18,6 +18,7 @@ import io.ktor.client.plugins.defaultRequest
 import io.ktor.client.plugins.logging.LogLevel
 import io.ktor.client.plugins.logging.Logger
 import io.ktor.client.plugins.logging.Logging
+import io.ktor.client.request.HttpRequestPipeline
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
@@ -120,6 +121,14 @@ object NetworkModule {
             defaultRequest {
                 url("https://borshchevik.su/") 
                 contentType(ContentType.Application.Json)
+            }
+        }
+
+        client.requestPipeline.intercept(HttpRequestPipeline.State) {
+            val token = tokenProvider.getAccessToken()
+            if (token != null && !context.url.pathSegments.contains("auth")) {
+                context.headers.remove(io.ktor.http.HttpHeaders.Authorization)
+                context.headers.append(io.ktor.http.HttpHeaders.Authorization, "Bearer $token")
             }
         }
 

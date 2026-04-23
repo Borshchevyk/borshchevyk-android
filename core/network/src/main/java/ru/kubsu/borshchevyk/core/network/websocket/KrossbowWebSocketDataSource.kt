@@ -5,6 +5,7 @@ import io.ktor.client.HttpClient
 import io.ktor.client.plugins.websocket.WebSockets
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
@@ -61,8 +62,13 @@ class KrossbowWebSocketDataSource @Inject constructor(
 
     override suspend fun disconnect() {
         Log.d(TAG, "Disconnecting WebSocket.")
-        _session.value?.disconnect()
-        _session.value = null
+        try {
+            _session.value?.disconnect()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error disconnecting WebSocket", e)
+        } finally {
+            _session.value = null
+        }
     }
 
     private fun <T> observeTopic(destination: String, mapper: (String) -> T): Flow<T> {
@@ -70,10 +76,17 @@ class KrossbowWebSocketDataSource @Inject constructor(
             .filterNotNull()
             .flatMapLatest { s ->
                 Log.d(TAG, "Subscribing to $destination")
-                s.subscribeText(destination).map { msg ->
-                    Log.d(TAG, "WS Received on $destination: $msg")
-                    mapper(msg)
-                }
+                s.subscribeText(destination)
+                    .map { msg ->
+                        Log.d(TAG, "WS Received on $destination: $msg")
+                        mapper(msg)
+                    }
+                    .catch { e ->
+                        Log.e(TAG, "WS Subscription error on $destination", e)
+                    }
+            }
+            .catch { e ->
+                Log.e(TAG, "WS Flow error on $destination", e)
             }
     }
 
@@ -99,7 +112,11 @@ class KrossbowWebSocketDataSource @Inject constructor(
         observeTopic("/topic/chat/$chatId/read") { json.decodeFromString<ReadReceiptEvent>(it) }
 
     override suspend fun sendTypingEvent(chatId: String, isTyping: Boolean) {
-        val payload = if (isTyping) "true" else "false"
-        _session.value?.sendText("/app/chat/$chatId/typing", payload)
+        try {
+            val payload = if (isTyping) "true" else "false"
+            _session.value?.sendText("/app/chat/$chatId/typing", payload)
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to send typing event", e)
+        }
     }
 }

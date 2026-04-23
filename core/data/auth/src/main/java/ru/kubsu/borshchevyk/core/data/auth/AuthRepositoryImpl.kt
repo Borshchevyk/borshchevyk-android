@@ -19,6 +19,7 @@ import ru.kubsu.borshchevyk.core.model.dto.LoginRequest
 import ru.kubsu.borshchevyk.core.model.dto.RegisterRequest
 import ru.kubsu.borshchevyk.core.model.dto.VerifyRequest
 import ru.kubsu.borshchevyk.core.network.auth.AuthNetworkDataSource
+import ru.kubsu.borshchevyk.core.network.websocket.WebSocketDataSource
 import ru.kubsu.borshchevyk.core.security.KeyManager
 import java.security.MessageDigest
 import javax.inject.Inject
@@ -26,7 +27,8 @@ import javax.inject.Inject
 class AuthRepositoryImpl @Inject constructor(
     private val networkDataSource: AuthNetworkDataSource,
     private val keyManager: KeyManager,
-    private val authPreferences: AuthPreferences
+    private val authPreferences: AuthPreferences,
+    private val webSocketDataSource: WebSocketDataSource
 ) : AuthRepository {
 
     override val accessToken: Flow<String?> = authPreferences.accessToken
@@ -36,6 +38,9 @@ class AuthRepositoryImpl @Inject constructor(
     override suspend fun logout() {
         authPreferences.clearTokens()
         authPreferences.clearIdentity()
+        
+        webSocketDataSource.disconnect()
+        
     }
 
     override suspend fun getUserId(): String? {

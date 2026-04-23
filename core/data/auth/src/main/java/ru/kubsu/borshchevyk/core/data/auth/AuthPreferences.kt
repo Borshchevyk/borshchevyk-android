@@ -57,16 +57,13 @@ class AuthPreferences @Inject constructor(@ApplicationContext private val contex
 
     override suspend fun clearTokens() {
         context.dataStore.edit { prefs ->
-            prefs.remove(ACCESS_TOKEN)
-            prefs.remove(REFRESH_TOKEN)
+            prefs.clear()
         }
     }
 
     suspend fun clearIdentity() {
         context.dataStore.edit { prefs ->
-            prefs.remove(USER_ID)
-            prefs.remove(TAG)
-            prefs.remove(LOCAL_WRAPPED_PRIVATE_KEY)
+            prefs.clear()
         }
     }
 
