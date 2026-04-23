@@ -9,7 +9,7 @@ import kotlinx.serialization.Serializable
 import ru.kubsu.borshchevyk.feature.auth.ui.AuthRoute
 import ru.kubsu.borshchevyk.feature.chat.ui.chatlist.ChatListRoute
 import ru.kubsu.borshchevyk.feature.profile.ProfileRoute
-import ru.kubsu.borshchevyk.feature.search.SearchRoute
+import ru.kubsu.borshchevyk.feature.search.ui.SearchRoute
 import ru.kubsu.borshchevyk.feature.chat.ui.chat.ChatRoute as ChatScreenRoute
 
 import ru.kubsu.borshchevyk.feature.chat.ui.chat.ChatSettingsRoute as ChatSettingsScreenRoute
