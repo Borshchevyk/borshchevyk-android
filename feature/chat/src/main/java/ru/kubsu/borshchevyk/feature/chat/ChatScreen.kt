@@ -98,9 +98,9 @@ import ru.kubsu.borshchevyk.core.ui.theme.BorshchevykTheme
 fun ChatRoute(
     onBackClick: () -> Unit,
     modifier: Modifier = Modifier,
-    viewModel: ChatViewModel = hiltViewModel()
+    chatViewModel: ChatViewModel = hiltViewModel()
 ) {
-    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val uiState by chatViewModel.uiState.collectAsStateWithLifecycle()
 
     LaunchedEffect(uiState.isChatDeleted) {
         if (uiState.isChatDeleted) {
@@ -109,17 +109,9 @@ fun ChatRoute(
     }
 
     if (uiState.showSettings) {
-        ChatSettingsScreen(
-            uiState = uiState,
-            onBackClick = { viewModel.toggleSettings() },
-            onInvite = { viewModel.onInviteUser(it) },
-            onGenerateLink = { viewModel.onGenerateInviteLink() },
-            onUpdatePermissions = { targetUserId, request -> viewModel.onUpdatePermissions(targetUserId, request) },
-            onClearHistory = { forAll -> viewModel.onClearHistory(forAll) },
-            onDeleteChat = { viewModel.onDeleteChat() },
-            onKickUser = { targetUserId -> viewModel.onKickUser(targetUserId) },
-            onLeaveChat = { viewModel.onLeaveChat() },
-            onUpdateChatInfo = { title, desc -> viewModel.onUpdateChatInfo(title, desc) }
+        ChatSettingsRoute(
+            onBackClick = { chatViewModel.toggleSettings() },
+            onChatDeletedLocally = { chatViewModel.onChatDeletedLocally() }
         )
     } else {
         Scaffold(
@@ -142,7 +134,7 @@ fun ChatRoute(
                         }
                     },
                     actions = {
-                        IconButton(onClick = { viewModel.toggleSettings() }) {
+                        IconButton(onClick = { chatViewModel.toggleSettings() }) {
                             Icon(
                                 Icons.Default.Info, 
                                 contentDescription = "Chat Info",
@@ -159,10 +151,10 @@ fun ChatRoute(
                 MessageInput(
                     editingMessage = uiState.editingMessage,
                     isSending = uiState.isSending,
-                    onSendMessage = { text, attachments -> viewModel.onSendMessage(text, attachments) },
-                    onEditMessage = viewModel::onEditMessage,
-                    onCancelEdit = { viewModel.setEditingMessage(null) },
-                    onTyping = viewModel::onTyping
+                    onSendMessage = { text, attachments -> chatViewModel.onSendMessage(text, attachments) },
+                    onEditMessage = chatViewModel::onEditMessage,
+                    onCancelEdit = { chatViewModel.setEditingMessage(null) },
+                    onTyping = chatViewModel::onTyping
                 )
             },
             containerColor = BorshchevykTheme.colors.background,
@@ -170,26 +162,26 @@ fun ChatRoute(
         ) { padding ->
             ChatScreen(
                 uiState = uiState,
-                resolveAttachmentUrl = { viewModel.resolveAttachmentUrl(it) },
+                resolveAttachmentUrl = { chatViewModel.resolveAttachmentUrl(it) },
                 onPinToggle = { msg ->
-                    if (msg.isPinned) viewModel.onUnpinMessage(msg.id)
-                    else viewModel.onPinMessage(msg.id)
+                    if (msg.isPinned) chatViewModel.onUnpinMessage(msg.id)
+                    else chatViewModel.onPinMessage(msg.id)
                 },
                 onReactionToggle = { msgId, reaction ->
-                    viewModel.onToggleReaction(msgId, reaction)
+                    chatViewModel.onToggleReaction(msgId, reaction)
                 },
-                onEdit = { msg -> viewModel.setEditingMessage(msg) },
+                onEdit = { msg -> chatViewModel.setEditingMessage(msg) },
                 onDelete = { msgId, forAll ->
-                    viewModel.onDeleteMessage(msgId, forAll)
+                    chatViewModel.onDeleteMessage(msgId, forAll)
                 },
                 onMessageVisible = { msgId ->
-                    viewModel.onMessageVisible(msgId)
+                    chatViewModel.onMessageVisible(msgId)
                 },
                 onLoadReaders = { msgId ->
-                    viewModel.onLoadReaders(msgId)
+                    chatViewModel.onLoadReaders(msgId)
                 },
                 onLoadComments = { msgId ->
-                    viewModel.onLoadComments(msgId)
+                    chatViewModel.onLoadComments(msgId)
                 },
                 modifier = Modifier.padding(padding)
             )
@@ -197,10 +189,39 @@ fun ChatRoute(
     }
 }
 
+@Composable
+fun ChatSettingsRoute(
+    onBackClick: () -> Unit,
+    onChatDeletedLocally: () -> Unit,
+    viewModel: ChatSettingsViewModel = hiltViewModel()
+) {
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+
+    LaunchedEffect(uiState.isChatDeleted) {
+        if (uiState.isChatDeleted) {
+            onChatDeletedLocally()
+        }
+    }
+
+    ChatSettingsScreen(
+        uiState = uiState,
+        onBackClick = onBackClick,
+        onInvite = viewModel::onInviteUser,
+        onGenerateLink = viewModel::onGenerateInviteLink,
+        onUpdatePermissions = viewModel::onUpdatePermissions,
+        onClearHistory = viewModel::onClearHistory,
+        onDeleteChat = viewModel::onDeleteChat,
+        onKickUser = viewModel::onKickUser,
+        onLeaveChat = viewModel::onLeaveChat,
+        onUpdateChatInfo = viewModel::onUpdateChatInfo
+    )
+}
+
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatSettingsScreen(
-    uiState: ChatUiState,
+    uiState: ChatSettingsUiState,
     onBackClick: () -> Unit,
     onInvite: (String) -> Unit,
     onGenerateLink: () -> Unit,

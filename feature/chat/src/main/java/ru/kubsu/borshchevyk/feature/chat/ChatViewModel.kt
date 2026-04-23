@@ -16,16 +16,7 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import ru.kubsu.borshchevyk.core.domain.auth.GetUserIdUseCase
-import ru.kubsu.borshchevyk.core.domain.chat.ClearChatHistoryUseCase
-import ru.kubsu.borshchevyk.core.domain.chat.DeleteChatUseCase
-import ru.kubsu.borshchevyk.core.domain.chat.GenerateInviteLinkUseCase
-import ru.kubsu.borshchevyk.core.domain.chat.GetChatMembersUseCase
 import ru.kubsu.borshchevyk.core.domain.chat.GetUserChatsUseCase
-import ru.kubsu.borshchevyk.core.domain.chat.InviteUserUseCase
-import ru.kubsu.borshchevyk.core.domain.chat.KickUserUseCase
-import ru.kubsu.borshchevyk.core.domain.chat.LeaveChatUseCase
-import ru.kubsu.borshchevyk.core.domain.chat.UpdateChatInfoUseCase
-import ru.kubsu.borshchevyk.core.domain.chat.UpdateMemberPermissionsUseCase
 import ru.kubsu.borshchevyk.core.domain.message.AddReactionUseCase
 import ru.kubsu.borshchevyk.core.domain.message.DeleteMessageUseCase
 import ru.kubsu.borshchevyk.core.domain.message.EditMessageUseCase
@@ -49,12 +40,10 @@ import ru.kubsu.borshchevyk.core.domain.message.SendTypingEventUseCase
 import ru.kubsu.borshchevyk.core.domain.message.UnpinMessageUseCase
 import ru.kubsu.borshchevyk.core.domain.message.UploadAttachmentUseCase
 import ru.kubsu.borshchevyk.core.model.domain.Attachment
-import ru.kubsu.borshchevyk.core.model.domain.ChatMember
 import ru.kubsu.borshchevyk.core.model.domain.ChatType
 import ru.kubsu.borshchevyk.core.model.domain.Message
 import ru.kubsu.borshchevyk.core.model.domain.MessageReaction
 import ru.kubsu.borshchevyk.core.model.dto.AttachmentType
-import ru.kubsu.borshchevyk.core.model.dto.UpdatePermissionsRequest
 import javax.inject.Inject
 
 data class ChatUiState(
@@ -65,8 +54,6 @@ data class ChatUiState(
     val pinnedMessages: List<Message> = emptyList(),
     val commentsByMessageId: Map<String, List<Message>> = emptyMap(),
     val readersByMessageId: Map<String, List<String>> = emptyMap(),
-    val members: List<ChatMember> = emptyList(),
-    val inviteLink: String? = null,
     val showSettings: Boolean = false,
     val editingMessage: Message? = null,
     val typingUsers: Set<String> = emptySet(),
@@ -100,18 +87,9 @@ class ChatViewModel @Inject constructor(
     private val observeUnpinsUseCase: ObserveUnpinsUseCase,
     private val observeReadReceiptsUseCase: ObserveReadReceiptsUseCase,
     private val sendTypingEventUseCase: SendTypingEventUseCase,
-    private val getChatMembersUseCase: GetChatMembersUseCase,
-    private val inviteUserUseCase: InviteUserUseCase,
-    private val generateInviteLinkUseCase: GenerateInviteLinkUseCase,
     private val getUserChatsUseCase: GetUserChatsUseCase,
-    private val updateMemberPermissionsUseCase: UpdateMemberPermissionsUseCase,
     private val uploadAttachmentUseCase: UploadAttachmentUseCase,
-    private val getAttachmentUrlUseCase: GetAttachmentUrlUseCase,
-    private val clearChatHistoryUseCase: ClearChatHistoryUseCase,
-    private val deleteChatUseCase: DeleteChatUseCase,
-    private val kickUserUseCase: KickUserUseCase,
-    private val leaveChatUseCase: LeaveChatUseCase,
-    private val updateChatInfoUseCase: UpdateChatInfoUseCase
+    private val getAttachmentUrlUseCase: GetAttachmentUrlUseCase
 ) : ViewModel() {
 
     private val TAG = "ChatViewModel"
@@ -280,14 +258,12 @@ class ChatViewModel @Inject constructor(
                 val isGroup = chat?.type == ChatType.GROUP
                 val history = loadChatHistoryUseCase(chatId).filterNot { it.isDeleted }
                 val pinned = getPinnedMessagesUseCase(chatId).filterNot { it.isDeleted }
-                val membersPage = getChatMembersUseCase(chatId, 0, 100)
                 _uiState.update { 
                     it.copy(
                         currentUserId = userId,
                         isGroupChat = isGroup,
                         messages = history, 
                         pinnedMessages = pinned,
-                        members = membersPage.content,
                         isLoading = false 
                     ) 
                 }
@@ -301,99 +277,8 @@ class ChatViewModel @Inject constructor(
         _uiState.update { it.copy(showSettings = !it.showSettings) }
     }
 
-    fun onInviteUser(userId: String) {
-        viewModelScope.launch {
-            try {
-                inviteUserUseCase(chatId, userId)
-                loadData()
-            } catch (e: Exception) {
-                _uiState.update { it.copy(error = e.message) }
-            }
-        }
-    }
-
-    fun onGenerateInviteLink() {
-        viewModelScope.launch {
-            try {
-                val link = generateInviteLinkUseCase(chatId)
-                _uiState.update { it.copy(inviteLink = link) }
-            } catch (e: Exception) {
-                _uiState.update { it.copy(error = e.message) }
-            }
-        }
-    }
-
-    fun onUpdatePermissions(targetUserId: String, request: UpdatePermissionsRequest) {
-        viewModelScope.launch {
-            try {
-                updateMemberPermissionsUseCase(chatId, targetUserId, request)
-                val membersPage = getChatMembersUseCase(chatId, 0, 100)
-                _uiState.update { it.copy(members = membersPage.content) }
-            } catch (e: Exception) {
-                _uiState.update { it.copy(error = e.message) }
-            }
-        }
-    }
-
-    fun onClearHistory(forAll: Boolean) {
-        viewModelScope.launch {
-            try {
-                clearChatHistoryUseCase(chatId, forAll)
-                _uiState.update { state ->
-                    state.copy(
-                        messages = emptyList(),
-                        pinnedMessages = emptyList()
-                    )
-                }
-            } catch (e: Exception) {
-                _uiState.update { it.copy(error = e.message) }
-            }
-        }
-    }
-
-    fun onDeleteChat() {
-        viewModelScope.launch {
-            try {
-                deleteChatUseCase(chatId)
-                _uiState.update { it.copy(isChatDeleted = true) }
-            } catch (e: Exception) {
-                _uiState.update { it.copy(error = e.message) }
-            }
-        }
-    }
-
-    fun onKickUser(targetUserId: String) {
-        viewModelScope.launch {
-            try {
-                kickUserUseCase(chatId, targetUserId)
-                val membersPage = getChatMembersUseCase(chatId, 0, 100)
-                _uiState.update { it.copy(members = membersPage.content) }
-            } catch (e: Exception) {
-                _uiState.update { it.copy(error = e.message) }
-            }
-        }
-    }
-
-    fun onLeaveChat() {
-        viewModelScope.launch {
-            try {
-                leaveChatUseCase(chatId)
-                _uiState.update { it.copy(isChatDeleted = true) }
-            } catch (e: Exception) {
-                _uiState.update { it.copy(error = e.message) }
-            }
-        }
-    }
-
-    fun onUpdateChatInfo(title: String?, description: String?) {
-        viewModelScope.launch {
-            try {
-                updateChatInfoUseCase(chatId, ru.kubsu.borshchevyk.core.model.dto.UpdateChatInfoRequest(title = title, description = description))
-                loadData()
-            } catch (e: Exception) {
-                _uiState.update { it.copy(error = e.message) }
-            }
-        }
+    fun onChatDeletedLocally() {
+        _uiState.update { it.copy(isChatDeleted = true) }
     }
 
     fun onTyping() {
