@@ -6,7 +6,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import kotlinx.serialization.Serializable
-import ru.kubsu.borshchevyk.feature.auth.AuthRoute
+import ru.kubsu.borshchevyk.feature.auth.ui.AuthRoute
 import ru.kubsu.borshchevyk.feature.chat.ui.chatlist.ChatListRoute
 import ru.kubsu.borshchevyk.feature.profile.ProfileRoute
 import ru.kubsu.borshchevyk.feature.search.SearchRoute
