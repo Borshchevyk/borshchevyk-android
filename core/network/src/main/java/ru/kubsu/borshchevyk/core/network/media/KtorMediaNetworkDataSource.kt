@@ -4,18 +4,18 @@ import android.util.Log
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.request.delete
-import io.ktor.client.request.forms.MultiPartFormDataContent
-import io.ktor.client.request.forms.formData
 import io.ktor.client.request.get
 import io.ktor.client.request.post
+import io.ktor.client.request.put
 import io.ktor.client.request.setBody
-import io.ktor.http.Headers
-import io.ktor.http.HttpHeaders
+import io.ktor.http.ContentType
+import io.ktor.http.contentType
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 import ru.kubsu.borshchevyk.core.model.dto.AttachmentResponse
-import ru.kubsu.borshchevyk.core.model.dto.AttachmentType
 import ru.kubsu.borshchevyk.core.model.dto.AttachmentUrlResult
+import ru.kubsu.borshchevyk.core.model.dto.RequestUploadUrlRequest
+import ru.kubsu.borshchevyk.core.model.dto.UploadUrlResult
 import ru.kubsu.borshchevyk.core.model.dto.ValidateAttachmentsRequest
 import ru.kubsu.borshchevyk.core.model.dto.ValidateAttachmentsResponse
 import ru.kubsu.borshchevyk.core.network.di.IoDispatcher
@@ -28,30 +28,30 @@ class KtorMediaNetworkDataSource @Inject constructor(
 
     private val TAG = "MediaNetworkDataSource"
 
-    override suspend fun uploadFile(
-        fileBytes: ByteArray,
-        fileName: String,
-        contentType: String,
-        type: AttachmentType,
-        width: Int?,
-        height: Int?,
-        duration: Double?
-    ): AttachmentResponse {
-        Log.d(TAG, "Uploading file: $fileName, type: $type, size: ${fileBytes.size}")
-        return httpClient.post("api/v1/media/upload") {
-            setBody(MultiPartFormDataContent(
-                formData {
-                    append("file", fileBytes, Headers.build {
-                        append(HttpHeaders.ContentType, contentType)
-                        append(HttpHeaders.ContentDisposition, "filename=\"$fileName\"")
-                    })
-                    append("type", type.name)
-                    width?.let { append("width", it.toString()) }
-                    height?.let { append("height", it.toString()) }
-                    duration?.let { append("duration", it.toString()) }
-                }
-            ))
-        }.body()
+    override suspend fun requestUploadUrl(request: RequestUploadUrlRequest): UploadUrlResult {
+        Log.d(TAG, "Requesting upload URL for: ${request.originalFilename}, type: ${request.type}")
+        return withContext(ioDispatcher) {
+            httpClient.post("api/v1/media/upload-url") {
+                setBody(request)
+            }.body()
+        }
+    }
+
+    override suspend fun uploadToS3(url: String, fileBytes: ByteArray, contentType: String) {
+        Log.d(TAG, "Uploading file to S3: size ${fileBytes.size}, content-type: $contentType")
+        return withContext(ioDispatcher) {
+            httpClient.put(url) {
+                contentType(ContentType.parse(contentType))
+                setBody(fileBytes)
+            }
+        }
+    }
+
+    override suspend fun completeUpload(attachmentId: String): AttachmentResponse {
+        Log.d(TAG, "Completing upload for attachment: $attachmentId")
+        return withContext(ioDispatcher) {
+            httpClient.put("api/v1/media/$attachmentId/complete").body()
+        }
     }
 
     override suspend fun getAttachmentUrl(attachmentId: String): AttachmentUrlResult {

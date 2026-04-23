@@ -48,6 +48,25 @@ data class AttachmentUrlResult(
 )
 
 @Serializable
+data class RequestUploadUrlRequest(
+    val type: AttachmentType,
+    val contentType: String,
+    val originalFilename: String,
+    val extension: String,
+    val sizeBytes: Long,
+    val width: Int? = null,
+    val height: Int? = null,
+    val duration: Double? = null
+)
+
+@Serializable
+data class UploadUrlResult(
+    val attachmentId: String,
+    val uploadUrl: String,
+    val s3Key: String
+)
+
+@Serializable
 data class ValidateAttachmentsRequest(
     val attachmentIds: List<String>
 )

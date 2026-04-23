@@ -16,15 +16,28 @@ class UploadAttachmentUseCase @Inject constructor(
         height: Int? = null,
         duration: Double? = null
     ): String {
-        val response = mediaRepository.uploadFile(
-            fileBytes = fileBytes,
-            fileName = originalFilename,
+        // Step 1: Request pre-signed URL from backend
+        val (attachmentId, uploadUrl) = mediaRepository.requestUploadUrl(
+            originalFilename = originalFilename,
             contentType = contentType,
+            extension = extension,
             type = type,
+            sizeBytes = fileBytes.size.toLong(),
             width = width,
             height = height,
             duration = duration
         )
-        return response.id
+
+        // Step 2: Upload raw bytes directly to S3 using the pre-signed URL
+        mediaRepository.uploadToS3(
+            url = uploadUrl,
+            fileBytes = fileBytes,
+            contentType = contentType
+        )
+
+        // Step 3: Notify backend that upload is complete
+        val completedAttachment = mediaRepository.completeUpload(attachmentId)
+
+        return completedAttachment.id
     }
 }
