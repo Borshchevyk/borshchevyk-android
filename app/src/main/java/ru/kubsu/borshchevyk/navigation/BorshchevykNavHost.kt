@@ -8,9 +8,9 @@ import androidx.navigation.compose.composable
 import kotlinx.serialization.Serializable
 import ru.kubsu.borshchevyk.feature.auth.AuthRoute
 import ru.kubsu.borshchevyk.feature.chat.ChatListRoute
-import ru.kubsu.borshchevyk.feature.chat.ChatRoute
 import ru.kubsu.borshchevyk.feature.profile.ProfileRoute
 import ru.kubsu.borshchevyk.feature.search.SearchRoute
+import ru.kubsu.borshchevyk.feature.chat.ui.ChatRoute as ChatScreenRoute
 
 @Serializable
 object AuthRoute
@@ -84,7 +84,7 @@ fun BorshchevykNavHost(
         }
 
         composable<ChatRoute> {
-            ChatRoute(
+            ChatScreenRoute(
                 onBackClick = {
                     navController.popBackStack()
                 }
