@@ -13,7 +13,8 @@ data class MessageFeed(
     val pinnedMessages: List<Message> = emptyList(),
     val commentsByMessageId: Map<String, List<Message>> = emptyMap(),
     val readersByMessageId: Map<String, List<String>> = emptyMap(),
-    val attachmentUrls: Map<String, String> = emptyMap()
+    val attachmentUrls: Map<String, String> = emptyMap(),
+    val resolvedUsers: Map<String, ru.kubsu.borshchevyk.core.model.domain.User> = emptyMap()
 )
 
 data class InputState(

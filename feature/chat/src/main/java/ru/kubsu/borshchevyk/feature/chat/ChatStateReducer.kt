@@ -53,24 +53,51 @@ fun ChatUiState.reduce(event: ChatEvent): ChatUiState {
                             )
                         )
                     } else {
-                        val newMsg = Message(
-                            id = dto.id,
-                            chatId = dto.chatId,
-                            authorId = dto.authorId,
-                            text = dto.text,
-                            createdAt = dto.createdAt,
-                            status = dto.status?.let { ru.kubsu.borshchevyk.core.model.domain.MessageStatus.valueOf(it) },
-                            isDeleted = dto.isDeleted,
-                            source = ru.kubsu.borshchevyk.core.model.domain.MessageSource.ONLINE,
-                            isPinned = false,
-                            reactions = emptyList(),
-                            commentsCount = 0,
-                            parentMessageId = null,
-                            forwardedFromChatId = null,
-                            forwardedFromUserId = null,
-                            attachments = mappedAttachments
-                        )
-                        this.copy(feed = this.feed.copy(messages = listOf(newMsg) + this.feed.messages))
+                        // Check if message already exists in the list to avoid duplicate keys
+                        val alreadyExists = this.feed.messages.any { it.id == dto.id }
+                        if (alreadyExists) {
+                            val updatedMsg = Message(
+                                id = dto.id,
+                                chatId = dto.chatId,
+                                authorId = dto.authorId,
+                                text = dto.text,
+                                createdAt = dto.createdAt,
+                                status = dto.status?.let { ru.kubsu.borshchevyk.core.model.domain.MessageStatus.valueOf(it) },
+                                isDeleted = dto.isDeleted,
+                                source = ru.kubsu.borshchevyk.core.model.domain.MessageSource.ONLINE,
+                                isPinned = false,
+                                reactions = emptyList(),
+                                commentsCount = 0,
+                                parentMessageId = null,
+                                forwardedFromChatId = null,
+                                forwardedFromUserId = null,
+                                attachments = mappedAttachments
+                            )
+                            this.copy(
+                                feed = this.feed.copy(
+                                    messages = this.feed.messages.map { if (it.id == dto.id) updatedMsg else it }
+                                )
+                            )
+                        } else {
+                            val newMsg = Message(
+                                id = dto.id,
+                                chatId = dto.chatId,
+                                authorId = dto.authorId,
+                                text = dto.text,
+                                createdAt = dto.createdAt,
+                                status = dto.status?.let { ru.kubsu.borshchevyk.core.model.domain.MessageStatus.valueOf(it) },
+                                isDeleted = dto.isDeleted,
+                                source = ru.kubsu.borshchevyk.core.model.domain.MessageSource.ONLINE,
+                                isPinned = false,
+                                reactions = emptyList(),
+                                commentsCount = 0,
+                                parentMessageId = null,
+                                forwardedFromChatId = null,
+                                forwardedFromUserId = null,
+                                attachments = mappedAttachments
+                            )
+                            this.copy(feed = this.feed.copy(messages = listOf(newMsg) + this.feed.messages))
+                        }
                     }
                 }
             } else {

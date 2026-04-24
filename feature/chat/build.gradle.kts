@@ -25,6 +25,8 @@ dependencies {
     implementation(project(":core:model"))
     implementation(project(":core:domain:auth"))
     implementation(project(":core:domain:message"))
+    implementation(project(":core:domain:user"))
+    implementation(project(":core:network"))
     
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)

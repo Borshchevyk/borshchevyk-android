@@ -57,7 +57,7 @@ class AuthRepositoryImpl @Inject constructor(
         return "offline_user_$tag"
     }
 
-    override suspend fun registerOnline(email: String, password: String, tag: String): String {
+    override suspend fun registerOnline(email: String, password: String, tag: String, firstName: String, lastName: String?): String {
         val passwordHash = hashString(password)
 
         val keyPair = keyManager.generateInMemoryRsaKeyPair()
@@ -69,6 +69,8 @@ class AuthRepositoryImpl @Inject constructor(
         val request = RegisterRequest(
             email = email,
             tag = tag,
+            firstName = firstName,
+            lastName = lastName,
             passwordHash = passwordHash,
             publicKey = Base64.encodeToString(publicKeyEncoded, Base64.NO_WRAP),
             encryptedPrivateKey = Base64.encodeToString(encryptedPrivKey, Base64.NO_WRAP)

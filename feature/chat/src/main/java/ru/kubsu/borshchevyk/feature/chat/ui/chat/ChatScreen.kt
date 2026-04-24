@@ -19,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import ru.kubsu.borshchevyk.core.model.domain.Message
 import ru.kubsu.borshchevyk.core.ui.theme.BorshchevykTheme
+import ru.kubsu.borshchevyk.feature.chat.ChatIntent
 import ru.kubsu.borshchevyk.feature.chat.ChatUiState
 import ru.kubsu.borshchevyk.feature.chat.ui.chat.components.CommentsDialog
 import ru.kubsu.borshchevyk.feature.chat.ui.chat.components.MessageBubble
@@ -36,6 +37,7 @@ internal fun ChatScreen(
     onMessageVisible: (String) -> Unit,
     onLoadReaders: (String) -> Unit,
     onLoadComments: (String) -> Unit,
+    onIntent: (ChatIntent   ) -> Unit,
     modifier: Modifier = Modifier
 ) {
     var messageIdForReaders by remember { mutableStateOf<String?>(null) }
@@ -72,6 +74,7 @@ internal fun ChatScreen(
                     isFromMe = message.authorId == contentState.context.currentUserId,
                     currentUserId = contentState.context.currentUserId,
                     attachmentUrls = contentState.feed.attachmentUrls,
+                    resolvedUsers = contentState.feed.resolvedUsers,
                     onResolveAttachmentUrl = onResolveAttachmentUrl,
                     onPinToggle = { onPinToggle(message) },
                     onReactionToggle = { reaction -> onReactionToggle(message.id, reaction) },
@@ -85,6 +88,9 @@ internal fun ChatScreen(
                     onViewComments = {
                         onLoadComments(message.id)
                         messageIdForComments = message.id
+                    },
+                    onResend = {
+                        onIntent(ChatIntent.ResendMessage(message.id))
                     }
                 )
                 Spacer(modifier = Modifier.height(12.dp))
@@ -95,6 +101,7 @@ internal fun ChatScreen(
     if (messageIdForReaders != null) {
         ReadersDialog(
             readers = contentState.feed.readersByMessageId[messageIdForReaders],
+            resolvedUsers = contentState.feed.resolvedUsers,
             onDismiss = { messageIdForReaders = null }
         )
     }
@@ -102,6 +109,7 @@ internal fun ChatScreen(
     if (messageIdForComments != null) {
         CommentsDialog(
             comments = contentState.feed.commentsByMessageId[messageIdForComments],
+            resolvedUsers = contentState.feed.resolvedUsers,
             onDismiss = { messageIdForComments = null }
         )
     }

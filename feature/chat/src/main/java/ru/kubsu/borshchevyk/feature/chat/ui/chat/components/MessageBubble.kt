@@ -44,6 +44,7 @@ internal fun MessageBubble(
     isFromMe: Boolean,
     currentUserId: String,
     attachmentUrls: Map<String, String>,
+    resolvedUsers: Map<String, ru.kubsu.borshchevyk.core.model.domain.User>,
     onResolveAttachmentUrl: (String) -> Unit,
     onPinToggle: () -> Unit,
     onReactionToggle: (String) -> Unit,
@@ -51,9 +52,12 @@ internal fun MessageBubble(
     onDelete: (Boolean) -> Unit,
     onMessageVisible: () -> Unit,
     onViewReaders: () -> Unit,
-    onViewComments: () -> Unit
+    onViewComments: () -> Unit,
+    onResend: () -> Unit
 ) {
     var showMenu by rememberSaveable { mutableStateOf(false) }
+    val author = resolvedUsers[message.authorId]
+    val authorName = author?.let { "${it.firstName} ${it.lastName ?: ""}".trim() } ?: "User"
 
     LaunchedEffect(message.id) {
         if (!isFromMe) {
@@ -68,14 +72,23 @@ internal fun MessageBubble(
     }
 
     Column(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
         horizontalAlignment = if (isFromMe) Alignment.End else Alignment.Start
     ) {
+        if (!isFromMe) {
+            Text(
+                text = authorName,
+                style = BorshchevykTheme.typography.labelSmall,
+                color = BorshchevykTheme.colors.primary,
+                modifier = Modifier.padding(start = 12.dp, bottom = 4.dp)
+            )
+        }
+
         Box {
             Surface(
                 color = if (isFromMe) BorshchevykTheme.colors.primary else BorshchevykTheme.colors.surfaceVariant,
                 shape = bubbleShape,
-                shadowElevation = 1.dp,
+                shadowElevation = 2.dp,
                 modifier = Modifier.combinedClickable(
                     onClick = {},
                     onLongClick = { showMenu = true }
@@ -102,32 +115,60 @@ internal fun MessageBubble(
                         )
                     }
 
-                    val isEdited = message.updatedAt != null && message.updatedAt != message.createdAt
-                    if (isEdited || isFromMe) {
-                        Row(
-                            modifier = Modifier.padding(top = 4.dp).align(Alignment.End),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            if (isEdited) {
-                                Text(
-                                    text = "(edited)",
-                                    style = BorshchevykTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                                    color = if (isFromMe) BorshchevykTheme.colors.onPrimary.copy(alpha = 0.7f) else BorshchevykTheme.colors.onSurfaceVariant.copy(alpha = 0.7f)
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                            }
-                            if (isFromMe) {
-                                val statusIcon = when (message.status) {
-                                    ru.kubsu.borshchevyk.core.model.domain.MessageStatus.READ -> Icons.Default.DoneAll
-                                    ru.kubsu.borshchevyk.core.model.domain.MessageStatus.ERROR -> Icons.Default.ErrorOutline
-                                    else -> Icons.Default.Done // SENT or RECEIVED_BY_SERVER
+                    Row(
+                        modifier = Modifier.padding(top = 4.dp).align(Alignment.End),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        val isEdited = message.updatedAt != null && message.updatedAt != message.createdAt
+                        if (isEdited) {
+                            Text(
+                                text = "edited",
+                                style = BorshchevykTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                                color = if (isFromMe) BorshchevykTheme.colors.onPrimary.copy(alpha = 0.5f) else BorshchevykTheme.colors.onSurfaceVariant.copy(alpha = 0.5f)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                        }
+                        
+                        Text(
+                            text = message.createdAt.substringAfter("T").substringBeforeLast(":"),
+                            style = BorshchevykTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                            color = if (isFromMe) BorshchevykTheme.colors.onPrimary.copy(alpha = 0.7f) else BorshchevykTheme.colors.onSurfaceVariant.copy(alpha = 0.7f)
+                        )
+
+                        if (isFromMe) {
+                            Spacer(modifier = Modifier.width(4.dp))
+                            when (message.status) {
+                                ru.kubsu.borshchevyk.core.model.domain.MessageStatus.SENDING -> {
+                                    androidx.compose.material3.CircularProgressIndicator(
+                                        modifier = Modifier.size(12.dp),
+                                        strokeWidth = 1.dp,
+                                        color = BorshchevykTheme.colors.onPrimary.copy(alpha = 0.7f)
+                                    )
                                 }
-                                Icon(
-                                    imageVector = statusIcon,
-                                    contentDescription = "Status",
-                                    modifier = Modifier.size(14.dp),
-                                    tint = if (message.status == ru.kubsu.borshchevyk.core.model.domain.MessageStatus.ERROR) BorshchevykTheme.colors.error else BorshchevykTheme.colors.onPrimary.copy(alpha = 0.7f)
-                                )
+                                ru.kubsu.borshchevyk.core.model.domain.MessageStatus.READ -> {
+                                    Icon(
+                                        imageVector = Icons.Default.DoneAll,
+                                        contentDescription = "Read",
+                                        modifier = Modifier.size(14.dp),
+                                        tint = BorshchevykTheme.colors.onPrimary
+                                    )
+                                }
+                                ru.kubsu.borshchevyk.core.model.domain.MessageStatus.ERROR -> {
+                                    Icon(
+                                        imageVector = Icons.Default.ErrorOutline,
+                                        contentDescription = "Error, tap to retry",
+                                        modifier = Modifier.size(14.dp).clickable { onResend() },
+                                        tint = BorshchevykTheme.colors.error
+                                    )
+                                }
+                                else -> {
+                                    Icon(
+                                        imageVector = Icons.Default.Done,
+                                        contentDescription = "Sent",
+                                        modifier = Modifier.size(14.dp),
+                                        tint = BorshchevykTheme.colors.onPrimary.copy(alpha = 0.7f)
+                                    )
+                                }
                             }
                         }
                     }

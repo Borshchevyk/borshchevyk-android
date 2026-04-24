@@ -73,5 +73,15 @@ data class ValidateAttachmentsRequest(
 
 @Serializable
 data class ValidateAttachmentsResponse(
-    val valid: Boolean
+    val valid: Boolean,
+    val attachments: List<AttachmentMetadataResponse>? = null
+)
+
+@Serializable
+data class AttachmentMetadataResponse(
+    val id: String,
+    val type: String,
+    val originalFilename: String,
+    val extension: String,
+    val sizeBytes: Long
 )

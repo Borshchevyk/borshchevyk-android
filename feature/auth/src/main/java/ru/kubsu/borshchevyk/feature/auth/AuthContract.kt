@@ -3,7 +3,13 @@ package ru.kubsu.borshchevyk.feature.auth
 sealed interface AuthIntent {
     object CheckAuth : AuthIntent
     data class RegisterOffline(val tag: String) : AuthIntent
-    data class RegisterOnline(val email: String, val password: String, val tag: String) : AuthIntent
+    data class RegisterOnline(
+        val email: String, 
+        val password: String, 
+        val tag: String,
+        val firstName: String,
+        val lastName: String? = null
+    ) : AuthIntent
     data class LoginOnline(val email: String, val password: String) : AuthIntent
 }
 

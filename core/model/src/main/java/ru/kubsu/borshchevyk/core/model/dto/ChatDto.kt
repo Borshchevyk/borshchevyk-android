@@ -14,7 +14,9 @@ data class ChatResponse(
     val partnerName: String? = null,
     val partnerAvatarUrl: String? = null,
     val partnerLastOnline: String? = null,
-    val allowedReactions: Set<String>? = null
+    val allowedReactions: Set<String>? = null,
+    val lastMessage: String? = null,
+    val unreadCount: Long = 0
 )
 
 @Serializable

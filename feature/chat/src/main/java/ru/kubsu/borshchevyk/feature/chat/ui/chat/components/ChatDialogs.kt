@@ -21,12 +21,13 @@ import ru.kubsu.borshchevyk.core.ui.theme.BorshchevykTheme
 @Composable
 internal fun ReadersDialog(
     readers: List<String>?,
+    resolvedUsers: Map<String, ru.kubsu.borshchevyk.core.model.domain.User>,
     onDismiss: () -> Unit
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
         containerColor = BorshchevykTheme.colors.surface,
-        title = { Text("Readers", color = BorshchevykTheme.colors.onSurface) },
+        title = { Text("Read by", color = BorshchevykTheme.colors.onSurface) },
         text = {
             if (readers == null) {
                 Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
@@ -37,11 +38,13 @@ internal fun ReadersDialog(
             } else {
                 LazyColumn {
                     items(readers) { readerId ->
+                        val user = resolvedUsers[readerId]
+                        val displayName = user?.let { "${it.firstName} ${it.lastName ?: ""}".trim() } ?: "User ($readerId)"
                         Text(
-                            text = "User ID: $readerId",
+                            text = displayName,
                             style = BorshchevykTheme.typography.bodyMedium,
                             color = BorshchevykTheme.colors.onSurface,
-                            modifier = Modifier.padding(vertical = 4.dp)
+                            modifier = Modifier.padding(vertical = 8.dp)
                         )
                     }
                 }
@@ -56,6 +59,7 @@ internal fun ReadersDialog(
 @Composable
 internal fun CommentsDialog(
     comments: List<Message>?,
+    resolvedUsers: Map<String, ru.kubsu.borshchevyk.core.model.domain.User>,
     onDismiss: () -> Unit
 ) {
     AlertDialog(
@@ -72,9 +76,11 @@ internal fun CommentsDialog(
             } else {
                 LazyColumn {
                     items(comments) { comment ->
-                        Column(Modifier.padding(vertical = 4.dp)) {
+                        val user = resolvedUsers[comment.authorId]
+                        val displayName = user?.let { "${it.firstName} ${it.lastName ?: ""}".trim() } ?: "User (${comment.authorId})"
+                        Column(Modifier.padding(vertical = 8.dp)) {
                             Text(
-                                text = comment.authorId,
+                                text = displayName,
                                 style = BorshchevykTheme.typography.labelSmall,
                                 color = BorshchevykTheme.colors.primary
                             )
@@ -84,7 +90,7 @@ internal fun CommentsDialog(
                                 color = BorshchevykTheme.colors.onSurface
                             )
                         }
-                        HorizontalDivider(color = BorshchevykTheme.colors.outline.copy(alpha = 0.5f))
+                        HorizontalDivider(color = BorshchevykTheme.colors.outline.copy(alpha = 0.2f))
                     }
                 }
             }

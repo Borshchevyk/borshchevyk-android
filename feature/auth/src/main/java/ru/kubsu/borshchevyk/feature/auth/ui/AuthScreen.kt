@@ -39,6 +39,8 @@ internal fun AuthScreen(
     var mode by rememberSaveable { mutableStateOf(AuthMode.ONLINE) }
     var email by rememberSaveable { mutableStateOf("") }
     var password by rememberSaveable { mutableStateOf("") }
+    var firstName by rememberSaveable { mutableStateOf("") }
+    var lastName by rememberSaveable { mutableStateOf("") }
     var tag by rememberSaveable { mutableStateOf("") }
     var isLogin by rememberSaveable { mutableStateOf(true) }
 
@@ -104,6 +106,20 @@ internal fun AuthScreen(
             if (!isLogin) {
                 Spacer(modifier = Modifier.height(16.dp))
                 AuthTextField(
+                    value = firstName,
+                    onValueChange = { firstName = it },
+                    label = "First Name",
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                AuthTextField(
+                    value = lastName,
+                    onValueChange = { lastName = it },
+                    label = "Last Name (Optional)",
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                AuthTextField(
                     value = tag,
                     onValueChange = { tag = it },
                     label = "Tag",
@@ -120,7 +136,7 @@ internal fun AuthScreen(
                         if (isLogin) {
                             onIntent(AuthIntent.LoginOnline(email, password))
                         } else {
-                            onIntent(AuthIntent.RegisterOnline(email, password, tag))
+                            onIntent(AuthIntent.RegisterOnline(email, password, tag, firstName, lastName.takeIf { it.isNotBlank() }))
                         }
                     },
                     modifier = Modifier.fillMaxWidth().height(56.dp),

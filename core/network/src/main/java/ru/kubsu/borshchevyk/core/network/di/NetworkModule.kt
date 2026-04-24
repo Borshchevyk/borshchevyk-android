@@ -42,6 +42,9 @@ import ru.kubsu.borshchevyk.core.network.user.KtorUserNetworkDataSource
 import ru.kubsu.borshchevyk.core.network.user.UserNetworkDataSource
 import ru.kubsu.borshchevyk.core.network.websocket.KrossbowWebSocketDataSource
 import ru.kubsu.borshchevyk.core.network.websocket.WebSocketDataSource
+import ru.kubsu.borshchevyk.core.network.NetworkConstants
+import ru.kubsu.borshchevyk.core.network.NetworkMonitor
+import ru.kubsu.borshchevyk.core.network.ConnectivityNetworkMonitor
 import javax.inject.Singleton
 
 @Module
@@ -98,7 +101,7 @@ object NetworkModule {
                     refreshTokens {
                         val refreshToken = tokenProvider.getRefreshToken() ?: return@refreshTokens null
                         try {
-                            val response = client.post("https://borshchevik.su/api/v1/auth/refresh") {
+                            val response = client.post("${NetworkConstants.BASE_URL}/api/v1/auth/refresh") {
                                 contentType(ContentType.Application.Json)
                                 setBody(RefreshRequest(refreshToken))
                             }.body<VerifyResponse>()
@@ -119,14 +122,20 @@ object NetworkModule {
             }
             
             defaultRequest {
-                url("https://borshchevik.su/") 
+                url("${NetworkConstants.BASE_URL}/") 
                 contentType(ContentType.Application.Json)
             }
         }
 
         client.requestPipeline.intercept(HttpRequestPipeline.State) {
             val token = tokenProvider.getAccessToken()
-            if (token != null && !context.url.pathSegments.contains("auth")) {
+            val host = context.url.host
+            // Add Authorization header ONLY if requesting our own backend.
+            // S3 pre-signed URLs (upload/download) will fail if we add an Authorization header.
+            val isBackEndRequest = host.isEmpty() || host == "borshchevik.su" || host.endsWith(".borshchevik.su")
+            val isS3Request = host.contains("s3.cloud.ru") || host.contains("amazonaws.com")
+            
+            if (token != null && isBackEndRequest && !isS3Request && !context.url.pathSegments.contains("auth")) {
                 context.headers.remove(io.ktor.http.HttpHeaders.Authorization)
                 context.headers.append(io.ktor.http.HttpHeaders.Authorization, "Bearer $token")
             }
@@ -166,4 +175,8 @@ interface NetworkDataSourceModule {
     @Binds
     @Singleton
     fun bindWebSocketDataSource(impl: KrossbowWebSocketDataSource): WebSocketDataSource
+
+    @Binds
+    @Singleton
+    fun bindNetworkMonitor(impl: ConnectivityNetworkMonitor): NetworkMonitor
 }

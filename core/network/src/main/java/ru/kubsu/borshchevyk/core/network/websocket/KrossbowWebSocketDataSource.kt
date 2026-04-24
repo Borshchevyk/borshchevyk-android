@@ -19,6 +19,7 @@ import ru.kubsu.borshchevyk.core.model.dto.NotificationDto
 import ru.kubsu.borshchevyk.core.model.dto.ReactionEvent
 import ru.kubsu.borshchevyk.core.model.dto.ReadReceiptEvent
 import ru.kubsu.borshchevyk.core.model.dto.TypingEvent
+import ru.kubsu.borshchevyk.core.network.NetworkConstants
 import ru.kubsu.borshchevyk.core.network.auth.TokenProvider
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -47,10 +48,10 @@ class KrossbowWebSocketDataSource @Inject constructor(
             Log.e(TAG, "Cannot connect to WebSocket: Access token is null.")
             return
         }
-        Log.d(TAG, "Connecting to WebSocket at wss://borshchevik.su/api/v1/messages/ws-message...")
+        Log.d(TAG, "Connecting to WebSocket at ${NetworkConstants.WS_URL}...")
         try {
             val s = stompClient.connect(
-                url = "wss://borshchevik.su/api/v1/messages/ws-message",
+                url = NetworkConstants.WS_URL,
                 customStompConnectHeaders = mapOf("Authorization" to "Bearer $token")
             )
             _session.value = s
