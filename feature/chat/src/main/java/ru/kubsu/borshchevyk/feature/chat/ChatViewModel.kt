@@ -23,11 +23,14 @@ import ru.kubsu.borshchevyk.core.domain.message.ChatAttachmentUseCases
 import ru.kubsu.borshchevyk.core.domain.message.ChatHistoryUseCases
 import ru.kubsu.borshchevyk.core.domain.message.ChatMessageUseCases
 import ru.kubsu.borshchevyk.core.domain.message.ObserveChatEventsUseCase
+import ru.kubsu.borshchevyk.core.domain.user.GetUserProfileUseCase
 import ru.kubsu.borshchevyk.core.model.domain.ChatEvent
 import ru.kubsu.borshchevyk.core.model.domain.ChatType
 import ru.kubsu.borshchevyk.core.model.domain.Message
 import ru.kubsu.borshchevyk.core.model.domain.MessageReaction
 import ru.kubsu.borshchevyk.core.model.dto.AttachmentType
+import ru.kubsu.borshchevyk.core.network.client.NetworkMonitor
+import java.time.LocalDateTime
 import javax.inject.Inject
 
 @HiltViewModel
@@ -35,10 +38,12 @@ class ChatViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val getUserIdUseCase: GetUserIdUseCase,
     private val getUserChatsUseCase: GetUserChatsUseCase,
+    private val getUserProfileUseCase: GetUserProfileUseCase,
     private val observeChatEventsUseCase: ObserveChatEventsUseCase,
     private val messageUseCases: ChatMessageUseCases,
     private val historyUseCases: ChatHistoryUseCases,
-    private val attachmentUseCases: ChatAttachmentUseCases
+    private val attachmentUseCases: ChatAttachmentUseCases,
+    private val networkMonitor: NetworkMonitor
 ) : ViewModel() {
 
     private val TAG = "ChatViewModel"
@@ -51,10 +56,14 @@ class ChatViewModel @Inject constructor(
     val effect = _effect.receiveAsFlow()
 
     private var typingJob: Job? = null
+    
+    // Store original data for retrying failed messages
+    private val failedMessagesData = mutableMapOf<String, Pair<String, List<AttachmentFile>>>()
 
     init {
         loadData()
         observeWebSockets()
+        observeNetwork()
     }
 
     fun handleIntent(intent: ChatIntent) {
@@ -73,6 +82,60 @@ class ChatViewModel @Inject constructor(
             is ChatIntent.UnpinMessage -> onUnpinMessage(intent.messageId)
             is ChatIntent.ToggleReaction -> onToggleReaction(intent.messageId, intent.reaction)
             is ChatIntent.ResolveAttachmentUrl -> resolveAttachmentUrl(intent.attachmentId)
+            is ChatIntent.ResendMessage -> onResendMessage(intent.messageId)
+        }
+    }
+
+    private fun observeNetwork() {
+        networkMonitor.isOnline
+            .onEach { isOnline ->
+                if (isOnline) {
+                    retryFailedMessages()
+                }
+            }
+            .launchIn(viewModelScope)
+    }
+
+    private fun retryFailedMessages() {
+        val failedIds = failedMessagesData.keys.toList()
+        failedIds.forEach { msgId ->
+            onResendMessage(msgId)
+        }
+    }
+
+    private fun onResendMessage(messageId: String) {
+        val data = failedMessagesData[messageId] ?: return
+        failedMessagesData.remove(messageId)
+        
+        _uiState.update { state ->
+            if (state is ChatUiState.Content) {
+                val updatedMessages = state.feed.messages.map {
+                    if (it.id == messageId) it.copy(status = ru.kubsu.borshchevyk.core.model.domain.MessageStatus.SENDING) else it
+                }
+                state.copy(feed = state.feed.copy(messages = updatedMessages))
+            } else state
+        }
+        
+        performSendMessage(messageId, data.first, data.second)
+    }
+
+    private fun resolveUser(userId: String) {
+        val state = _uiState.value as? ChatUiState.Content ?: return
+        if (state.feed.resolvedUsers.containsKey(userId)) return
+
+        viewModelScope.launch {
+            try {
+                val user = getUserProfileUseCase(userId)
+                _uiState.update { s ->
+                    if (s is ChatUiState.Content) {
+                        val newMap = s.feed.resolvedUsers.toMutableMap()
+                        newMap[userId] = user
+                        s.copy(feed = s.feed.copy(resolvedUsers = newMap))
+                    } else s
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to resolve user $userId", e)
+            }
         }
     }
 
@@ -81,7 +144,6 @@ class ChatViewModel @Inject constructor(
             .onEach { event ->
                 _uiState.update { it.reduce(event) }
                 
-                // Handle side effects of events independently
                 when (event) {
                     is ChatEvent.MessagePinned, is ChatEvent.MessageUnpinned -> {
                         viewModelScope.launch {
@@ -98,6 +160,7 @@ class ChatViewModel @Inject constructor(
                         }
                     }
                     is ChatEvent.ReadReceipt -> {
+                        resolveUser(event.event.userId)
                         viewModelScope.launch {
                             try {
                                 val readers = historyUseCases.getMessageReaders(chatId, event.event.messageId)
@@ -114,11 +177,10 @@ class ChatViewModel @Inject constructor(
                         }
                     }
                     is ChatEvent.NewMessage -> {
-                        // Reload chat list if needed, or notify about a new message
+                        resolveUser(event.message.authorId)
                         viewModelScope.launch {
-                            getUserChatsUseCase() // Trigger a refresh if the implementation relies on cached data
+                            getUserChatsUseCase() 
                         }
-                        // Pre-resolve attachment URLs for new messages
                         event.message.attachments?.forEach { attachment ->
                             resolveAttachmentUrl(attachment.id)
                         }
@@ -152,8 +214,8 @@ class ChatViewModel @Inject constructor(
                     )
                 )
 
-                // Pre-resolve URLs
                 history.forEach { msg ->
+                    resolveUser(msg.authorId)
                     msg.attachments.forEach { att ->
                         resolveAttachmentUrl(att.id)
                     }
@@ -186,7 +248,6 @@ class ChatViewModel @Inject constructor(
                     messageUseCases.sendTypingEvent(chatId, false)
                 }
             } catch (e: Exception) {
-                // Ignore silent typing errors
             }
         }
     }
@@ -194,42 +255,72 @@ class ChatViewModel @Inject constructor(
     private fun onSendMessage(text: String, attachments: List<AttachmentFile>) {
         if (text.isBlank() && attachments.isEmpty()) return
         
-        _uiState.update { state -> 
-            if (state is ChatUiState.Content) state.copy(input = state.input.copy(isSending = true)) else state 
+        val currentUserId = (uiState.value as? ChatUiState.Content)?.context?.currentUserId ?: return
+
+        val tempId = "temp_${System.currentTimeMillis()}"
+        val optimisticMessage = Message(
+            id = tempId,
+            chatId = chatId,
+            authorId = currentUserId,
+            text = text,
+            createdAt = LocalDateTime.now(java.time.ZoneOffset.UTC).toString() + "Z",
+            status = ru.kubsu.borshchevyk.core.model.domain.MessageStatus.SENDING,
+            source = ru.kubsu.borshchevyk.core.model.domain.MessageSource.ONLINE,
+            attachments = attachments.map { 
+                ru.kubsu.borshchevyk.core.model.domain.Attachment(
+                    id = "temp_${it.originalFilename}",
+                    type = if (it.contentType.startsWith("image/")) AttachmentType.PHOTO else AttachmentType.FILE,
+                    originalFilename = it.originalFilename,
+                    extension = it.extension,
+                    sizeBytes = it.bytes.size.toLong()
+                )
+            }
+        )
+
+        _uiState.update { state ->
+            if (state is ChatUiState.Content) {
+                state.copy(feed = state.feed.copy(messages = listOf(optimisticMessage) + state.feed.messages))
+            } else state
         }
 
+        performSendMessage(tempId, text, attachments)
+    }
+
+    private fun performSendMessage(tempId: String, text: String, attachments: List<AttachmentFile>) {
         viewModelScope.launch {
             try {
-                val attachmentIds = attachments.map { file ->
-                    val type = when {
-                        file.contentType.startsWith("image/") -> AttachmentType.PHOTO
-                        file.contentType.startsWith("video/") -> AttachmentType.VIDEO
-                        file.contentType.startsWith("audio/") -> AttachmentType.VOICE
-                        else -> AttachmentType.FILE
+                val attachmentIds = if (attachments.isNotEmpty()) {
+                    attachments.map { file ->
+                        val type = when {
+                            file.contentType.startsWith("image/") -> AttachmentType.PHOTO
+                            file.contentType.startsWith("video/") -> AttachmentType.VIDEO
+                            file.contentType.startsWith("audio/") -> AttachmentType.VOICE
+                            else -> AttachmentType.FILE
+                        }
+                        attachmentUseCases.uploadAttachment(
+                            fileBytes = file.bytes,
+                            originalFilename = file.originalFilename,
+                            contentType = file.contentType,
+                            extension = file.extension,
+                            type = type,
+                            width = file.width,
+                            height = file.height,
+                            duration = file.duration?.toDouble()
+                        )
                     }
-                    attachmentUseCases.uploadAttachment(
-                        fileBytes = file.bytes,
-                        originalFilename = file.originalFilename,
-                        contentType = file.contentType,
-                        extension = file.extension,
-                        type = type,
-                        width = file.width,
-                        height = file.height,
-                        duration = file.duration?.toDouble()
-                    )
-                }
+                } else null
 
                 val newMessage = messageUseCases.sendMessage(chatId, text, attachmentIds)
+                
                 _uiState.update { state ->
                     if (state is ChatUiState.Content) {
-                        if (!state.feed.messages.any { it.id == newMessage.id }) {
-                            state.copy(
-                                feed = state.feed.copy(messages = listOf(newMessage) + state.feed.messages),
-                                input = state.input.copy(isSending = false)
-                            )
+                        val alreadyExists = state.feed.messages.any { it.id == newMessage.id }
+                        val updatedMessages = if (alreadyExists) {
+                            state.feed.messages.filterNot { it.id == tempId }
                         } else {
-                            state.copy(input = state.input.copy(isSending = false))
+                            state.feed.messages.map { if (it.id == tempId) newMessage else it }
                         }
+                        state.copy(feed = state.feed.copy(messages = updatedMessages))
                     } else state
                 }
                 
@@ -241,10 +332,17 @@ class ChatViewModel @Inject constructor(
                 typingJob?.cancel()
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to send message", e)
-                _uiState.update { state -> 
-                    if (state is ChatUiState.Content) state.copy(input = state.input.copy(isSending = false)) else state 
+                failedMessagesData[tempId] = text to attachments
+                
+                _uiState.update { state ->
+                    if (state is ChatUiState.Content) {
+                        val updatedMessages = state.feed.messages.map { 
+                            if (it.id == tempId) it.copy(status = ru.kubsu.borshchevyk.core.model.domain.MessageStatus.ERROR) else it 
+                        }
+                        state.copy(feed = state.feed.copy(messages = updatedMessages))
+                    } else state
                 }
-                _effect.send(ChatEffect.ShowError(e.message ?: "Failed to send message"))
+                _effect.send(ChatEffect.ShowError("Failed to send message: ${e.message}"))
             }
         }
     }
@@ -264,7 +362,7 @@ class ChatViewModel @Inject constructor(
                     } else s
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to resolve attachment URL: \${e.message}", e)
+                Log.e(TAG, "Failed to resolve attachment URL: ${e.message}", e)
             }
         }
     }
@@ -326,7 +424,6 @@ class ChatViewModel @Inject constructor(
                 try {
                     messageUseCases.markMessageAsRead(chatId, messageId)
                 } catch (e: Exception) {
-                    // Ignore silent read receipt errors
                 }
             }
         }

@@ -19,9 +19,11 @@ class RegisterOnlineUseCase @Inject constructor(
      * @param email the user's email address
      * @param password the user's plaintext password
      * @param tag the user's requested identity tag
+     * @param firstName the user's first name
+     * @param lastName the user's last name (optional)
      * @return a [Result] containing the server-assigned UUID on success
      */
-    suspend operator fun invoke(email: String, password: String, tag: String): Result<String> = runCatching {
-        authRepository.registerOnline(email, password, tag)
+    suspend operator fun invoke(email: String, password: String, tag: String, firstName: String, lastName: String?): Result<String> = runCatching {
+        authRepository.registerOnline(email, password, tag, firstName, lastName)
     }
 }

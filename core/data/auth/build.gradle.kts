@@ -19,7 +19,9 @@ android {
 dependencies {
     implementation(project(":core:model"))
     implementation(project(":core:domain:auth"))
-    implementation(project(":core:network"))
+    implementation(project(":core:network:auth"))
+    implementation(project(":core:network:client"))
+    implementation(project(":core:network:websocket"))
     implementation(project(":core:security"))
     
     implementation(libs.androidx.datastore.preferences)

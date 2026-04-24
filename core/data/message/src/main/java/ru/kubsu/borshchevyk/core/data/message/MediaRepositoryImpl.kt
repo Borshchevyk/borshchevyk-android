@@ -5,6 +5,7 @@ import ru.kubsu.borshchevyk.core.model.dto.AttachmentResponse
 import ru.kubsu.borshchevyk.core.model.dto.AttachmentType
 import ru.kubsu.borshchevyk.core.model.dto.RequestUploadUrlRequest
 import ru.kubsu.borshchevyk.core.model.dto.ValidateAttachmentsRequest
+import ru.kubsu.borshchevyk.core.network.client.NetworkConstants
 import ru.kubsu.borshchevyk.core.network.media.MediaNetworkDataSource
 import javax.inject.Inject
 
@@ -46,11 +47,11 @@ class MediaRepositoryImpl @Inject constructor(
     }
 
     override suspend fun getAttachmentUrl(attachmentId: String): String {
-        val relativeUrl = networkDataSource.getAttachmentUrl(attachmentId).url
-        return if (relativeUrl.startsWith("http")) {
-            relativeUrl
+        val url = networkDataSource.getAttachmentUrl(attachmentId).url
+        return if (url.startsWith("http")) {
+            url
         } else {
-            "https://borshchevik.su${if (relativeUrl.startsWith("/")) "" else "/"}$relativeUrl"
+            "${NetworkConstants.BASE_URL}${if (url.startsWith("/")) "" else "/"}$url"
         }
     }
 

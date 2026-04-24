@@ -8,7 +8,7 @@ interface AuthRepository {
     val tag: Flow<String?>
 
     suspend fun registerOffline(tag: String): String
-    suspend fun registerOnline(email: String, password: String, tag: String): String
+    suspend fun registerOnline(email: String, password: String, tag: String, firstName: String, lastName: String?): String
     suspend fun loginOnline(email: String, password: String): String
     suspend fun isLoggedIn(): Boolean
     

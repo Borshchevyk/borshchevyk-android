@@ -30,6 +30,7 @@ sealed interface ChatIntent {
     data class UnpinMessage(val messageId: String) : ChatIntent
     data class ToggleReaction(val messageId: String, val reaction: String) : ChatIntent
     data class ResolveAttachmentUrl(val attachmentId: String) : ChatIntent
+    data class ResendMessage(val messageId: String) : ChatIntent
 }
 
 sealed interface ChatEffect {

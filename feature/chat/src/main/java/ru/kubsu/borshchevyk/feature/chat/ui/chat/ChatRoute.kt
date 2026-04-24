@@ -144,6 +144,7 @@ fun ChatRoute(
                     onLoadComments = { msgId ->
                         chatViewModel.handleIntent(ChatIntent.LoadComments(msgId))
                     },
+                    onIntent = chatViewModel::handleIntent,
                     modifier = Modifier.padding(padding)
                 )
             }

@@ -34,7 +34,7 @@ class AuthViewModel @Inject constructor(
         when (intent) {
             is AuthIntent.CheckAuth -> checkAuth()
             is AuthIntent.RegisterOffline -> onRegisterOffline(intent.tag)
-            is AuthIntent.RegisterOnline -> onRegisterOnline(intent.email, intent.password, intent.tag)
+            is AuthIntent.RegisterOnline -> onRegisterOnline(intent.email, intent.password, intent.tag, intent.firstName, intent.lastName)
             is AuthIntent.LoginOnline -> onLoginOnline(intent.email, intent.password)
         }
     }
@@ -66,14 +66,14 @@ class AuthViewModel @Inject constructor(
         }
     }
 
-    private fun onRegisterOnline(email: String, password: String, tag: String) {
-        if (email.isBlank() || password.isBlank() || tag.isBlank()) {
-            sendError("Fields cannot be empty")
+    private fun onRegisterOnline(email: String, password: String, tag: String, firstName: String, lastName: String?) {
+        if (email.isBlank() || password.isBlank() || tag.isBlank() || firstName.isBlank()) {
+            sendError("Mandatory fields cannot be empty")
             return
         }
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
-            registerOnline(email, password, tag)
+            registerOnline(email, password, tag, firstName, lastName)
                 .onSuccess {
                     onLoginOnline(email, password)
                 }

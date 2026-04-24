@@ -14,16 +14,28 @@ class UserRepositoryImpl @Inject constructor(
     private val networkDataSource: UserNetworkDataSource
 ) : UserRepository {
 
+    private val userCache = mutableMapOf<String, User>()
+
     override suspend fun searchUsers(query: String): List<User> {
-        return networkDataSource.searchUsers(query).map { it.toDomain() }
+        val users = networkDataSource.searchUsers(query).map { it.toDomain() }
+        users.forEach { userCache[it.userId] = it }
+        return users
     }
 
     override suspend fun getUserProfile(userIdOrTag: String): User {
-        return networkDataSource.getUserProfile(userIdOrTag).toDomain()
+        // Simple cache hit check
+        userCache[userIdOrTag]?.let { return it }
+        
+        val user = networkDataSource.getUserProfile(userIdOrTag).toDomain()
+        userCache[user.userId] = user
+        userCache[user.tag] = user
+        return user
     }
 
     override suspend fun updateProfile(request: UpdateProfileRequest): User {
-        return networkDataSource.updateProfile(request).toDomain()
+        val user = networkDataSource.updateProfile(request).toDomain()
+        userCache[user.userId] = user
+        return user
     }
 
     override suspend fun getPrivacySettings(): PrivacySettings {

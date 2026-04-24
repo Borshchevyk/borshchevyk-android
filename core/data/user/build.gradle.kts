@@ -19,7 +19,7 @@ android {
 dependencies {
     implementation(project(":core:model"))
     implementation(project(":core:domain:user"))
-    implementation(project(":core:network"))
+    implementation(project(":core:network:user"))
     
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.hilt.android)
