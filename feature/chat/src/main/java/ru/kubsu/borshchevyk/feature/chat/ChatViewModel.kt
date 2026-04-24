@@ -114,6 +114,10 @@ class ChatViewModel @Inject constructor(
                         }
                     }
                     is ChatEvent.NewMessage -> {
+                        // Reload chat list if needed, or notify about a new message
+                        viewModelScope.launch {
+                            getUserChatsUseCase() // Trigger a refresh if the implementation relies on cached data
+                        }
                         // Pre-resolve attachment URLs for new messages
                         event.message.attachments?.forEach { attachment ->
                             resolveAttachmentUrl(attachment.id)

@@ -59,6 +59,7 @@ fun ChatUiState.reduce(event: ChatEvent): ChatUiState {
                             authorId = dto.authorId,
                             text = dto.text,
                             createdAt = dto.createdAt,
+                            status = dto.status?.let { ru.kubsu.borshchevyk.core.model.domain.MessageStatus.valueOf(it) },
                             isDeleted = dto.isDeleted,
                             source = ru.kubsu.borshchevyk.core.model.domain.MessageSource.ONLINE,
                             isPinned = false,
@@ -126,7 +127,12 @@ fun ChatUiState.reduce(event: ChatEvent): ChatUiState {
             this.copy(feed = this.feed.copy(messages = updatedMessages))
         }
         is ChatEvent.ReadReceipt -> {
-            this
+            val updatedMessages = this.feed.messages.map {
+                if (it.id == event.event.messageId) {
+                    it.copy(status = ru.kubsu.borshchevyk.core.model.domain.MessageStatus.READ)
+                } else it
+            }
+            this.copy(feed = this.feed.copy(messages = updatedMessages))
         }
     }
 }
