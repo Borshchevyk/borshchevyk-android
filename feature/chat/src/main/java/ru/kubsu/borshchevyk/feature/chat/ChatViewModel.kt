@@ -30,6 +30,7 @@ import ru.kubsu.borshchevyk.core.model.domain.Message
 import ru.kubsu.borshchevyk.core.model.domain.MessageReaction
 import ru.kubsu.borshchevyk.core.model.dto.AttachmentType
 import ru.kubsu.borshchevyk.core.network.client.NetworkMonitor
+import java.time.LocalDateTime
 import javax.inject.Inject
 
 @HiltViewModel
@@ -262,7 +263,7 @@ class ChatViewModel @Inject constructor(
             chatId = chatId,
             authorId = currentUserId,
             text = text,
-            createdAt = java.time.LocalDateTime.now().toString(),
+            createdAt = LocalDateTime.now(java.time.ZoneOffset.UTC).toString() + "Z",
             status = ru.kubsu.borshchevyk.core.model.domain.MessageStatus.SENDING,
             source = ru.kubsu.borshchevyk.core.model.domain.MessageSource.ONLINE,
             attachments = attachments.map { 

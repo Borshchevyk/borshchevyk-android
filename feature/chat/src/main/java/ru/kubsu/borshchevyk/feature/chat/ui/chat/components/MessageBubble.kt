@@ -37,6 +37,18 @@ import androidx.compose.ui.unit.sp
 import ru.kubsu.borshchevyk.core.model.domain.Message
 import ru.kubsu.borshchevyk.core.ui.theme.BorshchevykTheme
 
+private fun formatMessageTime(timeStr: String): String {
+    return try {
+        val cleanStr = timeStr.removeSuffix("Z")
+        val ldt = java.time.LocalDateTime.parse(cleanStr)
+        val instant = ldt.toInstant(java.time.ZoneOffset.UTC)
+        val localTime = java.time.LocalDateTime.ofInstant(instant, java.time.ZoneId.systemDefault())
+        localTime.format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"))
+    } catch (e: Exception) {
+        timeStr.substringAfter("T").substringBeforeLast(":")
+    }
+}
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 internal fun MessageBubble(
@@ -130,7 +142,7 @@ internal fun MessageBubble(
                         }
                         
                         Text(
-                            text = message.createdAt.substringAfter("T").substringBeforeLast(":"),
+                            text = formatMessageTime(message.createdAt),
                             style = BorshchevykTheme.typography.labelSmall.copy(fontSize = 10.sp),
                             color = if (isFromMe) BorshchevykTheme.colors.onPrimary.copy(alpha = 0.7f) else BorshchevykTheme.colors.onSurfaceVariant.copy(alpha = 0.7f)
                         )
