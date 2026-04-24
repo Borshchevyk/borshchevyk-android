@@ -4,8 +4,6 @@ import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
-import ru.kubsu.borshchevyk.core.data.chat.ChatRepositoryImpl
-import ru.kubsu.borshchevyk.core.domain.chat.ChatRepository
 import ru.kubsu.borshchevyk.core.domain.message.MediaRepository
 import ru.kubsu.borshchevyk.core.domain.message.MessageRepository
 import javax.inject.Singleton
@@ -13,10 +11,7 @@ import javax.inject.Singleton
 @Module
 @InstallIn(SingletonComponent::class)
 interface DataMessageModule {
-    @Binds
-    @Singleton
-    fun bindChatRepository(impl: ChatRepositoryImpl): ChatRepository
-
+    
     @Binds
     @Singleton
     fun bindMessageRepository(impl: MessageRepositoryImpl): MessageRepository

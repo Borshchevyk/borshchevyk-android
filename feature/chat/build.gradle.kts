@@ -24,6 +24,7 @@ dependencies {
     implementation(project(":core:ui"))
     implementation(project(":core:model"))
     implementation(project(":core:domain:auth"))
+    implementation(project(":core:domain:chat"))
     implementation(project(":core:domain:message"))
     implementation(project(":core:domain:user"))
     implementation(project(":core:network:client"))

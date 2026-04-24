@@ -5,7 +5,7 @@ plugins {
 }
 
 android {
-    namespace = "ru.kubsu.borshchevyk.core.data.message"
+    namespace = "ru.kubsu.borshchevyk.core.data.chat"
     compileSdk = 36
     defaultConfig {
         minSdk = 29
@@ -18,11 +18,8 @@ android {
 
 dependencies {
     implementation(project(":core:model"))
-    implementation(project(":core:domain:message"))
-    implementation(project(":core:network:client"))
-    implementation(project(":core:network:message"))
-    implementation(project(":core:network:media"))
-    implementation(project(":core:network:websocket"))
+    implementation(project(":core:domain:chat"))
+    implementation(project(":core:network:chat"))
     
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.hilt.android)
