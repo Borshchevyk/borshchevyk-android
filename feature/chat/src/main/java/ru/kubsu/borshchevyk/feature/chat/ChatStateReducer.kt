@@ -129,7 +129,11 @@ fun ChatUiState.reduce(event: ChatEvent): ChatUiState {
         is ChatEvent.ReadReceipt -> {
             val updatedMessages = this.feed.messages.map {
                 if (it.id == event.event.messageId) {
-                    it.copy(status = ru.kubsu.borshchevyk.core.model.domain.MessageStatus.READ)
+                    // Update to READ only if it's not already READ. 
+                    // This prevents multiple users reading from causing "re-reading" flashes if any logic depends on state transitions.
+                    if (it.status != ru.kubsu.borshchevyk.core.model.domain.MessageStatus.READ) {
+                        it.copy(status = ru.kubsu.borshchevyk.core.model.domain.MessageStatus.READ)
+                    } else it
                 } else it
             }
             this.copy(feed = this.feed.copy(messages = updatedMessages))
