@@ -10,7 +10,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
-import ru.kubsu.borshchevyk.core.network.auth.TokenProvider
+import ru.kubsu.borshchevyk.core.network.client.TokenProvider
 import javax.inject.Inject
 import javax.inject.Singleton
 

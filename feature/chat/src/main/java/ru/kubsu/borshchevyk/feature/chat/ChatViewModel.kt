@@ -19,17 +19,17 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import ru.kubsu.borshchevyk.core.domain.auth.GetUserIdUseCase
 import ru.kubsu.borshchevyk.core.domain.chat.GetUserChatsUseCase
-import ru.kubsu.borshchevyk.core.domain.user.GetUserProfileUseCase
 import ru.kubsu.borshchevyk.core.domain.message.ChatAttachmentUseCases
 import ru.kubsu.borshchevyk.core.domain.message.ChatHistoryUseCases
 import ru.kubsu.borshchevyk.core.domain.message.ChatMessageUseCases
 import ru.kubsu.borshchevyk.core.domain.message.ObserveChatEventsUseCase
+import ru.kubsu.borshchevyk.core.domain.user.GetUserProfileUseCase
 import ru.kubsu.borshchevyk.core.model.domain.ChatEvent
 import ru.kubsu.borshchevyk.core.model.domain.ChatType
 import ru.kubsu.borshchevyk.core.model.domain.Message
 import ru.kubsu.borshchevyk.core.model.domain.MessageReaction
 import ru.kubsu.borshchevyk.core.model.dto.AttachmentType
-import ru.kubsu.borshchevyk.core.network.NetworkMonitor
+import ru.kubsu.borshchevyk.core.network.client.NetworkMonitor
 import javax.inject.Inject
 
 @HiltViewModel

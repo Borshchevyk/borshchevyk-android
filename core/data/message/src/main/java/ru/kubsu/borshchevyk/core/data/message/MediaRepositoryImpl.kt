@@ -5,7 +5,7 @@ import ru.kubsu.borshchevyk.core.model.dto.AttachmentResponse
 import ru.kubsu.borshchevyk.core.model.dto.AttachmentType
 import ru.kubsu.borshchevyk.core.model.dto.RequestUploadUrlRequest
 import ru.kubsu.borshchevyk.core.model.dto.ValidateAttachmentsRequest
-import ru.kubsu.borshchevyk.core.network.NetworkConstants
+import ru.kubsu.borshchevyk.core.network.client.NetworkConstants
 import ru.kubsu.borshchevyk.core.network.media.MediaNetworkDataSource
 import javax.inject.Inject
 

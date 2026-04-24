@@ -1,11 +1,12 @@
 plugins {
     alias(libs.plugins.android.library)
+    alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.hilt)
     alias(libs.plugins.ksp)
 }
 
 android {
-    namespace = "ru.kubsu.borshchevyk.core.data.auth"
+    namespace = "ru.kubsu.borshchevyk.core.network.message"
     compileSdk = 36
     defaultConfig {
         minSdk = 29
@@ -17,16 +18,12 @@ android {
 }
 
 dependencies {
+
     implementation(project(":core:model"))
-    implementation(project(":core:domain:auth"))
-    implementation(project(":core:network:auth"))
     implementation(project(":core:network:client"))
-    implementation(project(":core:network:websocket"))
-    implementation(project(":core:security"))
-    
-    implementation(libs.androidx.datastore.preferences)
+    implementation(libs.ktor.client.core)
     implementation(libs.kotlinx.coroutines.core)
-    
+
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
 }
