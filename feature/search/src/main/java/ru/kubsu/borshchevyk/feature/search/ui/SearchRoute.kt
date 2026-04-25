@@ -34,6 +34,7 @@ import ru.kubsu.borshchevyk.feature.search.SearchViewModel
 fun SearchRoute(
     onBackClick: () -> Unit,
     onChatCreated: (String) -> Unit,
+    onUserSelected: ((String) -> Unit)? = null,
     modifier: Modifier = Modifier,
     viewModel: SearchViewModel = hiltViewModel()
 ) {
@@ -99,7 +100,11 @@ fun SearchRoute(
             isLoading = uiState.isLoading,
             results = uiState.results,
             onUserClick = { userId ->
-                viewModel.handleIntent(SearchIntent.CreateChat(userId))
+                if (onUserSelected != null) {
+                    onUserSelected(userId)
+                } else {
+                    viewModel.handleIntent(SearchIntent.CreateChat(userId))
+                }
             },
             modifier = Modifier.padding(padding)
         )

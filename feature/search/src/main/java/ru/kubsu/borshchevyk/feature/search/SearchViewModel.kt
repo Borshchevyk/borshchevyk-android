@@ -16,14 +16,18 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import ru.kubsu.borshchevyk.core.domain.chat.CreatePrivateChatUseCase
+import ru.kubsu.borshchevyk.core.domain.chat.GetUserChatsUseCase
 import ru.kubsu.borshchevyk.core.domain.user.SearchUsersUseCase
+import ru.kubsu.borshchevyk.core.model.domain.ChatType
+import ru.kubsu.borshchevyk.core.model.domain.User
 import javax.inject.Inject
 
 @HiltViewModel
 @OptIn(FlowPreview::class)
 class SearchViewModel @Inject constructor(
     private val searchUsersUseCase: SearchUsersUseCase,
-    private val createPrivateChatUseCase: CreatePrivateChatUseCase
+    private val createPrivateChatUseCase: CreatePrivateChatUseCase,
+    private val getUserChatsUseCase: GetUserChatsUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SearchUiState())
@@ -33,9 +37,33 @@ class SearchViewModel @Inject constructor(
     val effect = _effect.receiveAsFlow()
 
     private val searchQueryFlow = MutableStateFlow("")
+    private var defaultResults: List<User> = emptyList()
 
     init {
+        loadDefaultResults()
         observeSearchQuery()
+    }
+
+    private fun loadDefaultResults() {
+        viewModelScope.launch {
+            try {
+                val chats = getUserChatsUseCase()
+                defaultResults = chats
+                    .filter { it.type == ChatType.PRIVATE && it.partnerId != null }
+                    .map { chat ->
+                        User(
+                            userId = chat.partnerId!!,
+                            tag = chat.partnerName ?: "",
+                            firstName = chat.partnerName,
+                            lastName = null,
+                            avatarUrl = chat.partnerAvatarUrl
+                        )
+                    }
+                if (_uiState.value.query.length < 3) {
+                    _uiState.update { it.copy(results = defaultResults) }
+                }
+            } catch (e: Exception) { }
+        }
     }
 
     fun handleIntent(intent: SearchIntent) {
@@ -58,7 +86,7 @@ class SearchViewModel @Inject constructor(
                 if (query.length >= 3) {
                     search(query)
                 } else {
-                    _uiState.update { it.copy(results = emptyList(), isLoading = false) }
+                    _uiState.update { it.copy(results = defaultResults, isLoading = false) }
                 }
             }
             .launchIn(viewModelScope)

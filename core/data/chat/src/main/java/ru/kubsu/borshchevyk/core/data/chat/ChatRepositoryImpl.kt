@@ -94,6 +94,15 @@ class ChatRepositoryImpl @Inject constructor(
     private fun ChatMemberResponse.toDomain(): ChatMember = ChatMember(
         chatId = chatId,
         userId = userId,
+        user = userDetails?.let {
+            ru.kubsu.borshchevyk.core.model.domain.User(
+                userId = it.id,
+                firstName = it.firstName,
+                lastName = it.lastName,
+                tag = it.tag ?: "",
+                avatarUrl = it.avatarUrl
+            )
+        },
         role = ChatMemberRole.valueOf(role),
         joinedAt = joinedAt,
         canSendMessages = canSendMessages,

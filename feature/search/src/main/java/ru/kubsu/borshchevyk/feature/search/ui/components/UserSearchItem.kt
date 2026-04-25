@@ -50,9 +50,10 @@ internal fun UserSearchItem(
 
         Spacer(modifier = Modifier.width(16.dp))
 
-        Column {
+        Column(modifier = Modifier.weight(1f)) {
+            val displayName = "${user.firstName ?: ""} ${user.lastName ?: ""}".trim().ifBlank { "User" }
             Text(
-                text = user.firstName ?: user.tag,
+                text = displayName,
                 style = BorshchevykTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold),
                 color = BorshchevykTheme.colors.onSurface
             )

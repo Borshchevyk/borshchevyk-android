@@ -13,11 +13,12 @@ enum class ChatMemberRole {
 data class ChatMember(
     val chatId: String,
     val userId: String,
+    val user: User? = null,
     val role: ChatMemberRole,
     val joinedAt: String,
-    val canSendMessages: Boolean = true,
-    val canDeleteMessages: Boolean = false,
-    val canInviteUsers: Boolean = false,
-    val canChangeInfo: Boolean = false,
+    val canSendMessages: Boolean,
+    val canDeleteMessages: Boolean,
+    val canInviteUsers: Boolean,
+    val canChangeInfo: Boolean,
     val historyClearedAt: String? = null
 )

@@ -11,6 +11,9 @@ import ru.kubsu.borshchevyk.feature.chat.ChatSettingsViewModel
 fun ChatSettingsRoute(
     onBackClick: () -> Unit,
     onChatDeletedLocally: () -> Unit,
+    onNavigateToInviteSearch: () -> Unit,
+    selectedUserIdToInvite: String?,
+    onInviteConsumed: () -> Unit,
     viewModel: ChatSettingsViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -21,10 +24,17 @@ fun ChatSettingsRoute(
         }
     }
 
+    LaunchedEffect(selectedUserIdToInvite) {
+        if (selectedUserIdToInvite != null) {
+            viewModel.onInviteUser(selectedUserIdToInvite)
+            onInviteConsumed()
+        }
+    }
+
     ChatSettingsScreen(
         uiState = uiState,
         onBackClick = onBackClick,
-        onInvite = viewModel::onInviteUser,
+        onShowInviteSearch = { onNavigateToInviteSearch() },
         onGenerateLink = viewModel::onGenerateInviteLink,
         onUpdatePermissions = viewModel::onUpdatePermissions,
         onClearHistory = viewModel::onClearHistory,
