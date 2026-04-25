@@ -58,7 +58,6 @@ internal fun ReadersDialog(
 @Composable
 internal fun CommentsDialog(
     comments: List<Message>?,
-    resolvedUsers: Map<String, User>,
     onDismiss: () -> Unit
 ) {
     AlertDialog(
@@ -75,8 +74,8 @@ internal fun CommentsDialog(
             } else {
                 LazyColumn {
                     items(comments) { comment ->
-                        val user = resolvedUsers[comment.authorId]
-                        val displayName = user?.let { "${it.firstName} ${it.lastName ?: ""}".trim() } ?: "User (${comment.authorId})"
+                        val user = comment.author
+                        val displayName = user?.let { "${it.firstName} ${it.lastName ?: ""}".trim() } ?: "User"
                         Column(Modifier.padding(vertical = 8.dp)) {
                             Text(
                                 text = displayName,

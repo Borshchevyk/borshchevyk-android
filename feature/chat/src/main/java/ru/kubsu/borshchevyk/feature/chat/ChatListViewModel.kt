@@ -52,7 +52,7 @@ class ChatListViewModel @Inject constructor(
                 connectWebSocketUseCase()
                 observeNewMessagesUseCase()
                     .onEach { messageDto ->
-                        Log.d(TAG, "WS: Received new message notification for chat ${messageDto.chatId}. Reloading chats.")
+                        Log.d(TAG, "WS: Received new message notification for chat ${messageDto.chat.id}. Reloading chats.")
                         loadChats(showLoading = false)
                     }
                     .launchIn(this)

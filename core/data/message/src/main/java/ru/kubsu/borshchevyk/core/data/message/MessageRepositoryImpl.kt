@@ -110,8 +110,15 @@ class MessageRepositoryImpl @Inject constructor(
 
     private fun MessageResponse.toDomain(): Message = Message(
         id = id,
-        chatId = chatId,
-        authorId = authorId,
+        chatId = chat.id,
+        authorId = author.id,
+        author = ru.kubsu.borshchevyk.core.model.domain.User(
+            userId = author.id,
+            firstName = author.firstName,
+            lastName = author.lastName,
+            tag = author.tag ?: "",
+            avatarUrl = author.avatarUrl
+        ),
         text = text,
         createdAt = createdAt,
         updatedAt = updatedAt,
@@ -122,8 +129,17 @@ class MessageRepositoryImpl @Inject constructor(
         reactions = reactions?.map { MessageReaction(userId = it.userId, reaction = it.reaction) } ?: emptyList(),
         commentsCount = commentsCount,
         parentMessageId = parentMessageId,
-        forwardedFromChatId = forwardedFromChatId,
-        forwardedFromUserId = forwardedFromUserId,
+        forwardedFromChatId = forwardedFromChat?.id,
+        forwardedFromUserId = forwardedFromUser?.id,
+        forwardedFromUser = forwardedFromUser?.let { 
+            ru.kubsu.borshchevyk.core.model.domain.User(
+                userId = it.id,
+                firstName = it.firstName,
+                lastName = it.lastName,
+                tag = it.tag ?: "",
+                avatarUrl = it.avatarUrl
+            )
+        },
         attachments = attachments?.map { 
             Attachment(
                 id = it.id,

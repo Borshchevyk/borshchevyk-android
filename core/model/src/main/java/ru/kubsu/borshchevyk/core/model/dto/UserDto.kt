@@ -4,6 +4,15 @@ import kotlinx.serialization.Serializable
 import ru.kubsu.borshchevyk.core.model.domain.Visibility
 
 @Serializable
+data class ShortUserDto(
+    val id: String,
+    val firstName: String? = null,
+    val lastName: String? = null,
+    val tag: String? = null,
+    val avatarUrl: String? = null
+)
+
+@Serializable
 data class UserProfileResponse(
     val userId: String,
     val email: String? = null,

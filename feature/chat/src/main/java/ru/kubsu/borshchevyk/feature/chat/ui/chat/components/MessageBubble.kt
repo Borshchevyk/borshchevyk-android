@@ -37,7 +37,6 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ru.kubsu.borshchevyk.core.model.domain.Message
-import ru.kubsu.borshchevyk.core.model.domain.User
 import ru.kubsu.borshchevyk.core.ui.theme.BorshchevykTheme
 
 private fun formatMessageTime(timeStr: String): String {
@@ -59,7 +58,6 @@ internal fun MessageBubble(
     isFromMe: Boolean,
     currentUserId: String,
     attachmentUrls: Map<String, String>,
-    resolvedUsers: Map<String, User>,
     onResolveAttachmentUrl: (String) -> Unit,
     onPinToggle: () -> Unit,
     onReactionToggle: (String) -> Unit,
@@ -72,7 +70,7 @@ internal fun MessageBubble(
     onForward: () -> Unit
 ) {
     var showMenu by rememberSaveable { mutableStateOf(false) }
-    val author = resolvedUsers[message.authorId]
+    val author = message.author
     val authorName = author?.let { "${it.firstName} ${it.lastName ?: ""}".trim() } ?: "User"
 
     LaunchedEffect(message.id) {
@@ -113,9 +111,9 @@ internal fun MessageBubble(
                 Column(
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
                 ) {
-                    if (message.forwardedFromUserId != null) {
-                        val forwardedAuthor = resolvedUsers[message.forwardedFromUserId]
-                        val forwardedName = forwardedAuthor?.let { "${it.firstName} ${it.lastName ?: ""}".trim() } ?: "User"
+                    if (message.forwardedFromUser != null) {
+                        val forwardedAuthor = message.forwardedFromUser
+                        val forwardedName = forwardedAuthor?.let { "${it.firstName} ${it.lastName ?: ""}".trim() }?.ifBlank { "User" } ?: "User"
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(
                                 imageVector = Icons.Default.Info,

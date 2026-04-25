@@ -6,24 +6,45 @@ import ru.kubsu.borshchevyk.core.model.domain.Message
 import ru.kubsu.borshchevyk.core.model.domain.MessageReaction
 import ru.kubsu.borshchevyk.core.model.domain.MessageSource
 import ru.kubsu.borshchevyk.core.model.domain.MessageStatus
+import ru.kubsu.borshchevyk.core.model.domain.User
 import ru.kubsu.borshchevyk.core.model.dto.AttachmentType
 
 fun ChatUiState.reduce(event: ChatEvent): ChatUiState {
     if (this !is ChatUiState.Content) return this
 
+    var newState = this
+
     return when (event) {
         is ChatEvent.NewMessage -> {
             val dto = event.message
-            if (dto.chatId.equals(this.context.chatId, ignoreCase = true)) {
+            
+            val author = User(
+                userId = dto.author.id,
+                firstName = dto.author.firstName,
+                lastName = dto.author.lastName,
+                tag = dto.author.tag ?: "",
+                avatarUrl = dto.author.avatarUrl
+            )
+            val forwardedAuthor = dto.forwardedFromUser?.let { 
+                User(
+                    userId = it.id,
+                    firstName = it.firstName,
+                    lastName = it.lastName,
+                    tag = it.tag ?: "",
+                    avatarUrl = it.avatarUrl
+                )
+            }
+
+            if (dto.chat.id.equals(newState.context.chatId, ignoreCase = true)) {
                 if (dto.isDeleted) {
-                    this.copy(
-                        feed = this.feed.copy(
-                            messages = this.feed.messages.filterNot { it.id == dto.id },
-                            pinnedMessages = this.feed.pinnedMessages.filterNot { it.id == dto.id }
+                    newState.copy(
+                        feed = newState.feed.copy(
+                            messages = newState.feed.messages.filterNot { it.id == dto.id },
+                            pinnedMessages = newState.feed.pinnedMessages.filterNot { it.id == dto.id }
                         )
                     )
                 } else {
-                    val existingMsg = this.feed.messages.find { it.id == dto.id }
+                    val existingMsg = newState.feed.messages.find { it.id == dto.id }
                     val mappedAttachments = dto.attachments?.map {
                         Attachment(
                             id = it.id,
@@ -47,98 +68,106 @@ fun ChatUiState.reduce(event: ChatEvent): ChatUiState {
                             text = dto.text,
                             isDeleted = dto.isDeleted,
                             attachments = if (mappedAttachments.isNotEmpty()) mappedAttachments else existingMsg.attachments,
-                            forwardedFromChatId = dto.forwardedFromChatId ?: existingMsg.forwardedFromChatId,
-                            forwardedFromUserId = dto.forwardedFromUserId ?: existingMsg.forwardedFromUserId
+                            forwardedFromChatId = dto.forwardedFromChat?.id ?: existingMsg.forwardedFromChatId,
+                            forwardedFromUserId = dto.forwardedFromUser?.id ?: existingMsg.forwardedFromUserId,
+                            author = author,
+                            forwardedFromUser = forwardedAuthor ?: existingMsg.forwardedFromUser
                         )
-                        this.copy(
-                            feed = this.feed.copy(
-                                messages = this.feed.messages.map { if (it.id == dto.id) updatedMsg else it },
-                                pinnedMessages = this.feed.pinnedMessages.map { if (it.id == dto.id) updatedMsg else it }
+                        newState.copy(
+                            feed = newState.feed.copy(
+                                messages = newState.feed.messages.map { if (it.id == dto.id) updatedMsg else it },
+                                pinnedMessages = newState.feed.pinnedMessages.map { if (it.id == dto.id) updatedMsg else it }
                             )
                         )
                     } else {
-                        // Check if message already exists in the list to avoid duplicate keys
-                        val alreadyExists = this.feed.messages.any { it.id == dto.id }
+                        val alreadyExists = newState.feed.messages.any { it.id == dto.id }
                         if (alreadyExists) {
-                            val msgInList = this.feed.messages.find { it.id == dto.id }!!
+                            val msgInList = newState.feed.messages.find { it.id == dto.id }!!
                             val updatedMsg = Message(
                                 id = dto.id,
-                                chatId = dto.chatId,
-                                authorId = dto.authorId,
+                                chatId = dto.chat.id,
+                                authorId = dto.author.id,
+                                author = author,
                                 text = dto.text,
                                 createdAt = dto.createdAt,
-                                status = dto.status?.let {MessageStatus.valueOf(it) },
+                                status = dto.status?.let { MessageStatus.valueOf(it) },
                                 isDeleted = dto.isDeleted,
                                 source = MessageSource.ONLINE,
                                 isPinned = false,
                                 reactions = emptyList(),
                                 commentsCount = 0,
                                 parentMessageId = null,
-                                forwardedFromChatId = dto.forwardedFromChatId ?: msgInList.forwardedFromChatId,
-                                forwardedFromUserId = dto.forwardedFromUserId ?: msgInList.forwardedFromUserId,
+                                forwardedFromChatId = dto.forwardedFromChat?.id ?: msgInList.forwardedFromChatId,
+                                forwardedFromUserId = dto.forwardedFromUser?.id ?: msgInList.forwardedFromUserId,
+                                forwardedFromUser = forwardedAuthor ?: msgInList.forwardedFromUser,
                                 attachments = mappedAttachments
                             )
-                            this.copy(
-                                feed = this.feed.copy(
-                                    messages = this.feed.messages.map { if (it.id == dto.id) updatedMsg else it }
+                            newState.copy(
+                                feed = newState.feed.copy(
+                                    messages = newState.feed.messages.map { if (it.id == dto.id) updatedMsg else it }
                                 )
                             )
                         } else {
                             val newMsg = Message(
                                 id = dto.id,
-                                chatId = dto.chatId,
-                                authorId = dto.authorId,
+                                chatId = dto.chat.id,
+                                authorId = dto.author.id,
+                                author = author,
                                 text = dto.text,
                                 createdAt = dto.createdAt,
-                                status = dto.status?.let { ru.kubsu.borshchevyk.core.model.domain.MessageStatus.valueOf(it) },
+                                status = dto.status?.let { MessageStatus.valueOf(it) },
                                 isDeleted = dto.isDeleted,
-                                source = ru.kubsu.borshchevyk.core.model.domain.MessageSource.ONLINE,
+                                source = MessageSource.ONLINE,
                                 isPinned = false,
                                 reactions = emptyList(),
                                 commentsCount = 0,
                                 parentMessageId = null,
-                                forwardedFromChatId = dto.forwardedFromChatId,
-                                forwardedFromUserId = dto.forwardedFromUserId,
+                                forwardedFromChatId = dto.forwardedFromChat?.id,
+                                forwardedFromUserId = dto.forwardedFromUser?.id,
+                                forwardedFromUser = forwardedAuthor,
                                 attachments = mappedAttachments
                             )
-                            this.copy(feed = this.feed.copy(messages = listOf(newMsg) + this.feed.messages))
+                            newState.copy(feed = newState.feed.copy(messages = listOf(newMsg) + newState.feed.messages))
                         }
                     }
                 }
             } else {
-                this
+                newState
             }
         }
         is ChatEvent.MessageDeleted -> {
-            this.copy(
-                feed = this.feed.copy(
-                    messages = this.feed.messages.filterNot { it.id == event.messageId },
-                    pinnedMessages = this.feed.pinnedMessages.filterNot { it.id == event.messageId }
+            newState.copy(
+                feed = newState.feed.copy(
+                    messages = newState.feed.messages.filterNot { it.id == event.messageId },
+                    pinnedMessages = newState.feed.pinnedMessages.filterNot { it.id == event.messageId }
                 )
             )
         }
         is ChatEvent.Typing -> {
-            val newTypingUsers = this.input.typingUsers.toMutableSet()
+            val newTypingUsers = newState.input.typingUsers.toMutableSet()
+            val userId = event.event.user.id
             if (event.event.isTyping) {
-                newTypingUsers.add(event.event.userId)
+                newTypingUsers.add(userId)
             } else {
-                newTypingUsers.remove(event.event.userId)
+                newTypingUsers.remove(userId)
             }
-            this.copy(input = this.input.copy(typingUsers = newTypingUsers))
+            newState.copy(input = newState.input.copy(typingUsers = newTypingUsers))
         }
         is ChatEvent.ReactionUpdated -> {
             val dto = event.event
-            this.copy(
-                feed = this.feed.copy(
-                    messages = this.feed.messages.map { msg ->
+            val userId = dto.user.id
+            
+            newState.copy(
+                feed = newState.feed.copy(
+                    messages = newState.feed.messages.map { msg ->
                         if (msg.id == dto.messageId) {
                             val newReactions = msg.reactions.toMutableList()
                             if (dto.isAdded) {
-                                if (!newReactions.any { it.reaction == dto.reaction && it.userId == dto.userId }) {
-                                    newReactions.add(MessageReaction(dto.userId, dto.reaction))
+                                if (!newReactions.any { it.reaction == dto.reaction && it.userId == userId }) {
+                                    newReactions.add(MessageReaction(userId, dto.reaction))
                                 }
                             } else {
-                                newReactions.removeAll { it.reaction == dto.reaction && it.userId == dto.userId }
+                                newReactions.removeAll { it.reaction == dto.reaction && it.userId == userId }
                             }
                             msg.copy(reactions = newReactions)
                         } else msg
@@ -147,28 +176,26 @@ fun ChatUiState.reduce(event: ChatEvent): ChatUiState {
             )
         }
         is ChatEvent.MessagePinned -> {
-            val updatedMessages = this.feed.messages.map {
+            val updatedMessages = newState.feed.messages.map {
                 if (it.id == event.messageId) it.copy(isPinned = true) else it
             }
-            this.copy(feed = this.feed.copy(messages = updatedMessages))
+            newState.copy(feed = newState.feed.copy(messages = updatedMessages))
         }
         is ChatEvent.MessageUnpinned -> {
-            val updatedMessages = this.feed.messages.map {
+            val updatedMessages = newState.feed.messages.map {
                 if (it.id == event.messageId) it.copy(isPinned = false) else it
             }
-            this.copy(feed = this.feed.copy(messages = updatedMessages))
+            newState.copy(feed = newState.feed.copy(messages = updatedMessages))
         }
         is ChatEvent.ReadReceipt -> {
-            val updatedMessages = this.feed.messages.map {
+            val updatedMessages = newState.feed.messages.map {
                 if (it.id == event.event.messageId) {
-                    // Update to READ only if it's not already READ. 
-                    // This prevents multiple users reading from causing "re-reading" flashes if any logic depends on state transitions.
                     if (it.status != MessageStatus.READ) {
                         it.copy(status = MessageStatus.READ)
                     } else it
                 } else it
             }
-            this.copy(feed = this.feed.copy(messages = updatedMessages))
+            newState.copy(feed = newState.feed.copy(messages = updatedMessages))
         }
     }
 }

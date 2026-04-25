@@ -19,6 +19,7 @@ data class Message(
     val id: String,
     val chatId: String,
     val authorId: String,
+    val author: User? = null,
     val text: String,
     val createdAt: String,
     val updatedAt: String? = null,
@@ -31,5 +32,6 @@ data class Message(
     val parentMessageId: String? = null,
     val forwardedFromChatId: String? = null,
     val forwardedFromUserId: String? = null,
+    val forwardedFromUser: User? = null,
     val attachments: List<Attachment> = emptyList()
 )
