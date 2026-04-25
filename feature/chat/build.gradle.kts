@@ -38,6 +38,7 @@ dependencies {
     
     implementation(libs.androidx.hilt.navigation.compose)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
+    implementation(libs.kotlinx.serialization.json)
     
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)

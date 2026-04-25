@@ -34,6 +34,6 @@ interface MessageRepository {
     
     suspend fun getPinnedMessages(chatId: String): List<Message>
     suspend fun readMessage(chatId: String, messageId: String)
-    suspend fun getMessageReaders(chatId: String, messageId: String): List<String>
+    suspend fun getMessageReaders(chatId: String, messageId: String): List<ru.kubsu.borshchevyk.core.model.domain.User>
     suspend fun getMessageComments(chatId: String, messageId: String, page: Int, size: Int): List<Message>
 }

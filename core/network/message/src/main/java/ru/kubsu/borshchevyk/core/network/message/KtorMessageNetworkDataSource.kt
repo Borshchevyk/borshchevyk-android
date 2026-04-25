@@ -11,6 +11,7 @@ import io.ktor.client.request.setBody
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 import ru.kubsu.borshchevyk.core.model.dto.EditMessageRequest
+import ru.kubsu.borshchevyk.core.model.dto.EnrichedUserResponse
 import ru.kubsu.borshchevyk.core.model.dto.MessageResponse
 import ru.kubsu.borshchevyk.core.model.dto.SendMessageRequest
 import ru.kubsu.borshchevyk.core.network.di.IoDispatcher
@@ -90,7 +91,7 @@ class KtorMessageNetworkDataSource @Inject constructor(
         }
     }
 
-    override suspend fun getMessageReaders(chatId: String, messageId: String): List<String> {
+    override suspend fun getMessageReaders(chatId: String, messageId: String): List<EnrichedUserResponse> {
         return withContext(ioDispatcher) {
             httpClient.get("api/v1/chats/$chatId/messages/$messageId/readers").body()
         }

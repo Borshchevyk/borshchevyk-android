@@ -48,7 +48,9 @@ data class SendMessageRequest(
     val text: String,
     val source: MessageSource? = null,
     val parentMessageId: String? = null,
-    val attachmentIds: List<String>? = null
+    val attachmentIds: List<String>? = null,
+    val forwardedFromChatId: String? = null,
+    val forwardedFromUserId: String? = null
 )
 
 @Serializable

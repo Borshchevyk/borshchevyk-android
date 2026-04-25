@@ -16,12 +16,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import ru.kubsu.borshchevyk.core.model.domain.Message
+import ru.kubsu.borshchevyk.core.model.domain.User
 import ru.kubsu.borshchevyk.core.ui.theme.BorshchevykTheme
 
 @Composable
 internal fun ReadersDialog(
-    readers: List<String>?,
-    resolvedUsers: Map<String, ru.kubsu.borshchevyk.core.model.domain.User>,
+    readers: List<User>?,
     onDismiss: () -> Unit
 ) {
     AlertDialog(
@@ -37,9 +37,8 @@ internal fun ReadersDialog(
                 Text("No one has read this yet.", color = BorshchevykTheme.colors.onSurfaceVariant)
             } else {
                 LazyColumn {
-                    items(readers) { readerId ->
-                        val user = resolvedUsers[readerId]
-                        val displayName = user?.let { "${it.firstName} ${it.lastName ?: ""}".trim() } ?: "User ($readerId)"
+                    items(readers) { reader ->
+                        val displayName = "${reader.firstName} ${reader.lastName ?: ""}".trim().ifBlank { reader.tag }
                         Text(
                             text = displayName,
                             style = BorshchevykTheme.typography.bodyMedium,
@@ -59,7 +58,7 @@ internal fun ReadersDialog(
 @Composable
 internal fun CommentsDialog(
     comments: List<Message>?,
-    resolvedUsers: Map<String, ru.kubsu.borshchevyk.core.model.domain.User>,
+    resolvedUsers: Map<String, User>,
     onDismiss: () -> Unit
 ) {
     AlertDialog(

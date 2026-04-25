@@ -34,7 +34,7 @@ object EditProfileRoute
 object EditPrivacyRoute
 
 @Serializable
-data class ChatRoute(val chatId: String)
+data class ChatRoute(val chatId: String, val forwardPayloadJson: String? = null)
 
 @Serializable
 data class ChatSettingsRoute(val chatId: String)
@@ -60,9 +60,22 @@ fun BorshchevykNavHost(
         }
 
         composable<ChatListRoute> {
+            val currentBackStackEntry = navController.currentBackStackEntry
+            val savedStateHandle = currentBackStackEntry?.savedStateHandle
+            val forwardPayloadJson = savedStateHandle?.get<String>("forwardPayload")
+
             ChatListRoute(
+                forwardPayloadJson = forwardPayloadJson,
+                onCancelForward = {
+                    savedStateHandle?.remove<String>("forwardPayload")
+                },
                 onChatClick = { chatId ->
-                    navController.navigate(ChatRoute(chatId = chatId))
+                    if (forwardPayloadJson != null) {
+                        savedStateHandle?.remove<String>("forwardPayload")
+                        navController.navigate(ChatRoute(chatId = chatId, forwardPayloadJson = forwardPayloadJson))
+                    } else {
+                        navController.navigate(ChatRoute(chatId = chatId))
+                    }
                 },
                 onProfileClick = {
                     navController.navigate(ProfileRoute)
@@ -116,6 +129,10 @@ fun BorshchevykNavHost(
                 },
                 onSettingsClick = { chatId ->
                     navController.navigate(ChatSettingsRoute(chatId = chatId))
+                },
+                onNavigateToForwardSelection = { payloadJson ->
+                    navController.previousBackStackEntry?.savedStateHandle?.set("forwardPayload", payloadJson)
+                    navController.popBackStack()
                 }
             )
         }

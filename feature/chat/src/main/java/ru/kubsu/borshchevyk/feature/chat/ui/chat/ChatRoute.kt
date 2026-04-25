@@ -35,6 +35,7 @@ import ru.kubsu.borshchevyk.feature.chat.ui.chat.components.MessageInput
 fun ChatRoute(
     onBackClick: () -> Unit,
     onSettingsClick: (String) -> Unit,
+    onNavigateToForwardSelection: (String) -> Unit,
     modifier: Modifier = Modifier,
     chatViewModel: ChatViewModel = hiltViewModel()
 ) {
@@ -52,6 +53,9 @@ fun ChatRoute(
                 }
                 is ChatEffect.NavigateToSettings -> {
                     onSettingsClick(effect.chatId)
+                }
+                is ChatEffect.NavigateToForwardSelection -> {
+                    onNavigateToForwardSelection(effect.payloadJson)
                 }
             }
         }
@@ -115,7 +119,8 @@ fun ChatRoute(
                         onSendMessage = { text, attachments -> chatViewModel.handleIntent(ChatIntent.SendMessage(text, attachments)) },
                         onEditMessage = { id, text -> chatViewModel.handleIntent(ChatIntent.EditMessage(id, text)) },
                         onCancelEdit = { chatViewModel.handleIntent(ChatIntent.SetEditingMessage(null)) },
-                        onTyping = { chatViewModel.handleIntent(ChatIntent.Typing) }
+                        onTyping = { chatViewModel.handleIntent(ChatIntent.Typing) },
+                        forwardPayload = state.input.forwardPayload
                     )
                 },
                 containerColor = BorshchevykTheme.colors.background,

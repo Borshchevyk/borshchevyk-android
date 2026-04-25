@@ -1,13 +1,16 @@
 package ru.kubsu.borshchevyk.feature.chat.ui.chatlist
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.GroupAdd
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Search
@@ -39,6 +42,8 @@ import ru.kubsu.borshchevyk.feature.chat.ui.chatlist.components.JoinChatDialog
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatListRoute(
+    forwardPayloadJson: String? = null,
+    onCancelForward: () -> Unit = {},
     onChatClick: (String) -> Unit,
     onProfileClick: () -> Unit,
     onSearchClick: () -> Unit,
@@ -52,42 +57,65 @@ fun ChatListRoute(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { 
-                    Text(
-                        text = "Chats", 
-                        style = BorshchevykTheme.typography.titleLarge,
-                        color = BorshchevykTheme.colors.onSurface
-                    ) 
-                },
-                actions = {
-                    IconButton(onClick = onSearchClick) {
-                        Icon(
-                            Icons.Default.Search,
-                            contentDescription = "Search",
-                            tint = BorshchevykTheme.colors.onSurface
-                        )
+            Column {
+                if (forwardPayloadJson != null) {
+                    androidx.compose.material3.Surface(
+                        color = BorshchevykTheme.colors.primaryContainer,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Select chat to forward message",
+                                style = BorshchevykTheme.typography.bodyMedium,
+                                color = BorshchevykTheme.colors.onPrimaryContainer,
+                                modifier = Modifier.weight(1f)
+                            )
+                            IconButton(onClick = onCancelForward) {
+                                Icon(Icons.Default.Close, contentDescription = "Cancel forwarding", tint = BorshchevykTheme.colors.onPrimaryContainer)
+                            }
+                        }
                     }
-                    IconButton(onClick = { showJoinDialog = true }) {
-                        Icon(
-                            Icons.Default.Link,
-                            contentDescription = "Join by Link",
-                            tint = BorshchevykTheme.colors.onSurface
-                        )
-                    }
-                    IconButton(onClick = onProfileClick) {
-                        Icon(
-                            Icons.Default.Settings,
-                            contentDescription = "Profile",
-                            tint = BorshchevykTheme.colors.onSurface
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = BorshchevykTheme.colors.background,
-                    titleContentColor = BorshchevykTheme.colors.onSurface
+                }
+                TopAppBar(
+                    title = { 
+                        Text(
+                            text = "Chats", 
+                            style = BorshchevykTheme.typography.titleLarge,
+                            color = BorshchevykTheme.colors.onSurface
+                        ) 
+                    },
+                    actions = {
+                        IconButton(onClick = onSearchClick) {
+                            Icon(
+                                Icons.Default.Search,
+                                contentDescription = "Search",
+                                tint = BorshchevykTheme.colors.onSurface
+                            )
+                        }
+                        IconButton(onClick = { showJoinDialog = true }) {
+                            Icon(
+                                Icons.Default.Link,
+                                contentDescription = "Join by Link",
+                                tint = BorshchevykTheme.colors.onSurface
+                            )
+                        }
+                        IconButton(onClick = onProfileClick) {
+                            Icon(
+                                Icons.Default.Settings,
+                                contentDescription = "Profile",
+                                tint = BorshchevykTheme.colors.onSurface
+                            )
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = BorshchevykTheme.colors.background,
+                        titleContentColor = BorshchevykTheme.colors.onSurface
+                    )
                 )
-            )
+            }
         },
         floatingActionButton = {
             Column(horizontalAlignment = Alignment.End) {

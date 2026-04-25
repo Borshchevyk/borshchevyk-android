@@ -87,8 +87,16 @@ class MessageRepositoryImpl @Inject constructor(
         networkDataSource.readMessage(chatId, messageId)
     }
 
-    override suspend fun getMessageReaders(chatId: String, messageId: String): List<String> {
-        return networkDataSource.getMessageReaders(chatId, messageId)
+    override suspend fun getMessageReaders(chatId: String, messageId: String): List<ru.kubsu.borshchevyk.core.model.domain.User> {
+        return networkDataSource.getMessageReaders(chatId, messageId).map {
+            ru.kubsu.borshchevyk.core.model.domain.User(
+                userId = it.id,
+                firstName = it.firstName,
+                lastName = it.lastName,
+                tag = it.tag ?: "",
+                avatarUrl = it.avatarUrl
+            )
+        }
     }
 
     override suspend fun getMessageComments(

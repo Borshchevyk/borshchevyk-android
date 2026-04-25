@@ -4,6 +4,8 @@ import ru.kubsu.borshchevyk.core.model.domain.Attachment
 import ru.kubsu.borshchevyk.core.model.domain.ChatEvent
 import ru.kubsu.borshchevyk.core.model.domain.Message
 import ru.kubsu.borshchevyk.core.model.domain.MessageReaction
+import ru.kubsu.borshchevyk.core.model.domain.MessageSource
+import ru.kubsu.borshchevyk.core.model.domain.MessageStatus
 import ru.kubsu.borshchevyk.core.model.dto.AttachmentType
 
 fun ChatUiState.reduce(event: ChatEvent): ChatUiState {
@@ -44,7 +46,9 @@ fun ChatUiState.reduce(event: ChatEvent): ChatUiState {
                         val updatedMsg = existingMsg.copy(
                             text = dto.text,
                             isDeleted = dto.isDeleted,
-                            attachments = if (mappedAttachments.isNotEmpty()) mappedAttachments else existingMsg.attachments
+                            attachments = if (mappedAttachments.isNotEmpty()) mappedAttachments else existingMsg.attachments,
+                            forwardedFromChatId = dto.forwardedFromChatId ?: existingMsg.forwardedFromChatId,
+                            forwardedFromUserId = dto.forwardedFromUserId ?: existingMsg.forwardedFromUserId
                         )
                         this.copy(
                             feed = this.feed.copy(
@@ -56,21 +60,22 @@ fun ChatUiState.reduce(event: ChatEvent): ChatUiState {
                         // Check if message already exists in the list to avoid duplicate keys
                         val alreadyExists = this.feed.messages.any { it.id == dto.id }
                         if (alreadyExists) {
+                            val msgInList = this.feed.messages.find { it.id == dto.id }!!
                             val updatedMsg = Message(
                                 id = dto.id,
                                 chatId = dto.chatId,
                                 authorId = dto.authorId,
                                 text = dto.text,
                                 createdAt = dto.createdAt,
-                                status = dto.status?.let { ru.kubsu.borshchevyk.core.model.domain.MessageStatus.valueOf(it) },
+                                status = dto.status?.let {MessageStatus.valueOf(it) },
                                 isDeleted = dto.isDeleted,
-                                source = ru.kubsu.borshchevyk.core.model.domain.MessageSource.ONLINE,
+                                source = MessageSource.ONLINE,
                                 isPinned = false,
                                 reactions = emptyList(),
                                 commentsCount = 0,
                                 parentMessageId = null,
-                                forwardedFromChatId = null,
-                                forwardedFromUserId = null,
+                                forwardedFromChatId = dto.forwardedFromChatId ?: msgInList.forwardedFromChatId,
+                                forwardedFromUserId = dto.forwardedFromUserId ?: msgInList.forwardedFromUserId,
                                 attachments = mappedAttachments
                             )
                             this.copy(
@@ -92,8 +97,8 @@ fun ChatUiState.reduce(event: ChatEvent): ChatUiState {
                                 reactions = emptyList(),
                                 commentsCount = 0,
                                 parentMessageId = null,
-                                forwardedFromChatId = null,
-                                forwardedFromUserId = null,
+                                forwardedFromChatId = dto.forwardedFromChatId,
+                                forwardedFromUserId = dto.forwardedFromUserId,
                                 attachments = mappedAttachments
                             )
                             this.copy(feed = this.feed.copy(messages = listOf(newMsg) + this.feed.messages))
@@ -158,8 +163,8 @@ fun ChatUiState.reduce(event: ChatEvent): ChatUiState {
                 if (it.id == event.event.messageId) {
                     // Update to READ only if it's not already READ. 
                     // This prevents multiple users reading from causing "re-reading" flashes if any logic depends on state transitions.
-                    if (it.status != ru.kubsu.borshchevyk.core.model.domain.MessageStatus.READ) {
-                        it.copy(status = ru.kubsu.borshchevyk.core.model.domain.MessageStatus.READ)
+                    if (it.status != MessageStatus.READ) {
+                        it.copy(status = MessageStatus.READ)
                     } else it
                 } else it
             }
