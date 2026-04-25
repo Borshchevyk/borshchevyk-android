@@ -49,6 +49,7 @@ import coil.compose.AsyncImage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import ru.kubsu.borshchevyk.core.model.domain.ForwardPayload
 import ru.kubsu.borshchevyk.core.model.domain.Message
 import ru.kubsu.borshchevyk.core.ui.theme.BorshchevykTheme
 import ru.kubsu.borshchevyk.feature.chat.AttachmentFile
@@ -60,7 +61,8 @@ internal fun MessageInput(
     onSendMessage: (String, List<AttachmentFile>) -> Unit,
     onEditMessage: (String, String) -> Unit,
     onCancelEdit: () -> Unit,
-    onTyping: () -> Unit
+    onTyping: () -> Unit,
+    forwardPayload: ForwardPayload? = null
 ) {
     var text by remember { mutableStateOf("") }
     val context = LocalContext.current
@@ -102,6 +104,20 @@ internal fun MessageInput(
         modifier = Modifier.fillMaxWidth()
     ) {
         Column {
+            if (forwardPayload != null) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().background(BorshchevykTheme.colors.primaryContainer).padding(horizontal = 16.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Forwarding from ${forwardPayload.authorName}", 
+                        style = BorshchevykTheme.typography.bodyMedium, 
+                        color = BorshchevykTheme.colors.onPrimaryContainer
+                    )
+                }
+            }
+
             if (editingMessage != null) {
                 Row(
                     modifier = Modifier.fillMaxWidth().background(BorshchevykTheme.colors.surfaceVariant).padding(horizontal = 16.dp, vertical = 8.dp),
@@ -160,10 +176,11 @@ internal fun MessageInput(
                     maxLines = 4
                 )
                 Spacer(modifier = Modifier.width(12.dp))
+                val canSend = text.isNotBlank() || selectedAttachments.isNotEmpty() || forwardPayload != null
                 Box(
-                    modifier = Modifier.size(48.dp).clip(CircleShape).background(if (isSending) BorshchevykTheme.colors.surfaceVariant else if (text.isNotBlank() || selectedAttachments.isNotEmpty()) BorshchevykTheme.colors.primary else BorshchevykTheme.colors.surfaceVariant)
-                        .clickable(enabled = !isSending && (text.isNotBlank() || selectedAttachments.isNotEmpty())) {
-                            if (text.isNotBlank() || selectedAttachments.isNotEmpty()) {
+                    modifier = Modifier.size(48.dp).clip(CircleShape).background(if (isSending) BorshchevykTheme.colors.surfaceVariant else if (canSend) BorshchevykTheme.colors.primary else BorshchevykTheme.colors.surfaceVariant)
+                        .clickable(enabled = !isSending && canSend) {
+                            if (canSend) {
                                 if (editingMessage != null) {
                                     onEditMessage(editingMessage.id, text)
                                 } else {
@@ -178,7 +195,7 @@ internal fun MessageInput(
                     if (isSending) {
                         CircularProgressIndicator(color = BorshchevykTheme.colors.primary, modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
                     } else {
-                        Icon(if (editingMessage != null) Icons.Default.Check else Icons.AutoMirrored.Filled.Send, contentDescription = "Send", tint = if (text.isNotBlank() || selectedAttachments.isNotEmpty()) BorshchevykTheme.colors.onPrimary else BorshchevykTheme.colors.onSurfaceVariant, modifier = Modifier.size(24.dp))
+                        Icon(if (editingMessage != null) Icons.Default.Check else Icons.AutoMirrored.Filled.Send, contentDescription = "Send", tint = if (canSend) BorshchevykTheme.colors.onPrimary else BorshchevykTheme.colors.onSurfaceVariant, modifier = Modifier.size(24.dp))
                     }
                 }
             }

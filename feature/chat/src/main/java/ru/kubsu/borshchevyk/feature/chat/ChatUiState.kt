@@ -1,6 +1,8 @@
 package ru.kubsu.borshchevyk.feature.chat
 
+import ru.kubsu.borshchevyk.core.model.domain.ForwardPayload
 import ru.kubsu.borshchevyk.core.model.domain.Message
+import ru.kubsu.borshchevyk.core.model.domain.User
 
 data class ChatContext(
     val chatId: String = "",
@@ -12,15 +14,16 @@ data class MessageFeed(
     val messages: List<Message> = emptyList(),
     val pinnedMessages: List<Message> = emptyList(),
     val commentsByMessageId: Map<String, List<Message>> = emptyMap(),
-    val readersByMessageId: Map<String, List<String>> = emptyMap(),
+    val readersByMessageId: Map<String, List<User>> = emptyMap(),
     val attachmentUrls: Map<String, String> = emptyMap(),
-    val resolvedUsers: Map<String, ru.kubsu.borshchevyk.core.model.domain.User> = emptyMap()
+    val resolvedUsers: Map<String, User> = emptyMap()
 )
 
 data class InputState(
     val editingMessage: Message? = null,
     val typingUsers: Set<String> = emptySet(),
-    val isSending: Boolean = false
+    val isSending: Boolean = false,
+    val forwardPayload: ForwardPayload? = null
 )
 
 sealed interface ChatUiState {

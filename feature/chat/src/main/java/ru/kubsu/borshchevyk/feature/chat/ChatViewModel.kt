@@ -17,6 +17,9 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import ru.kubsu.borshchevyk.core.domain.auth.GetUserIdUseCase
 import ru.kubsu.borshchevyk.core.domain.chat.GetUserChatsUseCase
 import ru.kubsu.borshchevyk.core.domain.message.ChatAttachmentUseCases
@@ -26,16 +29,16 @@ import ru.kubsu.borshchevyk.core.domain.message.ObserveChatEventsUseCase
 import ru.kubsu.borshchevyk.core.domain.user.GetUserProfileUseCase
 import ru.kubsu.borshchevyk.core.model.domain.ChatEvent
 import ru.kubsu.borshchevyk.core.model.domain.ChatType
+import ru.kubsu.borshchevyk.core.model.domain.ForwardPayload
 import ru.kubsu.borshchevyk.core.model.domain.Message
 import ru.kubsu.borshchevyk.core.model.domain.MessageReaction
 import ru.kubsu.borshchevyk.core.model.dto.AttachmentType
 import ru.kubsu.borshchevyk.core.network.client.NetworkMonitor
-import java.time.LocalDateTime
 import javax.inject.Inject
 
 @HiltViewModel
 class ChatViewModel @Inject constructor(
-    savedStateHandle: SavedStateHandle,
+    private val savedStateHandle: SavedStateHandle,
     private val getUserIdUseCase: GetUserIdUseCase,
     private val getUserChatsUseCase: GetUserChatsUseCase,
     private val getUserProfileUseCase: GetUserProfileUseCase,
@@ -48,6 +51,13 @@ class ChatViewModel @Inject constructor(
 
     private val TAG = "ChatViewModel"
     private val chatId: String = checkNotNull(savedStateHandle["chatId"])
+    private val forwardPayloadJson: String? = savedStateHandle["forwardPayloadJson"]
+    
+    private val initialForwardPayload: ForwardPayload? = try {
+        forwardPayloadJson?.let { Json.decodeFromString<ForwardPayload>(it) }
+    } catch (e: Exception) {
+        null
+    }
 
     private val _uiState = MutableStateFlow<ChatUiState>(ChatUiState.Loading)
     val uiState: StateFlow<ChatUiState> = _uiState.asStateFlow()
@@ -58,7 +68,7 @@ class ChatViewModel @Inject constructor(
     private var typingJob: Job? = null
     
     // Store original data for retrying failed messages
-    private val failedMessagesData = mutableMapOf<String, Pair<String, List<AttachmentFile>>>()
+    private val failedMessagesData = mutableMapOf<String, Triple<String, List<AttachmentFile>, ForwardPayload?>>()
 
     init {
         loadData()
@@ -83,6 +93,29 @@ class ChatViewModel @Inject constructor(
             is ChatIntent.ToggleReaction -> onToggleReaction(intent.messageId, intent.reaction)
             is ChatIntent.ResolveAttachmentUrl -> resolveAttachmentUrl(intent.attachmentId)
             is ChatIntent.ResendMessage -> onResendMessage(intent.messageId)
+            is ChatIntent.ForwardMessage -> onForwardMessage(intent.message)
+        }
+    }
+
+    private fun onForwardMessage(message: Message) {
+        val state = _uiState.value as? ChatUiState.Content ?: return
+        val author = state.feed.resolvedUsers[message.authorId]
+        val authorName = author?.let { "${it.firstName} ${it.lastName ?: ""}".trim() } ?: "User"
+        
+        val payload = ForwardPayload(
+            text = message.text,
+            attachmentIds = message.attachments.map { it.id },
+            fromChatId = message.chatId,
+            fromUserId = message.authorId,
+            authorName = authorName
+        )
+        viewModelScope.launch {
+            try {
+                val json = Json.encodeToString(payload)
+                _effect.send(ChatEffect.NavigateToForwardSelection(json))
+            } catch (e: Exception) {
+                _effect.send(ChatEffect.ShowError("Failed to prepare forwarded message"))
+            }
         }
     }
 
@@ -116,7 +149,7 @@ class ChatViewModel @Inject constructor(
             } else state
         }
         
-        performSendMessage(messageId, data.first, data.second)
+        performSendMessage(messageId, data.first, data.second, data.third)
     }
 
     private fun resolveUser(userId: String) {
@@ -178,6 +211,7 @@ class ChatViewModel @Inject constructor(
                     }
                     is ChatEvent.NewMessage -> {
                         resolveUser(event.message.authorId)
+                        event.message.forwardedFromUserId?.let { resolveUser(it) }
                         viewModelScope.launch {
                             getUserChatsUseCase() 
                         }
@@ -211,6 +245,9 @@ class ChatViewModel @Inject constructor(
                     feed = MessageFeed(
                         messages = history,
                         pinnedMessages = pinned
+                    ),
+                    input = InputState(
+                        forwardPayload = initialForwardPayload
                     )
                 )
 
@@ -253,19 +290,23 @@ class ChatViewModel @Inject constructor(
     }
 
     private fun onSendMessage(text: String, attachments: List<AttachmentFile>) {
-        if (text.isBlank() && attachments.isEmpty()) return
-        
-        val currentUserId = (uiState.value as? ChatUiState.Content)?.context?.currentUserId ?: return
+        val contentState = uiState.value as? ChatUiState.Content ?: return
+        val currentUserId = contentState.context.currentUserId
+        val forwardPayload = contentState.input.forwardPayload
+
+        if (text.isBlank() && attachments.isEmpty() && forwardPayload == null) return
 
         val tempId = "temp_${System.currentTimeMillis()}"
         val optimisticMessage = Message(
             id = tempId,
             chatId = chatId,
             authorId = currentUserId,
-            text = text,
-            createdAt = LocalDateTime.now(java.time.ZoneOffset.UTC).toString() + "Z",
+            text = text.ifBlank { forwardPayload?.text ?: "" },
+            createdAt = java.time.LocalDateTime.now(java.time.ZoneOffset.UTC).toString() + "Z",
             status = ru.kubsu.borshchevyk.core.model.domain.MessageStatus.SENDING,
             source = ru.kubsu.borshchevyk.core.model.domain.MessageSource.ONLINE,
+            forwardedFromChatId = forwardPayload?.fromChatId,
+            forwardedFromUserId = forwardPayload?.fromUserId,
             attachments = attachments.map { 
                 ru.kubsu.borshchevyk.core.model.domain.Attachment(
                     id = "temp_${it.originalFilename}",
@@ -279,18 +320,30 @@ class ChatViewModel @Inject constructor(
 
         _uiState.update { state ->
             if (state is ChatUiState.Content) {
-                state.copy(feed = state.feed.copy(messages = listOf(optimisticMessage) + state.feed.messages))
+                state.copy(
+                    feed = state.feed.copy(messages = listOf(optimisticMessage) + state.feed.messages),
+                    input = state.input.copy(forwardPayload = null, isSending = true)
+                )
             } else state
         }
+        
+        forwardPayload?.fromUserId?.let { resolveUser(it) }
+        
+        savedStateHandle.remove<String>("forwardPayloadJson")
 
-        performSendMessage(tempId, text, attachments)
+        performSendMessage(tempId, text, attachments, forwardPayload)
     }
 
-    private fun performSendMessage(tempId: String, text: String, attachments: List<AttachmentFile>) {
+    private fun performSendMessage(tempId: String, text: String, attachments: List<AttachmentFile>, forwardPayload: ForwardPayload?) {
         viewModelScope.launch {
             try {
-                val attachmentIds = if (attachments.isNotEmpty()) {
-                    attachments.map { file ->
+                val attachmentIds = mutableListOf<String>()
+                if (forwardPayload != null) {
+                    attachmentIds.addAll(forwardPayload.attachmentIds)
+                }
+
+                if (attachments.isNotEmpty()) {
+                    val uploadedIds = attachments.map { file ->
                         val type = when {
                             file.contentType.startsWith("image/") -> AttachmentType.PHOTO
                             file.contentType.startsWith("video/") -> AttachmentType.VIDEO
@@ -308,21 +361,36 @@ class ChatViewModel @Inject constructor(
                             duration = file.duration?.toDouble()
                         )
                     }
-                } else null
+                    attachmentIds.addAll(uploadedIds)
+                }
 
-                val newMessage = messageUseCases.sendMessage(chatId, text, attachmentIds)
+                val finalAttachmentIds = if (attachmentIds.isNotEmpty()) attachmentIds else null
+                val finalText = if (text.isNotBlank()) text else forwardPayload?.text ?: ""
+
+                val newMessage = messageUseCases.sendMessage(
+                    chatId = chatId,
+                    text = finalText,
+                    attachmentIds = finalAttachmentIds,
+                    forwardedFromChatId = forwardPayload?.fromChatId,
+                    forwardedFromUserId = forwardPayload?.fromUserId
+                )
                 
                 _uiState.update { state ->
                     if (state is ChatUiState.Content) {
                         val alreadyExists = state.feed.messages.any { it.id == newMessage.id }
                         val updatedMessages = if (alreadyExists) {
-                            state.feed.messages.filterNot { it.id == tempId }
+                            state.feed.messages.map { if (it.id == newMessage.id) newMessage else it }.filterNot { it.id == tempId }
                         } else {
                             state.feed.messages.map { if (it.id == tempId) newMessage else it }
                         }
-                        state.copy(feed = state.feed.copy(messages = updatedMessages))
+                        state.copy(
+                            feed = state.feed.copy(messages = updatedMessages),
+                            input = state.input.copy(isSending = false)
+                        )
                     } else state
                 }
+                
+                newMessage.forwardedFromUserId?.let { resolveUser(it) }
                 
                 newMessage.attachments.forEach {
                     resolveAttachmentUrl(it.id)
@@ -332,14 +400,17 @@ class ChatViewModel @Inject constructor(
                 typingJob?.cancel()
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to send message", e)
-                failedMessagesData[tempId] = text to attachments
+                failedMessagesData[tempId] = Triple(text, attachments, forwardPayload)
                 
                 _uiState.update { state ->
                     if (state is ChatUiState.Content) {
                         val updatedMessages = state.feed.messages.map { 
                             if (it.id == tempId) it.copy(status = ru.kubsu.borshchevyk.core.model.domain.MessageStatus.ERROR) else it 
                         }
-                        state.copy(feed = state.feed.copy(messages = updatedMessages))
+                        state.copy(
+                            feed = state.feed.copy(messages = updatedMessages),
+                            input = state.input.copy(isSending = false)
+                        )
                     } else state
                 }
                 _effect.send(ChatEffect.ShowError("Failed to send message: ${e.message}"))

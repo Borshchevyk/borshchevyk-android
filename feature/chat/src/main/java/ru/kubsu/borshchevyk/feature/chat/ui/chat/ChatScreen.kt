@@ -91,6 +91,9 @@ internal fun ChatScreen(
                     },
                     onResend = {
                         onIntent(ChatIntent.ResendMessage(message.id))
+                    },
+                    onForward = {
+                        onIntent(ChatIntent.ForwardMessage(message))
                     }
                 )
                 Spacer(modifier = Modifier.height(12.dp))
@@ -101,7 +104,6 @@ internal fun ChatScreen(
     if (messageIdForReaders != null) {
         ReadersDialog(
             readers = contentState.feed.readersByMessageId[messageIdForReaders],
-            resolvedUsers = contentState.feed.resolvedUsers,
             onDismiss = { messageIdForReaders = null }
         )
     }

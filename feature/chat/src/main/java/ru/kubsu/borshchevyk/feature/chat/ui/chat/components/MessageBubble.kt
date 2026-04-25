@@ -18,6 +18,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Done
 import androidx.compose.material.icons.filled.DoneAll
 import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
@@ -32,9 +33,11 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ru.kubsu.borshchevyk.core.model.domain.Message
+import ru.kubsu.borshchevyk.core.model.domain.User
 import ru.kubsu.borshchevyk.core.ui.theme.BorshchevykTheme
 
 private fun formatMessageTime(timeStr: String): String {
@@ -56,7 +59,7 @@ internal fun MessageBubble(
     isFromMe: Boolean,
     currentUserId: String,
     attachmentUrls: Map<String, String>,
-    resolvedUsers: Map<String, ru.kubsu.borshchevyk.core.model.domain.User>,
+    resolvedUsers: Map<String, User>,
     onResolveAttachmentUrl: (String) -> Unit,
     onPinToggle: () -> Unit,
     onReactionToggle: (String) -> Unit,
@@ -65,7 +68,8 @@ internal fun MessageBubble(
     onMessageVisible: () -> Unit,
     onViewReaders: () -> Unit,
     onViewComments: () -> Unit,
-    onResend: () -> Unit
+    onResend: () -> Unit,
+    onForward: () -> Unit
 ) {
     var showMenu by rememberSaveable { mutableStateOf(false) }
     val author = resolvedUsers[message.authorId]
@@ -109,6 +113,26 @@ internal fun MessageBubble(
                 Column(
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
                 ) {
+                    if (message.forwardedFromUserId != null) {
+                        val forwardedAuthor = resolvedUsers[message.forwardedFromUserId]
+                        val forwardedName = forwardedAuthor?.let { "${it.firstName} ${it.lastName ?: ""}".trim() } ?: "User"
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.Info,
+                                contentDescription = "Forwarded",
+                                modifier = Modifier.size(12.dp),
+                                tint = if (isFromMe) BorshchevykTheme.colors.onPrimary.copy(alpha = 0.7f) else BorshchevykTheme.colors.primary.copy(alpha = 0.7f)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "Forwarded from $forwardedName",
+                                style = BorshchevykTheme.typography.labelSmall.copy(fontStyle = FontStyle.Italic),
+                                color = if (isFromMe) BorshchevykTheme.colors.onPrimary.copy(alpha = 0.7f) else BorshchevykTheme.colors.primary.copy(alpha = 0.7f)
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(4.dp))
+                    }
+
                     if (message.attachments.isNotEmpty()) {
                         AttachmentGallery(
                             attachments = message.attachments,
@@ -192,6 +216,13 @@ internal fun MessageBubble(
                 onDismissRequest = { showMenu = false },
                 containerColor = BorshchevykTheme.colors.surface
             ) {
+                DropdownMenuItem(
+                    text = { Text("Forward Message") },
+                    onClick = {
+                        showMenu = false
+                        onForward()
+                    }
+                )
                 DropdownMenuItem(
                     text = { Text(if (message.isPinned) "Unpin Message" else "Pin Message") },
                     onClick = {

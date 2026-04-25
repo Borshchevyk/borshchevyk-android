@@ -17,6 +17,8 @@ data class NotificationDto(
         val createdAt: String,
         @SerialName("deleted") val isDeleted: Boolean = false,
         val status: String? = null,
+        val forwardedFromChatId: String? = null,
+        val forwardedFromUserId: String? = null,
         val attachments: List<MessageAttachmentResponse>? = null,
         @SerialName("attachmentIds") val attachmentIdsOld: List<MessageAttachmentResponse>? = null
     )
