@@ -46,6 +46,7 @@ import ru.kubsu.borshchevyk.core.model.domain.ChatMemberRole
 import ru.kubsu.borshchevyk.core.model.dto.UpdatePermissionsRequest
 import ru.kubsu.borshchevyk.core.ui.theme.BorshchevykTheme
 import ru.kubsu.borshchevyk.feature.chat.ChatSettingsUiState
+import ru.kubsu.borshchevyk.feature.chat.ui.chat.components.AddContactDialog
 import ru.kubsu.borshchevyk.feature.chat.ui.chat.components.ClearHistoryDialog
 import ru.kubsu.borshchevyk.feature.chat.ui.chat.components.DeleteChatDialog
 import ru.kubsu.borshchevyk.feature.chat.ui.chat.components.UpdateChatInfoDialog
@@ -63,12 +64,15 @@ internal fun ChatSettingsScreen(
     onDeleteChat: () -> Unit,
     onKickUser: (String) -> Unit,
     onLeaveChat: () -> Unit,
-    onUpdateChatInfo: (String?, String?) -> Unit
+    onUpdateChatInfo: (String?, String?) -> Unit,
+    onAddContact: (String, String?) -> Unit,
+    onRemoveContact: () -> Unit
 ) {
     var memberIdForPermissions by rememberSaveable { mutableStateOf<String?>(null) }
     var showClearHistoryDialog by rememberSaveable { mutableStateOf(false) }
     var showDeleteChatDialog by rememberSaveable { mutableStateOf(false) }
     var showUpdateInfoDialog by rememberSaveable { mutableStateOf(false) }
+    var showAddContactDialog by rememberSaveable { mutableStateOf(false) }
 
     val currentUserMember = uiState.members.find { it.userId == uiState.currentUserId }
     val canManagePermissions = uiState.isGroupChat &&
@@ -99,7 +103,9 @@ internal fun ChatSettingsScreen(
                     canChangeInfo = canChangeInfo,
                     onShowUpdateInfo = { showUpdateInfoDialog = true },
                     onShowInvite = onShowInviteSearch,
-                    onGenerateLink = onGenerateLink
+                    onGenerateLink = onGenerateLink,
+                    onShowAddContact = { showAddContactDialog = true },
+                    onRemoveContact = onRemoveContact
                 )
             }
             
@@ -173,6 +179,18 @@ internal fun ChatSettingsScreen(
                 }
             )
         }
+        
+        if (showAddContactDialog) {
+            AddContactDialog(
+                initialFirstName = uiState.partnerFirstName,
+                initialLastName = uiState.partnerLastName,
+                onDismiss = { showAddContactDialog = false },
+                onConfirm = { firstName, lastName ->
+                    onAddContact(firstName, lastName)
+                    showAddContactDialog = false
+                }
+            )
+        }
     }
 }
 
@@ -182,12 +200,36 @@ private fun ChatSettingsHeader(
     canChangeInfo: Boolean,
     onShowUpdateInfo: () -> Unit,
     onShowInvite: () -> Unit,
-    onGenerateLink: () -> Unit
+    onGenerateLink: () -> Unit,
+    onShowAddContact: () -> Unit,
+    onRemoveContact: () -> Unit
 ) {
     val clipboardManager = LocalClipboardManager.current
     val context = LocalContext.current
 
     Spacer(modifier = Modifier.height(16.dp))
+    
+    if (!uiState.isGroupChat && uiState.partnerId != null) {
+        if (uiState.isContact) {
+            Button(
+                onClick = onRemoveContact,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(containerColor = BorshchevykTheme.colors.error, contentColor = BorshchevykTheme.colors.onError)
+            ) {
+                Text("Remove from Contacts")
+            }
+        } else {
+            Button(
+                onClick = onShowAddContact,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(containerColor = BorshchevykTheme.colors.primaryContainer, contentColor = BorshchevykTheme.colors.onPrimaryContainer)
+            ) {
+                Text("Add to Contacts")
+            }
+        }
+        Spacer(modifier = Modifier.height(8.dp))
+    }
+    
     if (canChangeInfo) {
         Button(
             onClick = onShowUpdateInfo,
@@ -324,7 +366,7 @@ private fun ChatSettingsDangerZone(
         Spacer(modifier = Modifier.height(8.dp))
     }
 
-    if (!uiState.isGroupChat || currentUserMember?.role == ChatMemberRole.OWNER) {
+    if (uiState.isDeletable && (!uiState.isGroupChat || currentUserMember?.role == ChatMemberRole.OWNER)) {
         Button(
             onClick = onShowDeleteChat,
             colors = ButtonDefaults.buttonColors(containerColor = BorshchevykTheme.colors.error),

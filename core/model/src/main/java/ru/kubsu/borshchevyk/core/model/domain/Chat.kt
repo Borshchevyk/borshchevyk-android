@@ -23,5 +23,6 @@ data class Chat(
     val lastMessage: String? = null,
     val unreadCount: Long = 0,
     val allowedReactions: Set<String>? = null,
+    val isDeletable: Boolean = true,
     val createdAt: String
 )

@@ -89,6 +89,7 @@ class ChatRepositoryImpl @Inject constructor(
         lastMessage = lastMessage,
         unreadCount = unreadCount,
         allowedReactions = allowedReactions,
+        isDeletable = isDeletable,
         createdAt = createdAt
         )
     private fun ChatMemberResponse.toDomain(): ChatMember = ChatMember(

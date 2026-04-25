@@ -61,6 +61,7 @@ dependencies {
     implementation(project(":feature:chat"))
     implementation(project(":feature:profile"))
     implementation(project(":feature:search"))
+    implementation(project(":feature:contacts"))
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)

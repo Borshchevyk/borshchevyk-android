@@ -41,6 +41,8 @@ fun ChatSettingsRoute(
         onDeleteChat = viewModel::onDeleteChat,
         onKickUser = viewModel::onKickUser,
         onLeaveChat = viewModel::onLeaveChat,
-        onUpdateChatInfo = viewModel::onUpdateChatInfo
+        onUpdateChatInfo = viewModel::onUpdateChatInfo,
+        onAddContact = viewModel::onAddContact,
+        onRemoveContact = viewModel::onRemoveContact
     )
 }

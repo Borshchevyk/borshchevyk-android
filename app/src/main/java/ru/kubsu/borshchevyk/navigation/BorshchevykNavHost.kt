@@ -8,8 +8,6 @@ import androidx.navigation.compose.composable
 import androidx.navigation.toRoute
 import kotlinx.serialization.Serializable
 import ru.kubsu.borshchevyk.feature.auth.ui.AuthRoute
-import ru.kubsu.borshchevyk.feature.chat.ui.chatlist.ChatListRoute
-import ru.kubsu.borshchevyk.feature.profile.ui.ProfileRoute
 import ru.kubsu.borshchevyk.feature.chat.ui.chat.ChatRoute as ChatScreenRoute
 import ru.kubsu.borshchevyk.feature.chat.ui.chat.ChatSettingsRoute as ChatSettingsScreenRoute
 import ru.kubsu.borshchevyk.feature.profile.ui.editprivacy.EditPrivacyRoute as EditPrivacyScreenRoute
@@ -20,13 +18,10 @@ import ru.kubsu.borshchevyk.feature.search.ui.SearchRoute as SearchScreenRoute
 object AuthRoute
 
 @Serializable
-object ChatListRoute
+object HomeRoute
 
 @Serializable
 data class SearchRoute(val isInviteMode: Boolean = false)
-
-@Serializable
-object ProfileRoute
 
 @Serializable
 object EditProfileRoute
@@ -53,36 +48,20 @@ fun BorshchevykNavHost(
         composable<AuthRoute> {
             AuthRoute(
                 onAuthSuccess = {
-                    navController.navigate(ChatListRoute) {
+                    navController.navigate(HomeRoute) {
                         popUpTo<AuthRoute> { inclusive = true }
                     }
                 }
             )
         }
 
-        composable<ChatListRoute> {
-            val currentBackStackEntry = navController.currentBackStackEntry
-            val savedStateHandle = currentBackStackEntry?.savedStateHandle
-            val forwardPayloadJson = savedStateHandle?.get<String>("forwardPayload")
-
-            ChatListRoute(
-                forwardPayloadJson = forwardPayloadJson,
-                onCancelForward = {
-                    savedStateHandle?.remove<String>("forwardPayload")
-                },
-                onChatClick = { chatId ->
-                    if (forwardPayloadJson != null) {
-                        savedStateHandle?.remove<String>("forwardPayload")
-                        navController.navigate(ChatRoute(chatId = chatId, forwardPayloadJson = forwardPayloadJson))
-                    } else {
-                        navController.navigate(ChatRoute(chatId = chatId))
+        composable<HomeRoute> {
+            HomeRoute(
+                navController = navController,
+                onLogoutSuccess = {
+                    navController.navigate(AuthRoute) {
+                        popUpTo(0) { inclusive = true }
                     }
-                },
-                onProfileClick = {
-                    navController.navigate(ProfileRoute)
-                },
-                onSearchClick = {
-                    navController.navigate(SearchRoute())
                 }
             )
         }
@@ -102,19 +81,6 @@ fun BorshchevykNavHost(
                         navController.popBackStack()
                     }
                 } else null
-            )
-        }
-
-        composable<ProfileRoute> {
-            ProfileRoute(
-                onBackClick = { navController.popBackStack() },
-                onNavigateToEditProfile = { navController.navigate(EditProfileRoute) },
-                onNavigateToEditPrivacy = { navController.navigate(EditPrivacyRoute) },
-                onLogoutSuccess = {
-                    navController.navigate(AuthRoute) {
-                        popUpTo(0) { inclusive = true }
-                    }
-                }
             )
         }
 
@@ -155,7 +121,7 @@ fun BorshchevykNavHost(
                     navController.popBackStack()
                 },
                 onChatDeletedLocally = {
-                    navController.popBackStack(ChatListRoute, inclusive = false)
+                    navController.popBackStack(HomeRoute, inclusive = false)
                 },
                 onNavigateToInviteSearch = {
                     navController.navigate(SearchRoute(isInviteMode = true))
