@@ -20,5 +20,6 @@ data class ChatMember(
     val canDeleteMessages: Boolean,
     val canInviteUsers: Boolean,
     val canChangeInfo: Boolean,
+    val isPinned: Boolean = false,
     val historyClearedAt: String? = null
 )

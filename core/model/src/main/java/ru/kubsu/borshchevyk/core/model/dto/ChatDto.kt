@@ -23,7 +23,8 @@ data class ChatResponse(
     val allowedReactions: Set<String>? = null,
     val lastMessage: String? = null,
     val unreadCount: Long = 0,
-    val isDeletable: Boolean = true
+    val isDeletable: Boolean = true,
+    val isPinned: Boolean = false
 )
 
 @Serializable

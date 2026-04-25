@@ -25,11 +25,13 @@ dependencies {
     implementation(project(":core:model"))
     implementation(project(":core:domain:auth"))
     implementation(project(":core:domain:user"))
+    implementation(project(":core:domain:message"))
     
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
+    implementation(libs.coil.compose)
     
     implementation(libs.androidx.hilt.navigation.compose)
     implementation(libs.androidx.lifecycle.viewmodel.compose)

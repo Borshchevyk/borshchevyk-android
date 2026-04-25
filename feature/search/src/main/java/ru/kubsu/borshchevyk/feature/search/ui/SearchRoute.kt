@@ -98,13 +98,17 @@ fun SearchRoute(
     ) { padding ->
         SearchScreen(
             isLoading = uiState.isLoading,
-            results = uiState.results,
+            userResults = uiState.userResults,
+            chatResults = uiState.chatResults,
             onUserClick = { userId ->
                 if (onUserSelected != null) {
                     onUserSelected(userId)
                 } else {
                     viewModel.handleIntent(SearchIntent.CreateChat(userId))
                 }
+            },
+            onChatClick = { chatId ->
+                viewModel.handleIntent(SearchIntent.JoinChat(chatId))
             },
             modifier = Modifier.padding(padding)
         )

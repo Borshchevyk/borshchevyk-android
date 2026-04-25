@@ -38,6 +38,12 @@ class UserRepositoryImpl @Inject constructor(
         return user
     }
 
+    override suspend fun updateAvatar(request: ru.kubsu.borshchevyk.core.model.dto.UpdateAvatarRequest): User {
+        val user = networkDataSource.updateAvatar(request).toDomain()
+        userCache[user.userId] = user
+        return user
+    }
+
     override suspend fun getPrivacySettings(): PrivacySettings {
         return networkDataSource.getPrivacySettings().toDomain()
     }
@@ -53,7 +59,8 @@ class UserRepositoryImpl @Inject constructor(
         firstName = firstName,
         lastName = lastName,
         bio = bio,
-        avatarUrl = avatarUrl
+        avatarUrl = avatarUrl,
+        avatars = avatars
     )
 
     private fun PrivacySettingsResponse.toDomain(): PrivacySettings = PrivacySettings(

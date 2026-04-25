@@ -20,7 +20,8 @@ data class UserProfileResponse(
     val firstName: String? = null,
     val lastName: String? = null,
     val bio: String? = null,
-    val avatarUrl: String? = null
+    val avatarUrl: String? = null,
+    val avatars: List<String> = emptyList()
 )
 
 @Serializable
@@ -29,6 +30,11 @@ data class UpdateProfileRequest(
     val lastName: String? = null,
     val bio: String? = null,
     val avatarUrl: String? = null
+)
+
+@Serializable
+data class UpdateAvatarRequest(
+    val avatarUrl: String
 )
 
 @Serializable

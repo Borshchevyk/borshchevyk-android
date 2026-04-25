@@ -4,11 +4,15 @@ import android.util.Log
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.request.delete
+import io.ktor.client.request.forms.MultiPartFormDataContent
+import io.ktor.client.request.forms.formData
 import io.ktor.client.request.get
 import io.ktor.client.request.post
 import io.ktor.client.request.put
 import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
+import io.ktor.http.Headers
+import io.ktor.http.HttpHeaders
 import io.ktor.http.contentType
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
@@ -27,6 +31,23 @@ class KtorMediaNetworkDataSource @Inject constructor(
 ) : MediaNetworkDataSource {
 
     private val TAG = "MediaNetworkDataSource"
+
+    override suspend fun uploadAvatar(fileBytes: ByteArray, filename: String, contentType: String): AttachmentUrlResult {
+        return withContext(ioDispatcher) {
+            httpClient.post("api/v1/media/upload/avatar") {
+                setBody(
+                    MultiPartFormDataContent(
+                        formData {
+                            append("file", fileBytes, Headers.build {
+                                append(HttpHeaders.ContentType, contentType)
+                                append(HttpHeaders.ContentDisposition, "filename=\"$filename\"")
+                            })
+                        }
+                    )
+                )
+            }.body()
+        }
+    }
 
     override suspend fun requestUploadUrl(request: RequestUploadUrlRequest): UploadUrlResult {
         Log.d(TAG, "Requesting upload URL for: ${request.originalFilename}, type: ${request.type}")

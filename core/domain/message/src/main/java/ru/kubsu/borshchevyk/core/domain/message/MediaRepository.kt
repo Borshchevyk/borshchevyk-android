@@ -19,6 +19,8 @@ interface MediaRepository {
     
     suspend fun completeUpload(attachmentId: String): AttachmentResponse
     
+    suspend fun uploadAvatar(fileBytes: ByteArray, filename: String, contentType: String): String
+    
     suspend fun getAttachmentUrl(attachmentId: String): String
     
     suspend fun deleteAttachment(attachmentId: String)

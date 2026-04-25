@@ -3,6 +3,7 @@ package ru.kubsu.borshchevyk.core.network.chat
 import ru.kubsu.borshchevyk.core.model.dto.ChatMemberResponse
 import ru.kubsu.borshchevyk.core.model.dto.ChatResponse
 import ru.kubsu.borshchevyk.core.model.dto.CreateChatRequest
+import ru.kubsu.borshchevyk.core.model.dto.GlobalSearchResponse
 import ru.kubsu.borshchevyk.core.model.dto.PageResponse
 import ru.kubsu.borshchevyk.core.model.dto.TargetUserRequest
 import ru.kubsu.borshchevyk.core.model.dto.UpdateChatInfoRequest
@@ -23,4 +24,7 @@ interface ChatNetworkDataSource {
     suspend fun leaveChat(chatId: String)
     suspend fun generateInviteLink(chatId: String): String
     suspend fun joinChatByLink(inviteCode: String): ChatResponse
+    suspend fun pinChat(chatId: String)
+    suspend fun unpinChat(chatId: String)
+    suspend fun globalSearch(query: String): GlobalSearchResponse
 }

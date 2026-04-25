@@ -1,10 +1,12 @@
 package ru.kubsu.borshchevyk.feature.search
 
+import ru.kubsu.borshchevyk.core.model.domain.Chat
 import ru.kubsu.borshchevyk.core.model.domain.User
 
 sealed interface SearchIntent {
     data class UpdateQuery(val query: String) : SearchIntent
     data class CreateChat(val userId: String) : SearchIntent
+    data class JoinChat(val chatId: String) : SearchIntent
 }
 
 sealed interface SearchEffect {
@@ -14,6 +16,7 @@ sealed interface SearchEffect {
 
 data class SearchUiState(
     val query: String = "",
-    val results: List<User> = emptyList(),
+    val userResults: List<User> = emptyList(),
+    val chatResults: List<Chat> = emptyList(),
     val isLoading: Boolean = false
 )

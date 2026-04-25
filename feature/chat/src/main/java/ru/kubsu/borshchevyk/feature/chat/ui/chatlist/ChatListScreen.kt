@@ -18,6 +18,8 @@ import ru.kubsu.borshchevyk.feature.chat.ui.chatlist.components.ChatItem
 internal fun ChatListScreen(
     uiState: ChatListUiState,
     onChatClick: (String) -> Unit,
+    onPinChat: (String) -> Unit,
+    onUnpinChat: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     if (uiState.isLoading && uiState.chats.isEmpty()) {
@@ -32,7 +34,10 @@ internal fun ChatListScreen(
             items(uiState.chats, key = { it.id }) { chat ->
                 ChatItem(
                     chat = chat,
-                    onClick = { onChatClick(chat.id) } 
+                    onClick = { onChatClick(chat.id) },
+                    onPinToggle = {
+                        if (chat.isPinned) onUnpinChat(chat.id) else onPinChat(chat.id)
+                    }
                 )
             }
         }

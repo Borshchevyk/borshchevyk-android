@@ -2,6 +2,7 @@ package ru.kubsu.borshchevyk.core.domain.chat
 
 import ru.kubsu.borshchevyk.core.model.domain.Chat
 import ru.kubsu.borshchevyk.core.model.domain.ChatMember
+import ru.kubsu.borshchevyk.core.model.domain.GlobalSearchResults
 import ru.kubsu.borshchevyk.core.model.dto.CreateChatRequest
 import ru.kubsu.borshchevyk.core.model.dto.PageResponse
 import ru.kubsu.borshchevyk.core.model.dto.TargetUserRequest
@@ -23,4 +24,7 @@ interface ChatRepository {
     suspend fun leaveChat(chatId: String)
     suspend fun generateInviteLink(chatId: String): String
     suspend fun joinChatByLink(inviteCode: String): Chat
+    suspend fun pinChat(chatId: String)
+    suspend fun unpinChat(chatId: String)
+    suspend fun globalSearch(query: String): GlobalSearchResults
 }
