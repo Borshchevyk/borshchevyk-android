@@ -174,6 +174,48 @@ internal fun UpdatePermissionsDialog(
 }
 
 @Composable
+internal fun AddContactDialog(
+    initialFirstName: String?,
+    initialLastName: String?,
+    onDismiss: () -> Unit,
+    onConfirm: (String, String?) -> Unit
+) {
+    var firstName by remember { mutableStateOf(initialFirstName ?: "") }
+    var lastName by remember { mutableStateOf(initialLastName ?: "") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Add Contact") },
+        text = {
+            Column {
+                OutlinedTextField(
+                    value = firstName,
+                    onValueChange = { firstName = it },
+                    label = { Text("First Name") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = lastName,
+                    onValueChange = { lastName = it },
+                    label = { Text("Last Name (Optional)") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onConfirm(firstName, lastName) },
+                enabled = firstName.isNotBlank()
+            ) { Text("Save") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        }
+    )
+}
+
+@Composable
 internal fun UpdateChatInfoDialog(
     onDismiss: () -> Unit,
     onConfirm: (String?, String?) -> Unit

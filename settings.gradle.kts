@@ -46,4 +46,5 @@ include(":feature:auth")
 include(":feature:chat")
 include(":feature:profile")
 include(":feature:search")
+include(":feature:contacts")
  

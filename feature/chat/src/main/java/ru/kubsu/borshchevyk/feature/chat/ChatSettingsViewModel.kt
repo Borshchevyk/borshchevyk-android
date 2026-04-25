@@ -21,8 +21,12 @@ import ru.kubsu.borshchevyk.core.domain.chat.KickUserUseCase
 import ru.kubsu.borshchevyk.core.domain.chat.LeaveChatUseCase
 import ru.kubsu.borshchevyk.core.domain.chat.UpdateChatInfoUseCase
 import ru.kubsu.borshchevyk.core.domain.chat.UpdateMemberPermissionsUseCase
+import ru.kubsu.borshchevyk.core.domain.user.AddContactUseCase
+import ru.kubsu.borshchevyk.core.domain.user.GetContactsUseCase
+import ru.kubsu.borshchevyk.core.domain.user.RemoveContactUseCase
 import ru.kubsu.borshchevyk.core.model.domain.ChatMember
 import ru.kubsu.borshchevyk.core.model.domain.ChatType
+import ru.kubsu.borshchevyk.core.model.dto.AddContactRequest
 import ru.kubsu.borshchevyk.core.model.dto.UpdateChatInfoRequest
 import ru.kubsu.borshchevyk.core.model.dto.UpdatePermissionsRequest
 import javax.inject.Inject
@@ -33,6 +37,11 @@ data class ChatSettingsUiState(
     val members: List<ChatMember> = emptyList(),
     val inviteLink: String? = null,
     val isChatDeleted: Boolean = false,
+    val isContact: Boolean = false,
+    val partnerId: String? = null,
+    val partnerFirstName: String? = null,
+    val partnerLastName: String? = null,
+    val isDeletable: Boolean = true,
     val isLoading: Boolean = false,
     val error: String? = null
 )
@@ -50,7 +59,10 @@ class ChatSettingsViewModel @Inject constructor(
     private val kickUserUseCase: KickUserUseCase,
     private val leaveChatUseCase: LeaveChatUseCase,
     private val updateChatInfoUseCase: UpdateChatInfoUseCase,
-    private val getUserIdUseCase: GetUserIdUseCase
+    private val getUserIdUseCase: GetUserIdUseCase,
+    private val getContactsUseCase: GetContactsUseCase,
+    private val addContactUseCase: AddContactUseCase,
+    private val removeContactUseCase: RemoveContactUseCase
 ) : ViewModel() {
 
     private val chatId: String = checkNotNull(savedStateHandle["chatId"])
@@ -70,17 +82,60 @@ class ChatSettingsViewModel @Inject constructor(
                 val chats = getUserChatsUseCase()
                 val chat = chats.find { it.id == chatId }
                 val isGroup = chat?.type == ChatType.GROUP
+                val isPrivate = chat?.type == ChatType.PRIVATE
                 val membersPage = getChatMembersUseCase(chatId, 0, 100)
+                
+                var isContact = false
+                if (isPrivate && chat?.partnerId != null) {
+                    val contacts = getContactsUseCase()
+                    isContact = contacts.any { it.contactUserId == chat.partnerId }
+                }
+
                 _uiState.update { 
                     it.copy(
                         currentUserId = userId,
                         isGroupChat = isGroup,
                         members = membersPage.content,
+                        isContact = isContact,
+                        partnerId = chat?.partnerId,
+                        partnerFirstName = chat?.partnerName?.substringBefore(" "),
+                        partnerLastName = chat?.partnerName?.substringAfter(" ", missingDelimiterValue = ""),
+                        isDeletable = chat?.isDeletable ?: true,
                         isLoading = false 
                     ) 
                 }
             } catch (e: Exception) {
                 _uiState.update { it.copy(isLoading = false, error = e.message) }
+            }
+        }
+    }
+
+    fun onAddContact(firstName: String, lastName: String?) {
+        val partnerId = _uiState.value.partnerId ?: return
+        viewModelScope.launch {
+            try {
+                addContactUseCase(
+                    AddContactRequest(
+                        targetUserId = partnerId,
+                        firstName = firstName,
+                        lastName = lastName?.ifBlank { null }
+                    )
+                )
+                _uiState.update { it.copy(isContact = true) }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(error = e.message ?: "Failed to add contact") }
+            }
+        }
+    }
+
+    fun onRemoveContact() {
+        val partnerId = _uiState.value.partnerId ?: return
+        viewModelScope.launch {
+            try {
+                removeContactUseCase(partnerId)
+                _uiState.update { it.copy(isContact = false) }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(error = e.message ?: "Failed to remove contact") }
             }
         }
     }

@@ -10,7 +10,6 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.GroupAdd
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -40,7 +39,6 @@ fun ChatListRoute(
     forwardPayloadJson: String? = null,
     onCancelForward: () -> Unit = {},
     onChatClick: (String) -> Unit,
-    onProfileClick: () -> Unit,
     onSearchClick: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: ChatListViewModel = hiltViewModel()
@@ -93,13 +91,6 @@ fun ChatListRoute(
                             Icon(
                                 Icons.Default.Link,
                                 contentDescription = "Join by Link",
-                                tint = BorshchevykTheme.colors.onSurface
-                            )
-                        }
-                        IconButton(onClick = onProfileClick) {
-                            Icon(
-                                Icons.Default.Settings,
-                                contentDescription = "Profile",
                                 tint = BorshchevykTheme.colors.onSurface
                             )
                         }
