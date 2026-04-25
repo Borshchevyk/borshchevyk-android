@@ -129,10 +129,12 @@ internal fun UpdatePermissionsDialog(
     var canInvite by remember { mutableStateOf(member.canInviteUsers) }
     var canChangeInfo by remember { mutableStateOf(member.canChangeInfo) }
 
+    val displayName = member.user?.let { "${it.firstName ?: ""} ${it.lastName ?: ""}".trim().ifBlank { it.tag } } ?: "User"
+
     AlertDialog(
         onDismissRequest = onDismiss,
         containerColor = BorshchevykTheme.colors.surface,
-        title = { Text("Update Permissions for ${member.userId}", style = BorshchevykTheme.typography.titleMedium, color = BorshchevykTheme.colors.onSurface) },
+        title = { Text("Permissions for $displayName", style = BorshchevykTheme.typography.titleMedium, color = BorshchevykTheme.colors.onSurface) },
         text = {
             Column {
                 PermissionRow("Send Messages", canSend) { canSend = it }

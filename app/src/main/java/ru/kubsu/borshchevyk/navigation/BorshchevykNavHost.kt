@@ -5,6 +5,7 @@ import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.toRoute
 import kotlinx.serialization.Serializable
 import ru.kubsu.borshchevyk.feature.auth.ui.AuthRoute
 import ru.kubsu.borshchevyk.feature.chat.ui.chatlist.ChatListRoute
@@ -22,7 +23,7 @@ object AuthRoute
 object ChatListRoute
 
 @Serializable
-object SearchRoute
+data class SearchRoute(val isInviteMode: Boolean = false)
 
 @Serializable
 object ProfileRoute
@@ -81,19 +82,26 @@ fun BorshchevykNavHost(
                     navController.navigate(ProfileRoute)
                 },
                 onSearchClick = {
-                    navController.navigate(SearchRoute)
+                    navController.navigate(SearchRoute())
                 }
             )
         }
 
-        composable<SearchRoute> {
+        composable<SearchRoute> { backStackEntry ->
+            val route = backStackEntry.toRoute<SearchRoute>()
             SearchScreenRoute(
                 onBackClick = { navController.popBackStack() },
                 onChatCreated = { chatId ->
                     navController.navigate(ChatRoute(chatId = chatId)) {
                         popUpTo<SearchRoute> { inclusive = true }
                     }
-                }
+                },
+                onUserSelected = if (route.isInviteMode) {
+                    { userId ->
+                        navController.previousBackStackEntry?.savedStateHandle?.set("selectedUserIdToInvite", userId)
+                        navController.popBackStack()
+                    }
+                } else null
             )
         }
 
@@ -138,12 +146,23 @@ fun BorshchevykNavHost(
         }
 
         composable<ChatSettingsRoute> {
+            val currentBackStackEntry = navController.currentBackStackEntry
+            val savedStateHandle = currentBackStackEntry?.savedStateHandle
+            val selectedUserIdToInvite = savedStateHandle?.get<String>("selectedUserIdToInvite")
+            
             ChatSettingsScreenRoute(
                 onBackClick = {
                     navController.popBackStack()
                 },
                 onChatDeletedLocally = {
                     navController.popBackStack(ChatListRoute, inclusive = false)
+                },
+                onNavigateToInviteSearch = {
+                    navController.navigate(SearchRoute(isInviteMode = true))
+                },
+                selectedUserIdToInvite = selectedUserIdToInvite,
+                onInviteConsumed = {
+                    savedStateHandle?.remove<String>("selectedUserIdToInvite")
                 }
             )
         }

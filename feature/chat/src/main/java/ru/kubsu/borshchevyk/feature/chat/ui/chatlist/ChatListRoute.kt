@@ -2,14 +2,10 @@ package ru.kubsu.borshchevyk.feature.chat.ui.chatlist
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.GroupAdd
 import androidx.compose.material.icons.filled.Link
@@ -35,7 +31,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import ru.kubsu.borshchevyk.core.ui.theme.BorshchevykTheme
 import ru.kubsu.borshchevyk.feature.chat.ChatListViewModel
-import ru.kubsu.borshchevyk.feature.chat.ui.chatlist.components.CreateChatDialog
 import ru.kubsu.borshchevyk.feature.chat.ui.chatlist.components.CreateGroupChatDialog
 import ru.kubsu.borshchevyk.feature.chat.ui.chatlist.components.JoinChatDialog
 
@@ -51,7 +46,6 @@ fun ChatListRoute(
     viewModel: ChatListViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    var showCreatePrivateDialog by rememberSaveable { mutableStateOf(false) }
     var showCreateGroupDialog by rememberSaveable { mutableStateOf(false) }
     var showJoinDialog by rememberSaveable { mutableStateOf(false) }
 
@@ -118,25 +112,13 @@ fun ChatListRoute(
             }
         },
         floatingActionButton = {
-            Column(horizontalAlignment = Alignment.End) {
-                FloatingActionButton(
-                    onClick = { showCreateGroupDialog = true },
-                    containerColor = BorshchevykTheme.colors.primaryContainer,
-                    contentColor = BorshchevykTheme.colors.onPrimaryContainer,
-                    shape = RoundedCornerShape(16.dp),
-                    modifier = Modifier.size(48.dp)
-                ) {
-                    Icon(Icons.Default.GroupAdd, contentDescription = "New Group")
-                }
-                Spacer(modifier = Modifier.height(16.dp))
-                FloatingActionButton(
-                    onClick = { showCreatePrivateDialog = true },
-                    containerColor = BorshchevykTheme.colors.primary,
-                    contentColor = BorshchevykTheme.colors.onPrimary,
-                    shape = RoundedCornerShape(16.dp)
-                ) {
-                    Icon(Icons.Default.Add, contentDescription = "New Chat")
-                }
+            FloatingActionButton(
+                onClick = { showCreateGroupDialog = true },
+                containerColor = BorshchevykTheme.colors.primary,
+                contentColor = BorshchevykTheme.colors.onPrimary,
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Icon(Icons.Default.GroupAdd, contentDescription = "New Group")
             }
         },
         containerColor = BorshchevykTheme.colors.background,
@@ -147,18 +129,6 @@ fun ChatListRoute(
             onChatClick = onChatClick,
             modifier = Modifier.padding(padding)
         )
-        
-        if (showCreatePrivateDialog) {
-            CreateChatDialog(
-                onDismiss = { showCreatePrivateDialog = false },
-                onCreate = { peerId ->
-                    showCreatePrivateDialog = false
-                    viewModel.onCreatePrivateChat(peerId) { newChatId ->
-                        onChatClick(newChatId)
-                    }
-                }
-            )
-        }
 
         if (showCreateGroupDialog) {
             CreateGroupChatDialog(

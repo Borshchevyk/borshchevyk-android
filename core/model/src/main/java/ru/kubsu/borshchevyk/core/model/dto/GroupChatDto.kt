@@ -15,6 +15,7 @@ data class PageResponse<T>(
 data class ChatMemberResponse(
     val chatId: String,
     val userId: String,
+    val userDetails: ShortUserDto? = null,
     val role: String,
     val joinedAt: String,
     val canSendMessages: Boolean,

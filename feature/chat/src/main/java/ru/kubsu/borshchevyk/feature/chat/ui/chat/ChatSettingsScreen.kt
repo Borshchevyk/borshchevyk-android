@@ -48,7 +48,6 @@ import ru.kubsu.borshchevyk.core.ui.theme.BorshchevykTheme
 import ru.kubsu.borshchevyk.feature.chat.ChatSettingsUiState
 import ru.kubsu.borshchevyk.feature.chat.ui.chat.components.ClearHistoryDialog
 import ru.kubsu.borshchevyk.feature.chat.ui.chat.components.DeleteChatDialog
-import ru.kubsu.borshchevyk.feature.chat.ui.chat.components.InviteUserDialog
 import ru.kubsu.borshchevyk.feature.chat.ui.chat.components.UpdateChatInfoDialog
 import ru.kubsu.borshchevyk.feature.chat.ui.chat.components.UpdatePermissionsDialog
 
@@ -57,7 +56,7 @@ import ru.kubsu.borshchevyk.feature.chat.ui.chat.components.UpdatePermissionsDia
 internal fun ChatSettingsScreen(
     uiState: ChatSettingsUiState,
     onBackClick: () -> Unit,
-    onInvite: (String) -> Unit,
+    onShowInviteSearch: () -> Unit,
     onGenerateLink: () -> Unit,
     onUpdatePermissions: (String, UpdatePermissionsRequest) -> Unit,
     onClearHistory: (Boolean) -> Unit,
@@ -66,7 +65,6 @@ internal fun ChatSettingsScreen(
     onLeaveChat: () -> Unit,
     onUpdateChatInfo: (String?, String?) -> Unit
 ) {
-    var showInviteDialog by rememberSaveable { mutableStateOf(false) }
     var memberIdForPermissions by rememberSaveable { mutableStateOf<String?>(null) }
     var showClearHistoryDialog by rememberSaveable { mutableStateOf(false) }
     var showDeleteChatDialog by rememberSaveable { mutableStateOf(false) }
@@ -100,7 +98,7 @@ internal fun ChatSettingsScreen(
                     uiState = uiState,
                     canChangeInfo = canChangeInfo,
                     onShowUpdateInfo = { showUpdateInfoDialog = true },
-                    onShowInvite = { showInviteDialog = true },
+                    onShowInvite = onShowInviteSearch,
                     onGenerateLink = onGenerateLink
                 )
             }
@@ -143,16 +141,6 @@ internal fun ChatSettingsScreen(
                 onConfirm = { 
                     onDeleteChat()
                     showDeleteChatDialog = false 
-                }
-            )
-        }
-
-        if (showInviteDialog) {
-            InviteUserDialog(
-                onDismiss = { showInviteDialog = false },
-                onConfirm = { userId -> 
-                    onInvite(userId)
-                    showInviteDialog = false 
                 }
             )
         }
@@ -283,13 +271,17 @@ private fun MemberItemRow(
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column {
+            val displayName = if (member.userId == currentUserId) "You" else member.user?.let { "${it.firstName ?: ""} ${it.lastName ?: ""}".trim().ifBlank { it.tag } } ?: "Unknown User"
             Text(
-                text = if (member.userId == currentUserId) "You (${member.userId})" else "User: ${member.userId}",
+                text = displayName,
                 style = BorshchevykTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
                 color = BorshchevykTheme.colors.onSurface
             )
+            val tagDisplay = if (member.userId != currentUserId) {
+                member.user?.tag?.let { "@$it • " } ?: ""
+            } else ""
             Text(
-                text = "Role: ${member.role}",
+                text = "${tagDisplay}Role: ${member.role}",
                 style = BorshchevykTheme.typography.bodyMedium,
                 color = BorshchevykTheme.colors.onSurfaceVariant
             )
