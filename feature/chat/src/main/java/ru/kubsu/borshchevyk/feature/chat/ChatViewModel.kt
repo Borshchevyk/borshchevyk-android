@@ -26,7 +26,6 @@ import ru.kubsu.borshchevyk.core.domain.message.ChatAttachmentUseCases
 import ru.kubsu.borshchevyk.core.domain.message.ChatHistoryUseCases
 import ru.kubsu.borshchevyk.core.domain.message.ChatMessageUseCases
 import ru.kubsu.borshchevyk.core.domain.message.ObserveChatEventsUseCase
-import ru.kubsu.borshchevyk.core.domain.user.GetUserProfileUseCase
 import ru.kubsu.borshchevyk.core.model.domain.ChatEvent
 import ru.kubsu.borshchevyk.core.model.domain.ChatType
 import ru.kubsu.borshchevyk.core.model.domain.ForwardPayload
@@ -41,7 +40,6 @@ class ChatViewModel @Inject constructor(
     private val savedStateHandle: SavedStateHandle,
     private val getUserIdUseCase: GetUserIdUseCase,
     private val getUserChatsUseCase: GetUserChatsUseCase,
-    private val getUserProfileUseCase: GetUserProfileUseCase,
     private val observeChatEventsUseCase: ObserveChatEventsUseCase,
     private val messageUseCases: ChatMessageUseCases,
     private val historyUseCases: ChatHistoryUseCases,
@@ -99,7 +97,7 @@ class ChatViewModel @Inject constructor(
 
     private fun onForwardMessage(message: Message) {
         val state = _uiState.value as? ChatUiState.Content ?: return
-        val author = state.feed.resolvedUsers[message.authorId]
+        val author = message.author
         val authorName = author?.let { "${it.firstName} ${it.lastName ?: ""}".trim() } ?: "User"
         
         val payload = ForwardPayload(
@@ -152,26 +150,6 @@ class ChatViewModel @Inject constructor(
         performSendMessage(messageId, data.first, data.second, data.third)
     }
 
-    private fun resolveUser(userId: String) {
-        val state = _uiState.value as? ChatUiState.Content ?: return
-        if (state.feed.resolvedUsers.containsKey(userId)) return
-
-        viewModelScope.launch {
-            try {
-                val user = getUserProfileUseCase(userId)
-                _uiState.update { s ->
-                    if (s is ChatUiState.Content) {
-                        val newMap = s.feed.resolvedUsers.toMutableMap()
-                        newMap[userId] = user
-                        s.copy(feed = s.feed.copy(resolvedUsers = newMap))
-                    } else s
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to resolve user $userId", e)
-            }
-        }
-    }
-
     private fun observeWebSockets() {
         observeChatEventsUseCase(chatId)
             .onEach { event ->
@@ -193,7 +171,6 @@ class ChatViewModel @Inject constructor(
                         }
                     }
                     is ChatEvent.ReadReceipt -> {
-                        resolveUser(event.event.userId)
                         viewModelScope.launch {
                             try {
                                 val readers = historyUseCases.getMessageReaders(chatId, event.event.messageId)
@@ -210,8 +187,6 @@ class ChatViewModel @Inject constructor(
                         }
                     }
                     is ChatEvent.NewMessage -> {
-                        resolveUser(event.message.authorId)
-                        event.message.forwardedFromUserId?.let { resolveUser(it) }
                         viewModelScope.launch {
                             getUserChatsUseCase() 
                         }
@@ -252,7 +227,6 @@ class ChatViewModel @Inject constructor(
                 )
 
                 history.forEach { msg ->
-                    resolveUser(msg.authorId)
                     msg.attachments.forEach { att ->
                         resolveAttachmentUrl(att.id)
                     }
@@ -327,8 +301,6 @@ class ChatViewModel @Inject constructor(
             } else state
         }
         
-        forwardPayload?.fromUserId?.let { resolveUser(it) }
-        
         savedStateHandle.remove<String>("forwardPayloadJson")
 
         performSendMessage(tempId, text, attachments, forwardPayload)
@@ -389,8 +361,6 @@ class ChatViewModel @Inject constructor(
                         )
                     } else state
                 }
-                
-                newMessage.forwardedFromUserId?.let { resolveUser(it) }
                 
                 newMessage.attachments.forEach {
                     resolveAttachmentUrl(it.id)

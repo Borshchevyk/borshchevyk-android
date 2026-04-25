@@ -6,7 +6,8 @@ import kotlinx.serialization.Serializable
 enum class ChatType {
     PRIVATE,
     GROUP,
-    CHANNEL
+    CHANNEL,
+    SAVED_MESSAGES
 }
 
 @Serializable

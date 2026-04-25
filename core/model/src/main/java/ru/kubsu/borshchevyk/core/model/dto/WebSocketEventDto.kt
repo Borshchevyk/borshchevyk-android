@@ -11,14 +11,14 @@ data class NotificationDto(
     @Serializable
     data class MessageDto(
         val id: String,
-        val chatId: String,
-        val authorId: String,
+        val chat: ShortChatDto,
+        val author: ShortUserDto,
         val text: String,
         val createdAt: String,
         @SerialName("deleted") val isDeleted: Boolean = false,
         val status: String? = null,
-        val forwardedFromChatId: String? = null,
-        val forwardedFromUserId: String? = null,
+        val forwardedFromChat: ShortChatDto? = null,
+        val forwardedFromUser: ShortUserDto? = null,
         val attachments: List<MessageAttachmentResponse>? = null,
         @SerialName("attachmentIds") val attachmentIdsOld: List<MessageAttachmentResponse>? = null
     )
@@ -26,20 +26,20 @@ data class NotificationDto(
 
 @Serializable
 data class TypingEvent(
-    val userId: String,
+    val user: ShortUserDto,
     val isTyping: Boolean
 )
 
 @Serializable
 data class ReactionEvent(
     val messageId: String,
-    val userId: String,
+    val user: ShortUserDto,
     val reaction: String,
     val isAdded: Boolean
 )
 
 @Serializable
 data class ReadReceiptEvent(
-    val userId: String,
+    val user: ShortUserDto,
     val messageId: String
 )

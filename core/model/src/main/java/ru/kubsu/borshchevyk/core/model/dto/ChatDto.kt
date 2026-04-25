@@ -4,6 +4,12 @@ import kotlinx.serialization.Serializable
 import ru.kubsu.borshchevyk.core.model.domain.ChatType
 
 @Serializable
+data class ShortChatDto(
+    val id: String,
+    val name: String? = null
+)
+
+@Serializable
 data class ChatResponse(
     val id: String,
     val type: ChatType,

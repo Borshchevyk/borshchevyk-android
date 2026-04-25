@@ -24,8 +24,8 @@ data class MessageAttachmentResponse(
 @Serializable
 data class MessageResponse(
     val id: String,
-    val chatId: String,
-    val authorId: String,
+    val chat: ShortChatDto,
+    val author: ShortUserDto,
     val text: String,
     val createdAt: String,
     val updatedAt: String? = null,
@@ -37,8 +37,8 @@ data class MessageResponse(
     val reactions: List<MessageReactionResponse>? = null,
     val commentsCount: Int = 0,
     val parentMessageId: String? = null,
-    val forwardedFromChatId: String? = null,
-    val forwardedFromUserId: String? = null,
+    val forwardedFromChat: ShortChatDto? = null,
+    val forwardedFromUser: ShortUserDto? = null,
     val attachments: List<MessageAttachmentResponse>? = null,
     @SerialName("attachmentIds") val attachmentIdsOld: List<String>? = null // Support old string format
 )

@@ -2,8 +2,20 @@ package ru.kubsu.borshchevyk.feature.chat.ui.chatlist.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.sizeIn
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Bookmark
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -24,7 +36,8 @@ internal fun ChatItem(
     chat: Chat,
     onClick: () -> Unit
 ) {
-    val displayName = chat.title ?: "Chat"
+    val isSavedMessages = chat.type == ru.kubsu.borshchevyk.core.model.domain.ChatType.SAVED_MESSAGES
+    val displayName = if (isSavedMessages) "Saved Messages" else chat.title ?: "Chat"
     val initial = displayName.firstOrNull()?.uppercase() ?: "?"
     
     Row(
@@ -34,7 +47,22 @@ internal fun ChatItem(
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        if (!chat.partnerAvatarUrl.isNullOrBlank()) {
+        if (isSavedMessages) {
+            Box(
+                modifier = Modifier
+                    .size(52.dp)
+                    .clip(CircleShape)
+                    .background(BorshchevykTheme.colors.primary.copy(alpha = 0.1f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Bookmark,
+                    contentDescription = "Saved Messages",
+                    tint = BorshchevykTheme.colors.primary,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+        } else if (!chat.partnerAvatarUrl.isNullOrBlank()) {
             AsyncImage(
                 model = chat.partnerAvatarUrl,
                 contentDescription = "Avatar",

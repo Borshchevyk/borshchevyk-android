@@ -74,7 +74,6 @@ internal fun ChatScreen(
                     isFromMe = message.authorId == contentState.context.currentUserId,
                     currentUserId = contentState.context.currentUserId,
                     attachmentUrls = contentState.feed.attachmentUrls,
-                    resolvedUsers = contentState.feed.resolvedUsers,
                     onResolveAttachmentUrl = onResolveAttachmentUrl,
                     onPinToggle = { onPinToggle(message) },
                     onReactionToggle = { reaction -> onReactionToggle(message.id, reaction) },
@@ -111,7 +110,6 @@ internal fun ChatScreen(
     if (messageIdForComments != null) {
         CommentsDialog(
             comments = contentState.feed.commentsByMessageId[messageIdForComments],
-            resolvedUsers = contentState.feed.resolvedUsers,
             onDismiss = { messageIdForComments = null }
         )
     }
