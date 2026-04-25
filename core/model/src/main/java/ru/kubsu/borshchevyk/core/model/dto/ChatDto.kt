@@ -1,5 +1,6 @@
 package ru.kubsu.borshchevyk.core.model.dto
 
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import ru.kubsu.borshchevyk.core.model.domain.ChatType
 
@@ -23,7 +24,9 @@ data class ChatResponse(
     val allowedReactions: Set<String>? = null,
     val lastMessage: String? = null,
     val unreadCount: Long = 0,
+    @SerialName("deletable")
     val isDeletable: Boolean = true,
+    @SerialName("pinned")
     val isPinned: Boolean = false
 )
 

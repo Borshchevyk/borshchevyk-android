@@ -92,7 +92,10 @@ class KrossbowWebSocketDataSource @Inject constructor(
     }
 
     override fun observeNewMessages(): Flow<NotificationDto.MessageDto> = 
-        observeTopic("/user/queue/messages") { json.decodeFromString<NotificationDto.MessageDto>(it) }
+        observeTopic("/user/queue/messages") { json.decodeFromString<NotificationDto>(it).message }.filterNotNull()
+
+    override fun observeChatEvents(): Flow<NotificationDto.ChatEventDto> = 
+        observeTopic("/user/queue/messages") { json.decodeFromString<NotificationDto>(it).chatEvent }.filterNotNull()
 
     override fun observeDeletedMessages(): Flow<String> = 
         observeTopic("/user/queue/messages/deleted") { it.replace("\"", "").trim() }

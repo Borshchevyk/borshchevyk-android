@@ -43,6 +43,8 @@ class MessageRepositoryImpl @Inject constructor(
 
     override fun observeNewMessages(): Flow<NotificationDto.MessageDto> = webSocketDataSource.observeNewMessages()
 
+    override fun observeChatEvents(): Flow<NotificationDto.ChatEventDto> = webSocketDataSource.observeChatEvents()
+
     override fun observeDeletedMessages(): Flow<String> = webSocketDataSource.observeDeletedMessages()
 
     override fun observeTyping(chatId: String): Flow<TypingEvent> = webSocketDataSource.observeTyping(chatId)

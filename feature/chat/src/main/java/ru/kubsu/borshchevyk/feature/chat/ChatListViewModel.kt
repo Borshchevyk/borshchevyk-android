@@ -18,6 +18,7 @@ import ru.kubsu.borshchevyk.core.domain.chat.JoinChatUseCase
 import ru.kubsu.borshchevyk.core.domain.chat.PinChatUseCase
 import ru.kubsu.borshchevyk.core.domain.chat.UnpinChatUseCase
 import ru.kubsu.borshchevyk.core.domain.message.ConnectWebSocketUseCase
+import ru.kubsu.borshchevyk.core.domain.message.ObserveGlobalChatEventsUseCase
 import ru.kubsu.borshchevyk.core.domain.message.ObserveNewMessagesUseCase
 import ru.kubsu.borshchevyk.core.model.domain.Chat
 import javax.inject.Inject
@@ -35,6 +36,7 @@ class ChatListViewModel @Inject constructor(
     private val createGroupChatUseCase: CreateGroupChatUseCase,
     private val connectWebSocketUseCase: ConnectWebSocketUseCase,
     private val observeNewMessagesUseCase: ObserveNewMessagesUseCase,
+    private val observeGlobalChatEventsUseCase: ObserveGlobalChatEventsUseCase,
     private val joinChatUseCase: JoinChatUseCase,
     private val pinChatUseCase: PinChatUseCase,
     private val unpinChatUseCase: UnpinChatUseCase
@@ -54,10 +56,20 @@ class ChatListViewModel @Inject constructor(
             Log.d(TAG, "Initializing WebSocket connection...")
             try {
                 connectWebSocketUseCase()
+                
                 observeNewMessagesUseCase()
                     .onEach { messageDto ->
                         Log.d(TAG, "WS: Received new message notification for chat ${messageDto.chat.id}. Reloading chats.")
                         loadChats(showLoading = false)
+                    }
+                    .launchIn(this)
+                
+                observeGlobalChatEventsUseCase()
+                    .onEach { event ->
+                        Log.d(TAG, "WS: Received chat event ${event.action} for chat ${event.chat.id}. Reloading chats.")
+                        if (event.action == "PINNED" || event.action == "UNPINNED") {
+                            loadChats(showLoading = false)
+                        }
                     }
                     .launchIn(this)
             } catch (e: Exception) {

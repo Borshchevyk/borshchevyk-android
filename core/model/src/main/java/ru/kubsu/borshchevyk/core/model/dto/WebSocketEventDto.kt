@@ -6,8 +6,15 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class NotificationDto(
     val targetUserId: String = "",
-    val message: MessageDto? = null
+    val message: MessageDto? = null,
+    val chatEvent: ChatEventDto? = null
 ) {
+    @Serializable
+    data class ChatEventDto(
+        val chat: ShortChatDto,
+        val action: String
+    )
+
     @Serializable
     data class MessageDto(
         val id: String,
