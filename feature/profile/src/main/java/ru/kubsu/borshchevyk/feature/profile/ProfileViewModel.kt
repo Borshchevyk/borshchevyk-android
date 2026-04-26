@@ -14,8 +14,10 @@ import kotlinx.coroutines.launch
 import ru.kubsu.borshchevyk.core.domain.auth.GetTagUseCase
 import ru.kubsu.borshchevyk.core.domain.auth.GetUserIdUseCase
 import ru.kubsu.borshchevyk.core.domain.auth.LogoutUseCase
+import ru.kubsu.borshchevyk.core.domain.message.UploadAvatarUseCase
 import ru.kubsu.borshchevyk.core.domain.user.GetPrivacySettingsUseCase
 import ru.kubsu.borshchevyk.core.domain.user.GetUserProfileUseCase
+import ru.kubsu.borshchevyk.core.domain.user.UpdateAvatarUseCase
 import ru.kubsu.borshchevyk.core.domain.user.UpdatePrivacySettingsUseCase
 import ru.kubsu.borshchevyk.core.domain.user.UpdateProfileUseCase
 import ru.kubsu.borshchevyk.core.model.domain.User
@@ -29,6 +31,8 @@ class ProfileViewModel @Inject constructor(
     private val getTagUseCase: GetTagUseCase,
     private val getUserProfileUseCase: GetUserProfileUseCase,
     private val updateProfileUseCase: UpdateProfileUseCase,
+    private val uploadAvatarUseCase: UploadAvatarUseCase,
+    private val updateAvatarUseCase: UpdateAvatarUseCase,
     private val getPrivacySettingsUseCase: GetPrivacySettingsUseCase,
     private val updatePrivacySettingsUseCase: UpdatePrivacySettingsUseCase,
     private val logoutUseCase: LogoutUseCase
@@ -48,10 +52,25 @@ class ProfileViewModel @Inject constructor(
         when (intent) {
             is ProfileIntent.ReloadData -> loadData()
             is ProfileIntent.UpdateProfile -> onUpdateProfile(intent.firstName, intent.lastName, intent.bio)
+            is ProfileIntent.UpdateAvatar -> onUpdateAvatar(intent.fileBytes, intent.filename, intent.contentType)
             is ProfileIntent.UpdatePrivacy -> onUpdatePrivacy(intent.request)
             is ProfileIntent.Logout -> onLogout()
             is ProfileIntent.OpenEditProfile -> sendEffect(ProfileEffect.NavigateToEditProfile)
             is ProfileIntent.OpenEditPrivacy -> sendEffect(ProfileEffect.NavigateToEditPrivacy)
+        }
+    }
+
+    private fun onUpdateAvatar(fileBytes: ByteArray, filename: String, contentType: String) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true) }
+            try {
+                val url = uploadAvatarUseCase(fileBytes, filename, contentType)
+                val updatedUser = updateAvatarUseCase(url)
+                _uiState.update { it.copy(user = updatedUser, isLoading = false) }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(isLoading = false) }
+                sendEffect(ProfileEffect.ShowError(e.message ?: "Failed to update avatar"))
+            }
         }
     }
 

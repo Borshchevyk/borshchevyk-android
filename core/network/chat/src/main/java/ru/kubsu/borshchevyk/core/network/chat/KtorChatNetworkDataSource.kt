@@ -13,6 +13,7 @@ import kotlinx.coroutines.withContext
 import ru.kubsu.borshchevyk.core.model.dto.ChatMemberResponse
 import ru.kubsu.borshchevyk.core.model.dto.ChatResponse
 import ru.kubsu.borshchevyk.core.model.dto.CreateChatRequest
+import ru.kubsu.borshchevyk.core.model.dto.GlobalSearchResponse
 import ru.kubsu.borshchevyk.core.model.dto.PageResponse
 import ru.kubsu.borshchevyk.core.model.dto.TargetUserRequest
 import ru.kubsu.borshchevyk.core.model.dto.UpdateChatInfoRequest
@@ -24,6 +25,14 @@ class KtorChatNetworkDataSource @Inject constructor(
     private val httpClient: HttpClient,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher
 ) : ChatNetworkDataSource {
+
+    override suspend fun globalSearch(query: String): GlobalSearchResponse {
+        return withContext(ioDispatcher) {
+            httpClient.get("api/v1/search") {
+                parameter("query", query)
+            }.body()
+        }
+    }
 
     override suspend fun createChat(request: CreateChatRequest): ChatResponse {
         return withContext(ioDispatcher) {
@@ -117,6 +126,18 @@ class KtorChatNetworkDataSource @Inject constructor(
     override suspend fun joinChatByLink(inviteCode: String): ChatResponse {
         return withContext(ioDispatcher) {
             httpClient.post("api/v1/chats/join/$inviteCode").body()
+        }
+    }
+
+    override suspend fun pinChat(chatId: String) {
+        return withContext(ioDispatcher) {
+            httpClient.post("api/v1/chats/$chatId/pin")
+        }
+    }
+
+    override suspend fun unpinChat(chatId: String) {
+        return withContext(ioDispatcher) {
+            httpClient.delete("api/v1/chats/$chatId/pin")
         }
     }
 }

@@ -9,7 +9,8 @@ enum class AttachmentType {
     CIRCLE,
     VOICE,
     FILE,
-    STICKER
+    STICKER,
+    AVATAR
 }
 
 @Serializable

@@ -77,6 +77,37 @@ class ChatRepositoryImpl @Inject constructor(
         return networkDataSource.joinChatByLink(inviteCode).toDomain()
     }
 
+    override suspend fun pinChat(chatId: String) {
+        networkDataSource.pinChat(chatId)
+    }
+
+    override suspend fun unpinChat(chatId: String) {
+        networkDataSource.unpinChat(chatId)
+    }
+
+    override suspend fun globalSearch(query: String): ru.kubsu.borshchevyk.core.model.domain.GlobalSearchResults {
+        val response = networkDataSource.globalSearch(query)
+        return ru.kubsu.borshchevyk.core.model.domain.GlobalSearchResults(
+            users = response.users.map { 
+                ru.kubsu.borshchevyk.core.model.domain.User(
+                    userId = it.id,
+                    firstName = it.firstName,
+                    lastName = it.lastName,
+                    tag = it.tag ?: "",
+                    avatarUrl = it.avatarUrl
+                )
+            },
+            chats = response.chats.map {
+                Chat(
+                    id = it.id,
+                    type = ru.kubsu.borshchevyk.core.model.domain.ChatType.GROUP, // Global search chats are groups or channels
+                    title = it.name,
+                    createdAt = "" // default since search dto is short
+                )
+            }
+        )
+    }
+
     private fun ChatResponse.toDomain(): Chat = Chat(
         id = id,
         type = type,
@@ -90,6 +121,7 @@ class ChatRepositoryImpl @Inject constructor(
         unreadCount = unreadCount,
         allowedReactions = allowedReactions,
         isDeletable = isDeletable,
+        isPinned = isPinned,
         createdAt = createdAt
         )
     private fun ChatMemberResponse.toDomain(): ChatMember = ChatMember(

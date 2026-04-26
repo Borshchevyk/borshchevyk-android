@@ -10,5 +10,6 @@ data class User(
     val firstName: String? = null,
     val lastName: String? = null,
     val bio: String? = null,
-    val avatarUrl: String? = null
+    val avatarUrl: String? = null,
+    val avatars: List<String> = emptyList()
 )

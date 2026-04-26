@@ -5,10 +5,12 @@ import io.ktor.client.call.body
 import io.ktor.client.request.get
 import io.ktor.client.request.parameter
 import io.ktor.client.request.patch
+import io.ktor.client.request.put
 import io.ktor.client.request.setBody
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 import ru.kubsu.borshchevyk.core.model.dto.PrivacySettingsResponse
+import ru.kubsu.borshchevyk.core.model.dto.UpdateAvatarRequest
 import ru.kubsu.borshchevyk.core.model.dto.UpdatePrivacySettingsRequest
 import ru.kubsu.borshchevyk.core.model.dto.UpdateProfileRequest
 import ru.kubsu.borshchevyk.core.model.dto.UserProfileResponse
@@ -37,6 +39,14 @@ class KtorUserNetworkDataSource @Inject constructor(
     override suspend fun updateProfile(request: UpdateProfileRequest): UserProfileResponse {
         return withContext(ioDispatcher) {
             httpClient.patch("api/v1/users/me/profile") {
+                setBody(request)
+            }.body()
+        }
+    }
+
+    override suspend fun updateAvatar(request: UpdateAvatarRequest): UserProfileResponse {
+        return withContext(ioDispatcher) {
+            httpClient.put("api/v1/users/me/avatar") {
                 setBody(request)
             }.body()
         }

@@ -24,5 +24,6 @@ data class Chat(
     val unreadCount: Long = 0,
     val allowedReactions: Set<String>? = null,
     val isDeletable: Boolean = true,
+    val isPinned: Boolean = false,
     val createdAt: String
 )

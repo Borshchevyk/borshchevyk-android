@@ -118,6 +118,8 @@ fun ChatListRoute(
         ChatListScreen(
             uiState = uiState,
             onChatClick = onChatClick,
+            onPinChat = viewModel::onPinChat,
+            onUnpinChat = viewModel::onUnpinChat,
             modifier = Modifier.padding(padding)
         )
 
