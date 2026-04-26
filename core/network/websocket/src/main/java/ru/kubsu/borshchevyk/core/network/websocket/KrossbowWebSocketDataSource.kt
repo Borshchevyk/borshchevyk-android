@@ -72,6 +72,7 @@ class KrossbowWebSocketDataSource @Inject constructor(
         }
     }
 
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     private fun <T> observeTopic(destination: String, mapper: (String) -> T): Flow<T> {
         return _session
             .filterNotNull()
@@ -92,10 +93,13 @@ class KrossbowWebSocketDataSource @Inject constructor(
     }
 
     override fun observeNewMessages(): Flow<NotificationDto.MessageDto> = 
-        observeTopic("/user/queue/messages") { json.decodeFromString<NotificationDto>(it).message }.filterNotNull()
+        observeTopic("/user/queue/messages") { json.decodeFromString<NotificationDto.MessageDto>(it) }
 
     override fun observeChatEvents(): Flow<NotificationDto.ChatEventDto> = 
-        observeTopic("/user/queue/messages") { json.decodeFromString<NotificationDto>(it).chatEvent }.filterNotNull()
+        observeTopic("/user/queue/chats") { json.decodeFromString<NotificationDto.ChatEventDto>(it) }
+
+    override fun observeCallEvents(): Flow<NotificationDto.CallEventDto> = 
+        observeTopic("/user/queue/calls") { json.decodeFromString<NotificationDto.CallEventDto>(it) }
 
     override fun observeDeletedMessages(): Flow<String> = 
         observeTopic("/user/queue/messages/deleted") { it.replace("\"", "").trim() }

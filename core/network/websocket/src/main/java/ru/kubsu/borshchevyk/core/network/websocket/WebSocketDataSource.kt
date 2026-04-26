@@ -12,6 +12,7 @@ interface WebSocketDataSource {
     
     fun observeNewMessages(): Flow<NotificationDto.MessageDto>
     fun observeChatEvents(): Flow<NotificationDto.ChatEventDto>
+    fun observeCallEvents(): Flow<NotificationDto.CallEventDto>
     fun observeDeletedMessages(): Flow<String>
     fun observeTyping(chatId: String): Flow<TypingEvent>
     fun observeReactions(chatId: String): Flow<ReactionEvent>

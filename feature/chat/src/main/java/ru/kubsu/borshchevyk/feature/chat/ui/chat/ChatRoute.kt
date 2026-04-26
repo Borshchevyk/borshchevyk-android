@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -36,6 +37,7 @@ fun ChatRoute(
     onBackClick: () -> Unit,
     onSettingsClick: (String) -> Unit,
     onNavigateToForwardSelection: (String) -> Unit,
+    onNavigateToCall: (String) -> Unit,
     modifier: Modifier = Modifier,
     chatViewModel: ChatViewModel = hiltViewModel()
 ) {
@@ -56,6 +58,9 @@ fun ChatRoute(
                 }
                 is ChatEffect.NavigateToForwardSelection -> {
                     onNavigateToForwardSelection(effect.payloadJson)
+                }
+                is ChatEffect.NavigateToCall -> {
+                    onNavigateToCall(effect.callId)
                 }
             }
         }
@@ -99,6 +104,13 @@ fun ChatRoute(
                             }
                         },
                         actions = {
+                            IconButton(onClick = { chatViewModel.handleIntent(ChatIntent.InitiateCall) }) {
+                                Icon(
+                                    Icons.Default.Call, 
+                                    contentDescription = "Call",
+                                    tint = BorshchevykTheme.colors.onSurface
+                                )
+                            }
                             IconButton(onClick = { chatViewModel.handleIntent(ChatIntent.OpenSettings) }) {
                                 Icon(
                                     Icons.Default.Info, 
