@@ -109,8 +109,13 @@ private fun ActiveCallContent(
             val participants = state.room.remoteParticipants
             val firstRemote = participants.values.firstOrNull()
             remoteParticipant = firstRemote
-            remoteVideoTrack = firstRemote?.videoTrackPublications?.firstOrNull()?.first?.track as? VideoTrack
-            localVideoTrack = state.room.localParticipant.videoTrackPublications.firstOrNull()?.first?.track as? VideoTrack
+            
+            val remotePub = firstRemote?.videoTrackPublications?.firstOrNull()?.first
+            remoteVideoTrack = if (remotePub?.muted == false) remotePub.track as? VideoTrack else null
+            
+            val localPub = state.room.localParticipant.videoTrackPublications.firstOrNull()?.first
+            localVideoTrack = if (localPub?.muted == false) localPub.track as? VideoTrack else null
+            
             kotlinx.coroutines.delay(1000)
         }
     }
