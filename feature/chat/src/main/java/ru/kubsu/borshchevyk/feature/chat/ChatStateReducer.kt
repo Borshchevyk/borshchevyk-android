@@ -51,7 +51,12 @@ fun ChatUiState.reduce(event: ChatEvent): ChatUiState {
                             type = it.type ?: AttachmentType.FILE,
                             originalFilename = it.originalFilename ?: "file",
                             extension = it.extension ?: "",
-                            sizeBytes = it.sizeBytes ?: 0L
+                            sizeBytes = it.sizeBytes ?: 0L,
+                            thumbnailKey = it.thumbnailKey,
+                            updatedAt = it.updatedAt,
+                            width = it.width,
+                            height = it.height,
+                            duration = it.duration
                         )
                     } ?: dto.attachmentIdsOld?.map {
                         Attachment(
