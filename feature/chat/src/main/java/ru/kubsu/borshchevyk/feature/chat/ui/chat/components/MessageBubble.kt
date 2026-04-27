@@ -1,6 +1,7 @@
 package ru.kubsu.borshchevyk.feature.chat.ui.chat.components
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
@@ -33,6 +34,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -85,6 +87,8 @@ internal fun MessageBubble(
         RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp, bottomStart = 4.dp, bottomEnd = 20.dp)
     }
 
+    val isOnlyCircle = message.text.isBlank() && message.attachments.size == 1 && message.attachments.first().type == ru.kubsu.borshchevyk.core.model.dto.AttachmentType.CIRCLE
+
     Column(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
         horizontalAlignment = if (isFromMe) Alignment.End else Alignment.Start
@@ -100,16 +104,16 @@ internal fun MessageBubble(
 
         Box {
             Surface(
-                color = if (isFromMe) BorshchevykTheme.colors.primary else BorshchevykTheme.colors.surfaceVariant,
+                color = if (isOnlyCircle) Color.Transparent else if (isFromMe) BorshchevykTheme.colors.primary else BorshchevykTheme.colors.surfaceVariant,
                 shape = bubbleShape,
-                shadowElevation = 2.dp,
+                shadowElevation = if (isOnlyCircle) 0.dp else 2.dp,
                 modifier = Modifier.combinedClickable(
                     onClick = {},
                     onLongClick = { showMenu = true }
                 )
             ) {
                 Column(
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
+                    modifier = Modifier.padding(horizontal = if (isOnlyCircle) 0.dp else 16.dp, vertical = if (isOnlyCircle) 0.dp else 10.dp)
                 ) {
                     if (message.forwardedFromUser != null) {
                         val forwardedAuthor = message.forwardedFromUser
@@ -119,13 +123,13 @@ internal fun MessageBubble(
                                 imageVector = Icons.Default.Info,
                                 contentDescription = "Forwarded",
                                 modifier = Modifier.size(12.dp),
-                                tint = if (isFromMe) BorshchevykTheme.colors.onPrimary.copy(alpha = 0.7f) else BorshchevykTheme.colors.primary.copy(alpha = 0.7f)
+                                tint = if (isOnlyCircle) Color.White.copy(alpha = 0.7f) else if (isFromMe) BorshchevykTheme.colors.onPrimary.copy(alpha = 0.7f) else BorshchevykTheme.colors.primary.copy(alpha = 0.7f)
                             )
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(
                                 text = "Forwarded from $forwardedName",
                                 style = BorshchevykTheme.typography.labelSmall.copy(fontStyle = FontStyle.Italic),
-                                color = if (isFromMe) BorshchevykTheme.colors.onPrimary.copy(alpha = 0.7f) else BorshchevykTheme.colors.primary.copy(alpha = 0.7f)
+                                color = if (isOnlyCircle) Color.White.copy(alpha = 0.7f) else if (isFromMe) BorshchevykTheme.colors.onPrimary.copy(alpha = 0.7f) else BorshchevykTheme.colors.primary.copy(alpha = 0.7f)
                             )
                         }
                         Spacer(modifier = Modifier.height(4.dp))
@@ -138,7 +142,7 @@ internal fun MessageBubble(
                             onResolveAttachmentUrl = onResolveAttachmentUrl,
                             isFromMe = isFromMe
                         )
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(modifier = Modifier.height(if (isOnlyCircle) 0.dp else 8.dp))
                     }
 
                     if (message.text.isNotBlank()) {
@@ -149,8 +153,20 @@ internal fun MessageBubble(
                         )
                     }
 
+                    val timeRowModifier = if (isOnlyCircle) {
+                        Modifier
+                            .padding(top = 4.dp)
+                            .align(Alignment.End)
+                            .background(Color.Black.copy(alpha = 0.4f), RoundedCornerShape(12.dp))
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                    } else {
+                        Modifier.padding(top = 4.dp).align(Alignment.End)
+                    }
+
+                    val tickColor = if (isOnlyCircle) Color.White.copy(alpha = 0.8f) else if (isFromMe) BorshchevykTheme.colors.onPrimary.copy(alpha = 0.7f) else BorshchevykTheme.colors.onSurfaceVariant.copy(alpha = 0.7f)
+
                     Row(
-                        modifier = Modifier.padding(top = 4.dp).align(Alignment.End),
+                        modifier = timeRowModifier,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         val isEdited = message.updatedAt != null && message.updatedAt != message.createdAt
@@ -158,7 +174,7 @@ internal fun MessageBubble(
                             Text(
                                 text = "edited",
                                 style = BorshchevykTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                                color = if (isFromMe) BorshchevykTheme.colors.onPrimary.copy(alpha = 0.5f) else BorshchevykTheme.colors.onSurfaceVariant.copy(alpha = 0.5f)
+                                color = tickColor
                             )
                             Spacer(modifier = Modifier.width(4.dp))
                         }
@@ -166,7 +182,7 @@ internal fun MessageBubble(
                         Text(
                             text = formatMessageTime(message.createdAt),
                             style = BorshchevykTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                            color = if (isFromMe) BorshchevykTheme.colors.onPrimary.copy(alpha = 0.7f) else BorshchevykTheme.colors.onSurfaceVariant.copy(alpha = 0.7f)
+                            color = tickColor
                         )
 
                         if (isFromMe) {
@@ -176,7 +192,7 @@ internal fun MessageBubble(
                                     androidx.compose.material3.CircularProgressIndicator(
                                         modifier = Modifier.size(12.dp),
                                         strokeWidth = 1.dp,
-                                        color = BorshchevykTheme.colors.onPrimary.copy(alpha = 0.7f)
+                                        color = tickColor
                                     )
                                 }
                                 ru.kubsu.borshchevyk.core.model.domain.MessageStatus.READ -> {
@@ -184,7 +200,7 @@ internal fun MessageBubble(
                                         imageVector = Icons.Default.DoneAll,
                                         contentDescription = "Read",
                                         modifier = Modifier.size(14.dp),
-                                        tint = BorshchevykTheme.colors.onPrimary
+                                        tint = tickColor
                                     )
                                 }
                                 ru.kubsu.borshchevyk.core.model.domain.MessageStatus.ERROR -> {
@@ -200,7 +216,7 @@ internal fun MessageBubble(
                                         imageVector = Icons.Default.Done,
                                         contentDescription = "Sent",
                                         modifier = Modifier.size(14.dp),
-                                        tint = BorshchevykTheme.colors.onPrimary.copy(alpha = 0.7f)
+                                        tint = tickColor
                                     )
                                 }
                             }
