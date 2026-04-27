@@ -102,6 +102,7 @@ private fun ActiveCallContent(
     var remoteParticipant by remember { mutableStateOf<Participant?>(null) }
     var remoteVideoTrack by remember { mutableStateOf<VideoTrack?>(null) }
     var localVideoTrack by remember { mutableStateOf<VideoTrack?>(null) }
+    var isRemoteAudioMuted by remember { mutableStateOf(false) }
 
     LaunchedEffect(state.room) {
         // Simple polling for participant updates, normally done via Room events
@@ -116,6 +117,9 @@ private fun ActiveCallContent(
             val localPub = state.room.localParticipant.videoTrackPublications.firstOrNull()?.first
             localVideoTrack = if (localPub?.muted == false) localPub.track as? VideoTrack else null
             
+            val remoteAudioPub = firstRemote?.audioTrackPublications?.firstOrNull()?.first
+            isRemoteAudioMuted = remoteAudioPub?.muted == true
+            
             kotlinx.coroutines.delay(1000)
         }
     }
@@ -127,15 +131,33 @@ private fun ActiveCallContent(
                 videoTrack = remoteVideoTrack!!,
                 modifier = Modifier.fillMaxSize()
             )
+            if (isRemoteAudioMuted) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(32.dp),
+                    contentAlignment = Alignment.TopEnd
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.MicOff,
+                        contentDescription = "Remote Mic Muted",
+                        tint = Color.Red,
+                        modifier = Modifier
+                            .size(32.dp)
+                            .background(Color.Black.copy(alpha = 0.5f), CircleShape)
+                            .padding(4.dp)
+                    )
+                }
+            }
         } else {
             // Audio only or waiting
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 if (remoteParticipant != null) {
                     Icon(
-                        imageVector = Icons.Filled.Mic,
+                        imageVector = if (isRemoteAudioMuted) Icons.Filled.MicOff else Icons.Filled.Mic,
                         contentDescription = null,
                         modifier = Modifier.size(64.dp),
-                        tint = Color.White
+                        tint = if (isRemoteAudioMuted) Color.Red else Color.White
                     )
                 } else {
                     Text("Waiting for others to join...", color = Color.White)
