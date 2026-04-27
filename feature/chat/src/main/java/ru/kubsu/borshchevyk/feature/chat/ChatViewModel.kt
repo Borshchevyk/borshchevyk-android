@@ -28,6 +28,8 @@ import ru.kubsu.borshchevyk.core.domain.message.ChatAttachmentUseCases
 import ru.kubsu.borshchevyk.core.domain.message.ChatHistoryUseCases
 import ru.kubsu.borshchevyk.core.domain.message.ChatMessageUseCases
 import ru.kubsu.borshchevyk.core.domain.message.ObserveChatEventsUseCase
+import ru.kubsu.borshchevyk.core.domain.message.usecase.UploadCircleUseCase
+import ru.kubsu.borshchevyk.core.domain.message.usecase.UploadVoiceUseCase
 import ru.kubsu.borshchevyk.core.model.domain.ChatEvent
 import ru.kubsu.borshchevyk.core.model.domain.ChatType
 import ru.kubsu.borshchevyk.core.model.domain.ForwardPayload
@@ -48,7 +50,9 @@ class ChatViewModel @Inject constructor(
     private val attachmentUseCases: ChatAttachmentUseCases,
     private val networkMonitor: NetworkMonitor,
     private val getChatMembersUseCase: GetChatMembersUseCase,
-    private val createCallUseCase: CreateCallUseCase
+    private val createCallUseCase: CreateCallUseCase,
+    private val uploadVoiceUseCase: UploadVoiceUseCase,
+    private val uploadCircleUseCase: UploadCircleUseCase
 ) : ViewModel() {
 
     private val TAG = "ChatViewModel"
@@ -84,6 +88,8 @@ class ChatViewModel @Inject constructor(
             is ChatIntent.ChatDeletedLocally -> onChatDeletedLocally()
             is ChatIntent.Typing -> onTyping()
             is ChatIntent.SendMessage -> onSendMessage(intent.text, intent.attachments)
+            is ChatIntent.SendVoice -> onSendVoice(intent.bytes, intent.duration)
+            is ChatIntent.SendCircle -> onSendCircle(intent.bytes, intent.duration)
             is ChatIntent.SetEditingMessage -> setEditingMessage(intent.message)
             is ChatIntent.EditMessage -> onEditMessage(intent.messageId, intent.newText)
             is ChatIntent.DeleteMessage -> onDeleteMessage(intent.messageId, intent.forAll)
@@ -285,6 +291,42 @@ class ChatViewModel @Inject constructor(
                     messageUseCases.sendTypingEvent(chatId, false)
                 }
             } catch (e: Exception) {
+            }
+        }
+    }
+
+    private fun onSendVoice(bytes: ByteArray, duration: Double) {
+        viewModelScope.launch {
+            try {
+                val attachmentResponse = uploadVoiceUseCase(bytes, duration)
+                messageUseCases.sendMessage(
+                    chatId = chatId,
+                    text = "",
+                    attachmentIds = listOf(attachmentResponse.id),
+                    forwardedFromChatId = null,
+                    forwardedFromUserId = null
+                )
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to send voice message", e)
+                _effect.send(ChatEffect.ShowError("Failed to send voice message"))
+            }
+        }
+    }
+
+    private fun onSendCircle(bytes: ByteArray, duration: Double) {
+        viewModelScope.launch {
+            try {
+                val attachmentResponse = uploadCircleUseCase(bytes, duration)
+                messageUseCases.sendMessage(
+                    chatId = chatId,
+                    text = "",
+                    attachmentIds = listOf(attachmentResponse.id),
+                    forwardedFromChatId = null,
+                    forwardedFromUserId = null
+                )
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to send circle message", e)
+                _effect.send(ChatEffect.ShowError("Failed to send video circle"))
             }
         }
     }

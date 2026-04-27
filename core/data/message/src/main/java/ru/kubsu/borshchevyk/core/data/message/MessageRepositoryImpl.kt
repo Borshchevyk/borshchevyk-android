@@ -142,7 +142,7 @@ class MessageRepositoryImpl @Inject constructor(
                 avatarUrl = it.avatarUrl
             )
         },
-        attachments = attachments?.map { 
+        attachments = attachments?.map {
             Attachment(
                 id = it.id,
                 type = it.type ?: AttachmentType.FILE,
@@ -150,10 +150,12 @@ class MessageRepositoryImpl @Inject constructor(
                 extension = it.extension ?: "",
                 sizeBytes = it.sizeBytes ?: 0L,
                 thumbnailKey = it.thumbnailKey,
-                updatedAt = it.updatedAt
+                updatedAt = it.updatedAt,
+                width = it.width,
+                height = it.height,
+                duration = it.duration
             )
-        } ?: attachmentIdsOld?.map { 
-            Attachment(id = it, type = AttachmentType.FILE) 
+        } ?: attachmentIdsOld?.map {            Attachment(id = it, type = AttachmentType.FILE) 
         } ?: emptyList()
     )
 }

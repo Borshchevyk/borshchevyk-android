@@ -14,16 +14,20 @@ interface MediaRepository {
         height: Int? = null,
         duration: Double? = null
     ): Pair<String, String> // returns Pair(attachmentId, uploadUrl)
-    
+
     suspend fun uploadToS3(url: String, fileBytes: ByteArray, contentType: String)
-    
+
     suspend fun completeUpload(attachmentId: String): AttachmentResponse
-    
+
     suspend fun uploadAvatar(fileBytes: ByteArray, filename: String, contentType: String): String
-    
+
+    suspend fun uploadVoice(fileBytes: ByteArray, duration: Double): AttachmentResponse
+
+    suspend fun uploadCircle(fileBytes: ByteArray, duration: Double): AttachmentResponse
+
     suspend fun getAttachmentUrl(attachmentId: String): String
-    
+
     suspend fun deleteAttachment(attachmentId: String)
-    
+
     suspend fun validateAttachments(attachmentIds: List<String>): Boolean
 }

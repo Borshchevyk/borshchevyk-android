@@ -12,5 +12,8 @@ data class Attachment(
     val sizeBytes: Long = 0,
     val url: String? = null,
     val thumbnailKey: String? = null,
-    val updatedAt: String? = null
+    val updatedAt: String? = null,
+    val width: Int? = null,
+    val height: Int? = null,
+    val duration: Double? = null
 )

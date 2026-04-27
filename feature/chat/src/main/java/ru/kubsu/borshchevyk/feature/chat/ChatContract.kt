@@ -20,6 +20,8 @@ sealed interface ChatIntent {
     object Typing : ChatIntent
     
     data class SendMessage(val text: String, val attachments: List<AttachmentFile>) : ChatIntent
+    data class SendVoice(val bytes: ByteArray, val duration: Double) : ChatIntent
+    data class SendCircle(val bytes: ByteArray, val duration: Double) : ChatIntent
     data class SetEditingMessage(val message: Message?) : ChatIntent
     data class EditMessage(val messageId: String, val newText: String) : ChatIntent
     data class DeleteMessage(val messageId: String, val forAll: Boolean) : ChatIntent

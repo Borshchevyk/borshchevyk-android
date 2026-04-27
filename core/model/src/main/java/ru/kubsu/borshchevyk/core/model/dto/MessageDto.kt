@@ -18,7 +18,10 @@ data class MessageAttachmentResponse(
     val extension: String? = null,
     val sizeBytes: Long? = null,
     val thumbnailKey: String? = null,
-    val updatedAt: String? = null
+    val updatedAt: String? = null,
+    val width: Int? = null,
+    val height: Int? = null,
+    val duration: Double? = null
 )
 
 @Serializable

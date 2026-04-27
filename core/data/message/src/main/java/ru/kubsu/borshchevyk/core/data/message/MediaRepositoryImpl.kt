@@ -55,6 +55,14 @@ class MediaRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun uploadVoice(fileBytes: ByteArray, duration: Double): AttachmentResponse {
+        return networkDataSource.uploadVoice(fileBytes, duration)
+    }
+
+    override suspend fun uploadCircle(fileBytes: ByteArray, duration: Double): AttachmentResponse {
+        return networkDataSource.uploadCircle(fileBytes, duration)
+    }
+
     override suspend fun getAttachmentUrl(attachmentId: String): String {
         val url = networkDataSource.getAttachmentUrl(attachmentId).url
         return if (url.startsWith("http")) {
