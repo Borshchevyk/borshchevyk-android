@@ -117,9 +117,11 @@ private fun ActiveCallContent(
     
     Box(modifier = Modifier.fillMaxSize().background(Color.DarkGray)) {
         if (remoteVideoTrack != null) {
-            Box(modifier = Modifier.fillMaxSize().background(Color.Gray), contentAlignment = Alignment.Center) {
-                Text("Remote Video", color = Color.White)
-            }
+            io.livekit.android.compose.ui.VideoTrackView(
+                passedRoom = state.room,
+                videoTrack = remoteVideoTrack!!,
+                modifier = Modifier.fillMaxSize()
+            )
         } else {
             // Audio only or waiting
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -138,17 +140,16 @@ private fun ActiveCallContent(
 
         // Local video PIP (bottom right)
         if (localVideoTrack != null && state.isCameraEnabled) {
-            Box(
+            io.livekit.android.compose.ui.VideoTrackView(
+                passedRoom = state.room,
+                videoTrack = localVideoTrack!!,
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
                     .padding(bottom = 100.dp, end = 16.dp)
                     .size(100.dp, 150.dp)
                     .clip(RoundedCornerShape(8.dp))
-                    .background(Color.LightGray),
-                contentAlignment = Alignment.Center
-            ) {
-                Text("Local", color = Color.Black)
-            }
+                    .background(Color.LightGray)
+            )
         }
 
         // Controls (bottom)
