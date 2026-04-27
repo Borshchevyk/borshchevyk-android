@@ -129,6 +129,8 @@ fun ChatRoute(
                         editingMessage = state.input.editingMessage,
                         isSending = state.input.isSending,
                         onSendMessage = { text, attachments -> chatViewModel.handleIntent(ChatIntent.SendMessage(text, attachments)) },
+                        onSendVoice = { bytes, duration -> chatViewModel.handleIntent(ChatIntent.SendVoice(bytes, duration)) },
+                        onSendCircle = { bytes, duration -> chatViewModel.handleIntent(ChatIntent.SendCircle(bytes, duration)) },
                         onEditMessage = { id, text -> chatViewModel.handleIntent(ChatIntent.EditMessage(id, text)) },
                         onCancelEdit = { chatViewModel.handleIntent(ChatIntent.SetEditingMessage(null)) },
                         onTyping = { chatViewModel.handleIntent(ChatIntent.Typing) },

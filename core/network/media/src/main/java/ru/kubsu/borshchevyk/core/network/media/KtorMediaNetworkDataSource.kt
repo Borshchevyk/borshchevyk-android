@@ -49,6 +49,42 @@ class KtorMediaNetworkDataSource @Inject constructor(
         }
     }
 
+    override suspend fun uploadVoice(fileBytes: ByteArray, duration: Double): AttachmentResponse {
+        return withContext(ioDispatcher) {
+            httpClient.post("api/v1/media/upload/voice") {
+                setBody(
+                    MultiPartFormDataContent(
+                        formData {
+                            append("duration", duration.toString())
+                            append("file", fileBytes, Headers.build {
+                                append(HttpHeaders.ContentType, "audio/ogg")
+                                append(HttpHeaders.ContentDisposition, "filename=\"voice.ogg\"")
+                            })
+                        }
+                    )
+                )
+            }.body()
+        }
+    }
+
+    override suspend fun uploadCircle(fileBytes: ByteArray, duration: Double): AttachmentResponse {
+        return withContext(ioDispatcher) {
+            httpClient.post("api/v1/media/upload/circle") {
+                setBody(
+                    MultiPartFormDataContent(
+                        formData {
+                            append("duration", duration.toString())
+                            append("file", fileBytes, Headers.build {
+                                append(HttpHeaders.ContentType, "video/mp4")
+                                append(HttpHeaders.ContentDisposition, "filename=\"circle.mp4\"")
+                            })
+                        }
+                    )
+                )
+            }.body()
+        }
+    }
+
     override suspend fun requestUploadUrl(request: RequestUploadUrlRequest): UploadUrlResult {
         Log.d(TAG, "Requesting upload URL for: ${request.originalFilename}, type: ${request.type}")
         return withContext(ioDispatcher) {
