@@ -7,12 +7,22 @@ import kotlinx.serialization.Serializable
 data class NotificationDto(
     val targetUserId: String = "",
     val message: MessageDto? = null,
-    val chatEvent: ChatEventDto? = null
+    val chatEvent: ChatEventDto? = null,
+    val callEvent: CallEventDto? = null
 ) {
     @Serializable
     data class ChatEventDto(
         val chat: ShortChatDto,
         val action: String
+    )
+    
+    @Serializable
+    data class CallEventDto(
+        val callId: String,
+        val eventType: String, // e.g. "INITIATED", "ENDED", "ACCEPTED", "REJECTED"
+        val initiator: ShortUserDto? = null,
+        val actor: ShortUserDto? = null,
+        val timestamp: String? = null
     )
 
     @Serializable

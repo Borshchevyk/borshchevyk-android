@@ -32,6 +32,7 @@ sealed interface ChatIntent {
     data class ResolveAttachmentUrl(val attachmentId: String) : ChatIntent
     data class ResendMessage(val messageId: String) : ChatIntent
     data class ForwardMessage(val message: Message) : ChatIntent
+    object InitiateCall : ChatIntent
 }
 
 sealed interface ChatEffect {
@@ -39,4 +40,5 @@ sealed interface ChatEffect {
     object NavigateBack : ChatEffect
     data class NavigateToSettings(val chatId: String) : ChatEffect
     data class NavigateToForwardSelection(val payloadJson: String) : ChatEffect
+    data class NavigateToCall(val callId: String) : ChatEffect
 }

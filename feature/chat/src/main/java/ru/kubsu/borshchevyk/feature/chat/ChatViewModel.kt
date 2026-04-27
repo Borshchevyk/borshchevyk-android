@@ -21,6 +21,8 @@ import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import ru.kubsu.borshchevyk.core.domain.auth.GetUserIdUseCase
+import ru.kubsu.borshchevyk.core.domain.call.usecase.CreateCallUseCase
+import ru.kubsu.borshchevyk.core.domain.chat.GetChatMembersUseCase
 import ru.kubsu.borshchevyk.core.domain.chat.GetUserChatsUseCase
 import ru.kubsu.borshchevyk.core.domain.message.ChatAttachmentUseCases
 import ru.kubsu.borshchevyk.core.domain.message.ChatHistoryUseCases
@@ -44,7 +46,9 @@ class ChatViewModel @Inject constructor(
     private val messageUseCases: ChatMessageUseCases,
     private val historyUseCases: ChatHistoryUseCases,
     private val attachmentUseCases: ChatAttachmentUseCases,
-    private val networkMonitor: NetworkMonitor
+    private val networkMonitor: NetworkMonitor,
+    private val getChatMembersUseCase: GetChatMembersUseCase,
+    private val createCallUseCase: CreateCallUseCase
 ) : ViewModel() {
 
     private val TAG = "ChatViewModel"
@@ -92,6 +96,28 @@ class ChatViewModel @Inject constructor(
             is ChatIntent.ResolveAttachmentUrl -> resolveAttachmentUrl(intent.attachmentId)
             is ChatIntent.ResendMessage -> onResendMessage(intent.messageId)
             is ChatIntent.ForwardMessage -> onForwardMessage(intent.message)
+            is ChatIntent.InitiateCall -> onInitiateCall()
+        }
+    }
+
+    private fun onInitiateCall() {
+        val state = _uiState.value as? ChatUiState.Content ?: return
+        viewModelScope.launch {
+            try {
+                val currentUserId = state.context.currentUserId
+                val members = getChatMembersUseCase(chatId, 0, 100)
+                val participantIds = members.content.map { it.userId }.filter { it != currentUserId }
+                
+                if (participantIds.isNotEmpty()) {
+                    val callId = createCallUseCase(participantIds)
+                    _effect.send(ChatEffect.NavigateToCall(callId))
+                } else {
+                    _effect.send(ChatEffect.ShowError("No participants to call"))
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to initiate call", e)
+                _effect.send(ChatEffect.ShowError("Failed to initiate call: ${e.message}"))
+            }
         }
     }
 

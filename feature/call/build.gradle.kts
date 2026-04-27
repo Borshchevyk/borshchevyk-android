@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace = "ru.kubsu.borshchevyk.feature.chat"
+    namespace = "ru.kubsu.borshchevyk.feature.call"
     compileSdk = 36
     defaultConfig {
         minSdk = 29
@@ -22,12 +22,8 @@ android {
 
 dependencies {
     implementation(project(":core:ui"))
-    implementation(project(":core:model"))
-    implementation(project(":core:domain:auth"))
-    implementation(project(":core:domain:chat"))
-    implementation(project(":core:domain:message"))
-    implementation(project(":core:domain:user"))
     implementation(project(":core:domain:call"))
+    implementation(project(":core:model"))
     implementation(project(":core:network:client"))
     
     implementation(platform(libs.androidx.compose.bom))
@@ -35,11 +31,12 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.material.icons.extended)
-    implementation(libs.coil.compose)
     
     implementation(libs.androidx.hilt.navigation.compose)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
-    implementation(libs.kotlinx.serialization.json)
+    
+    implementation(libs.livekit.android)
+    implementation(libs.livekit.android.compose)
     
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
