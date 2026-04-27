@@ -21,6 +21,7 @@ data class NotificationDto(
         val callId: String,
         val eventType: String, // e.g. "INITIATED", "ENDED", "ACCEPTED", "REJECTED"
         val initiator: ShortUserDto? = null,
+        val actor: ShortUserDto? = null,
         val timestamp: String? = null
     )
 

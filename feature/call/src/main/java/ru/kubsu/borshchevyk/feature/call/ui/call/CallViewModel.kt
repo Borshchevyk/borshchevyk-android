@@ -18,6 +18,7 @@ import kotlinx.coroutines.launch
 import ru.kubsu.borshchevyk.core.domain.call.usecase.EndCallUseCase
 import ru.kubsu.borshchevyk.core.domain.call.usecase.JoinCallUseCase
 import ru.kubsu.borshchevyk.core.domain.call.usecase.LeaveCallUseCase
+import ru.kubsu.borshchevyk.core.domain.call.usecase.ObserveCallEventsUseCase
 import ru.kubsu.borshchevyk.core.network.client.NetworkConstants
 import javax.inject.Inject
 
@@ -27,7 +28,8 @@ class CallViewModel @Inject constructor(
     private val application: Application,
     private val joinCallUseCase: JoinCallUseCase,
     private val endCallUseCase: EndCallUseCase,
-    private val leaveCallUseCase: LeaveCallUseCase
+    private val leaveCallUseCase: LeaveCallUseCase,
+    private val observeCallEventsUseCase: ObserveCallEventsUseCase
 ) : ViewModel() {
 
     private val TAG = "CallViewModel"
@@ -41,6 +43,23 @@ class CallViewModel @Inject constructor(
     val effect = _effect.receiveAsFlow()
 
     private var room: Room? = null
+
+    init {
+        viewModelScope.launch {
+            observeCallEventsUseCase().collect { event ->
+                if (event.callId == callId) {
+                    if (event.eventType == "REJECTED") {
+                        val message = "Call rejected" + (event.actor?.firstName?.let { " by $it" } ?: "")
+                        _uiState.value = CallUiState.Error(message)
+                        _effect.send(CallEffect.ShowError(message))
+                        _effect.send(CallEffect.CallEnded)
+                    } else if (event.eventType == "ENDED") {
+                        _effect.send(CallEffect.CallEnded)
+                    }
+                }
+            }
+        }
+    }
 
     fun handleIntent(intent: CallIntent) {
         when (intent) {
