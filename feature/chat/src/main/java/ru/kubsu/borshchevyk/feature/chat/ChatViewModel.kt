@@ -240,16 +240,17 @@ class ChatViewModel @Inject constructor(
                 val chats = getUserChatsUseCase()
                 val chat = chats.find { it.id == chatId }
                 val isGroup = chat?.type == ChatType.GROUP
+                val chatTitle = chat?.title ?: chat?.partnerName ?: if (isGroup) "Group Chat" else "Private Chat"
                 val history = historyUseCases.loadChatHistory(chatId).filterNot { it.isDeleted }
                 val pinned = historyUseCases.getPinnedMessages(chatId).filterNot { it.isDeleted }
-                
+
                 _uiState.value = ChatUiState.Content(
                     context = ChatContext(
                         chatId = chatId,
                         currentUserId = userId,
-                        isGroupChat = isGroup
-                    ),
-                    feed = MessageFeed(
+                        isGroupChat = isGroup,
+                        chatName = chatTitle
+                    ),                    feed = MessageFeed(
                         messages = history,
                         pinnedMessages = pinned
                     ),

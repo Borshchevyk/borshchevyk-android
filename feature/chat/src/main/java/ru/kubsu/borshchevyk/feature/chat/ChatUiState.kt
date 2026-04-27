@@ -7,7 +7,8 @@ import ru.kubsu.borshchevyk.core.model.domain.User
 data class ChatContext(
     val chatId: String = "",
     val currentUserId: String = "",
-    val isGroupChat: Boolean = false
+    val isGroupChat: Boolean = false,
+    val chatName: String = ""
 )
 
 data class MessageFeed(
