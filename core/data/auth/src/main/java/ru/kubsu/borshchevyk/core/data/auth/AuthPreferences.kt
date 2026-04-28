@@ -10,6 +10,11 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import ru.kubsu.borshchevyk.core.network.client.TokenProvider
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -35,15 +40,27 @@ class AuthPreferences @Inject constructor(@ApplicationContext private val contex
     private val TAG = stringPreferencesKey("tag")
     private val LOCAL_WRAPPED_PRIVATE_KEY = stringPreferencesKey("local_wrapped_private_key")
 
+    @Volatile
+    private var cachedAccessToken: String? = null
+
+    private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+
+    init {
+        context.dataStore.data
+            .map { it[ACCESS_TOKEN] }
+            .onEach { cachedAccessToken = it }
+            .launchIn(scope)
+    }
+
     /** Flow emitting the current JWT access token, or null if unauthenticated. */
     val accessToken: Flow<String?> = context.dataStore.data.map { it[ACCESS_TOKEN] }
-    
+
     /** Flow emitting the currently logged-in user UUID. */
     val userId: Flow<String?> = context.dataStore.data.map { it[USER_ID] }
-    
+
     /** Flow emitting the current user's tag/username. */
     val tag: Flow<String?> = context.dataStore.data.map { it[TAG] }
-    
+
     /** Flow emitting the Base64-encoded, AES-wrapped RSA private key. */
     val localWrappedPrivateKey: Flow<String?> = context.dataStore.data.map { it[LOCAL_WRAPPED_PRIVATE_KEY] }
 
@@ -51,6 +68,9 @@ class AuthPreferences @Inject constructor(@ApplicationContext private val contex
         return context.dataStore.data.map { it[ACCESS_TOKEN] }.first()
     }
 
+    override fun getAccessTokenSync(): String? {
+        return cachedAccessToken
+    }
     override suspend fun getRefreshToken(): String? {
         return context.dataStore.data.map { it[REFRESH_TOKEN] }.first()
     }

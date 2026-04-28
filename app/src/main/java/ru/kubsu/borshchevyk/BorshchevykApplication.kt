@@ -7,7 +7,6 @@ import coil.disk.DiskCache
 import coil.memory.MemoryCache
 import coil.request.CachePolicy
 import dagger.hilt.android.HiltAndroidApp
-import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
 import ru.kubsu.borshchevyk.core.network.client.TokenProvider
 import javax.inject.Inject
@@ -36,7 +35,7 @@ class BorshchevykApplication : Application(), ImageLoaderFactory {
                 
                 // Add Authorization header for our backend
                 if (newUrl.host == "borshchevik.su") {
-                    val token = runBlocking { tokenProvider.getAccessToken() }
+                    val token = tokenProvider.getAccessTokenSync()
                     if (token != null) {
                         newRequest = newRequest.newBuilder()
                             .header("Authorization", "Bearer $token")
