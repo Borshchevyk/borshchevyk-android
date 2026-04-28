@@ -3,6 +3,7 @@ package ru.kubsu.borshchevyk.core.data.user
 import ru.kubsu.borshchevyk.core.domain.user.ContactRepository
 import ru.kubsu.borshchevyk.core.model.domain.Contact
 import ru.kubsu.borshchevyk.core.model.domain.DomainAddContactParam
+import ru.kubsu.borshchevyk.core.model.domain.getOrThrow
 import ru.kubsu.borshchevyk.core.model.dto.AddContactRequest
 import ru.kubsu.borshchevyk.core.model.dto.ContactResponse
 import ru.kubsu.borshchevyk.core.network.user.ContactNetworkDataSource
@@ -13,7 +14,7 @@ class ContactRepositoryImpl @Inject constructor(
 ) : ContactRepository {
 
     override suspend fun getContacts(): List<Contact> {
-        return networkDataSource.getContacts().map { it.toDomain() }
+        return networkDataSource.getContacts().getOrThrow().map { it.toDomain() }
     }
 
     override suspend fun addContact(request: DomainAddContactParam): Contact {
@@ -23,11 +24,11 @@ class ContactRepositoryImpl @Inject constructor(
                 firstName = request.firstName,
                 lastName = request.lastName
             )
-        ).toDomain()
+        ).getOrThrow().toDomain()
     }
 
     override suspend fun deleteContact(contactUserId: String) {
-        networkDataSource.deleteContact(contactUserId)
+        networkDataSource.deleteContact(contactUserId).getOrThrow()
     }
 
     private fun ContactResponse.toDomain(): Contact = Contact(

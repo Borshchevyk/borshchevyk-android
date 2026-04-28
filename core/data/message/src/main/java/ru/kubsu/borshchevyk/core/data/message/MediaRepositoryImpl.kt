@@ -3,6 +3,7 @@ package ru.kubsu.borshchevyk.core.data.message
 import ru.kubsu.borshchevyk.core.domain.message.MediaRepository
 import ru.kubsu.borshchevyk.core.model.domain.DomainAttachmentResponse
 import ru.kubsu.borshchevyk.core.model.domain.DomainAttachmentType
+import ru.kubsu.borshchevyk.core.model.domain.getOrThrow
 import ru.kubsu.borshchevyk.core.model.dto.AttachmentResponse
 import ru.kubsu.borshchevyk.core.model.dto.AttachmentType
 import ru.kubsu.borshchevyk.core.model.dto.RequestUploadUrlRequest
@@ -36,20 +37,20 @@ class MediaRepositoryImpl @Inject constructor(
                 height = height,
                 duration = duration
             )
-        )
+        ).getOrThrow()
         return Pair(result.attachmentId, result.uploadUrl)
     }
 
     override suspend fun uploadToS3(url: String, fileBytes: ByteArray, contentType: String) {
-        networkDataSource.uploadToS3(url, fileBytes, contentType)
+        networkDataSource.uploadToS3(url, fileBytes, contentType).getOrThrow()
     }
 
     override suspend fun completeUpload(attachmentId: String): DomainAttachmentResponse {
-        return networkDataSource.completeUpload(attachmentId).toDomain()
+        return networkDataSource.completeUpload(attachmentId).getOrThrow().toDomain()
     }
 
     override suspend fun uploadAvatar(fileBytes: ByteArray, filename: String, contentType: String): String {
-        val url = networkDataSource.uploadAvatar(fileBytes, filename, contentType).url
+        val url = networkDataSource.uploadAvatar(fileBytes, filename, contentType).getOrThrow().url
         return if (url.startsWith("http")) {
             url
         } else {
@@ -58,15 +59,15 @@ class MediaRepositoryImpl @Inject constructor(
     }
 
     override suspend fun uploadVoice(fileBytes: ByteArray, duration: Double): DomainAttachmentResponse {
-        return networkDataSource.uploadVoice(fileBytes, duration).toDomain()
+        return networkDataSource.uploadVoice(fileBytes, duration).getOrThrow().toDomain()
     }
 
     override suspend fun uploadCircle(fileBytes: ByteArray, duration: Double): DomainAttachmentResponse {
-        return networkDataSource.uploadCircle(fileBytes, duration).toDomain()
+        return networkDataSource.uploadCircle(fileBytes, duration).getOrThrow().toDomain()
     }
 
     override suspend fun getAttachmentUrl(attachmentId: String): String {
-        val url = networkDataSource.getAttachmentUrl(attachmentId).url
+        val url = networkDataSource.getAttachmentUrl(attachmentId).getOrThrow().url
         return if (url.startsWith("http")) {
             url
         } else {
@@ -75,11 +76,11 @@ class MediaRepositoryImpl @Inject constructor(
     }
 
     override suspend fun deleteAttachment(attachmentId: String) {
-        networkDataSource.deleteAttachment(attachmentId)
+        networkDataSource.deleteAttachment(attachmentId).getOrThrow()
     }
 
     override suspend fun validateAttachments(attachmentIds: List<String>): Boolean {
-        return networkDataSource.validateAttachments(ValidateAttachmentsRequest(attachmentIds)).valid
+        return networkDataSource.validateAttachments(ValidateAttachmentsRequest(attachmentIds)).getOrThrow().valid
     }
 
     private fun DomainAttachmentType.toDto(): AttachmentType = when (this) {

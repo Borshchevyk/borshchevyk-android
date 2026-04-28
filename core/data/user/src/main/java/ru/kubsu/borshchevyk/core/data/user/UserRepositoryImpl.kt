@@ -6,6 +6,7 @@ import ru.kubsu.borshchevyk.core.model.domain.DomainUpdatePrivacySettingsParam
 import ru.kubsu.borshchevyk.core.model.domain.DomainUpdateProfileParam
 import ru.kubsu.borshchevyk.core.model.domain.PrivacySettings
 import ru.kubsu.borshchevyk.core.model.domain.User
+import ru.kubsu.borshchevyk.core.model.domain.getOrThrow
 import ru.kubsu.borshchevyk.core.model.dto.PrivacySettingsResponse
 import ru.kubsu.borshchevyk.core.model.dto.UpdateAvatarRequest
 import ru.kubsu.borshchevyk.core.model.dto.UpdatePrivacySettingsRequest
@@ -21,7 +22,7 @@ class UserRepositoryImpl @Inject constructor(
     private val userCache = mutableMapOf<String, User>()
 
     override suspend fun searchUsers(query: String): List<User> {
-        val users = networkDataSource.searchUsers(query).map { it.toDomain() }
+        val users = networkDataSource.searchUsers(query).getOrThrow().map { it.toDomain() }
         users.forEach { userCache[it.userId] = it }
         return users
     }
@@ -30,7 +31,7 @@ class UserRepositoryImpl @Inject constructor(
         // Simple cache hit check
         userCache[userIdOrTag]?.let { return it }
         
-        val user = networkDataSource.getUserProfile(userIdOrTag).toDomain()
+        val user = networkDataSource.getUserProfile(userIdOrTag).getOrThrow().toDomain()
         userCache[user.userId] = user
         userCache[user.tag] = user
         return user
@@ -44,7 +45,7 @@ class UserRepositoryImpl @Inject constructor(
                 bio = request.bio,
                 avatarUrl = request.avatarUrl
             )
-        ).toDomain()
+        ).getOrThrow().toDomain()
         userCache[user.userId] = user
         return user
     }
@@ -52,13 +53,13 @@ class UserRepositoryImpl @Inject constructor(
     override suspend fun updateAvatar(request: DomainUpdateAvatarParam): User {
         val user = networkDataSource.updateAvatar(
             UpdateAvatarRequest(avatarUrl = request.avatarUrl)
-        ).toDomain()
+        ).getOrThrow().toDomain()
         userCache[user.userId] = user
         return user
     }
 
     override suspend fun getPrivacySettings(): PrivacySettings {
-        return networkDataSource.getPrivacySettings().toDomain()
+        return networkDataSource.getPrivacySettings().getOrThrow().toDomain()
     }
 
     override suspend fun updatePrivacySettings(request: DomainUpdatePrivacySettingsParam): PrivacySettings {
@@ -69,7 +70,7 @@ class UserRepositoryImpl @Inject constructor(
                 profilePhotoVisibility = request.profilePhotoVisibility,
                 inviteToChatVisibility = request.inviteToChatVisibility
             )
-        ).toDomain()
+        ).getOrThrow().toDomain()
     }
 
     private fun UserProfileResponse.toDomain(): User = User(

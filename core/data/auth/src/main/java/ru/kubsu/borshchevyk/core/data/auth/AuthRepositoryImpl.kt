@@ -1,19 +1,10 @@
 package ru.kubsu.borshchevyk.core.data.auth
 
-/**
- * Implementation of [AuthRepository] managing user identities and network authentication.
- *
- * Orchestrates API calls, secure key wrapping via [KeyManager], and local state persistence
- * via [AuthPreferences].
- *
- * @property networkDataSource the Ktor-based network client for API interaction
- * @property keyManager the security manager for crypto operations
- * @property authPreferences the Jetpack DataStore wrapper for local storage
- */
 import android.util.Base64
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.firstOrNull
 import ru.kubsu.borshchevyk.core.domain.auth.AuthRepository
+import ru.kubsu.borshchevyk.core.model.domain.getOrThrow
 import ru.kubsu.borshchevyk.core.model.dto.ChallengeRequest
 import ru.kubsu.borshchevyk.core.model.dto.LoginRequest
 import ru.kubsu.borshchevyk.core.model.dto.RegisterRequest
@@ -38,9 +29,7 @@ class AuthRepositoryImpl @Inject constructor(
     override suspend fun logout() {
         authPreferences.clearTokens()
         authPreferences.clearIdentity()
-        
         webSocketDataSource.disconnect()
-        
     }
 
     override suspend fun getUserId(): String? {
@@ -61,7 +50,6 @@ class AuthRepositoryImpl @Inject constructor(
         val passwordHash = hashString(password)
 
         val keyPair = keyManager.generateInMemoryRsaKeyPair()
-        
         val rawPrivateKey = keyPair.private.encoded
         val encryptedPrivKey = keyManager.encryptWithPassword(rawPrivateKey, password)
         val publicKeyEncoded = keyPair.public.encoded
@@ -76,37 +64,37 @@ class AuthRepositoryImpl @Inject constructor(
             encryptedPrivateKey = Base64.encodeToString(encryptedPrivKey, Base64.NO_WRAP)
         )
         
-        val response = networkDataSource.register(request)
-        
+        val response = networkDataSource.register(request).getOrThrow()
+
         val localAesAlias = "local_aes_key_${response.userId}"
         val locallyWrappedKey = keyManager.wrapKeyWithLocalKeystore(localAesAlias, rawPrivateKey)
         authPreferences.saveLocalWrappedPrivateKey(Base64.encodeToString(locallyWrappedKey, Base64.NO_WRAP))
-        
+
         authPreferences.saveUserId(response.userId)
-        
+
         return response.userId
     }
 
     override suspend fun loginOnline(email: String, password: String): String {
         val passwordHash = hashString(password)
-        
-        val loginResponse = networkDataSource.login(LoginRequest(email, passwordHash))
-        
+
+        val loginResponse = networkDataSource.login(LoginRequest(email, passwordHash)).getOrThrow()
+
         val encryptedPrivKeyBytes = Base64.decode(loginResponse.encryptedPrivateKey, Base64.NO_WRAP)
         val privateKeyBytes = keyManager.decryptWithPassword(encryptedPrivKeyBytes, password)
-        
+
         val localAesAlias = "local_aes_key_${loginResponse.userId}"
         val locallyWrappedKey = keyManager.wrapKeyWithLocalKeystore(localAesAlias, privateKeyBytes)
         authPreferences.saveLocalWrappedPrivateKey(Base64.encodeToString(locallyWrappedKey, Base64.NO_WRAP))
-        
-        val challengeResponse = networkDataSource.challenge(ChallengeRequest(loginResponse.userId))
-        
+
+        val challengeResponse = networkDataSource.challenge(ChallengeRequest(loginResponse.userId)).getOrThrow()
+
         val signatureBytes = keyManager.signDataWithRawKey(privateKeyBytes, challengeResponse.challenge.toByteArray())
-        
+
         val verifyResponse = networkDataSource.verify(VerifyRequest(
             userId = loginResponse.userId,
             signature = Base64.encodeToString(signatureBytes, Base64.NO_WRAP)
-        ))
+        )).getOrThrow()
         
         authPreferences.saveTokens(verifyResponse.accessToken, verifyResponse.refreshToken)
         authPreferences.saveUserId(loginResponse.userId)
@@ -120,12 +108,6 @@ class AuthRepositoryImpl @Inject constructor(
         return !token.isNullOrBlank() || !tag.isNullOrBlank()
     }
 
-    /**
-     * Calculates the SHA-256 hash of a given string.
-     *
-     * @param input the string to hash (e.g., a plaintext password)
-     * @return the lowercase hex string representation of the hash
-     */
     private fun hashString(input: String): String {
         val bytes = MessageDigest.getInstance("SHA-256").digest(input.toByteArray())
         return bytes.joinToString("") { "%02x".format(it) }

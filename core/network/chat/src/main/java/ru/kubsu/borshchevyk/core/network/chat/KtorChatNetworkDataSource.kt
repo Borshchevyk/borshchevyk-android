@@ -1,7 +1,6 @@
 package ru.kubsu.borshchevyk.core.network.chat
 
 import io.ktor.client.HttpClient
-import io.ktor.client.call.body
 import io.ktor.client.request.delete
 import io.ktor.client.request.get
 import io.ktor.client.request.parameter
@@ -10,6 +9,7 @@ import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
+import ru.kubsu.borshchevyk.core.model.domain.NetworkResult
 import ru.kubsu.borshchevyk.core.model.dto.ChatMemberResponse
 import ru.kubsu.borshchevyk.core.model.dto.ChatResponse
 import ru.kubsu.borshchevyk.core.model.dto.CreateChatRequest
@@ -18,6 +18,7 @@ import ru.kubsu.borshchevyk.core.model.dto.PageResponse
 import ru.kubsu.borshchevyk.core.model.dto.TargetUserRequest
 import ru.kubsu.borshchevyk.core.model.dto.UpdateChatInfoRequest
 import ru.kubsu.borshchevyk.core.model.dto.UpdatePermissionsRequest
+import ru.kubsu.borshchevyk.core.network.client.safeRequest
 import ru.kubsu.borshchevyk.core.network.di.IoDispatcher
 import javax.inject.Inject
 
@@ -26,33 +27,41 @@ class KtorChatNetworkDataSource @Inject constructor(
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher
 ) : ChatNetworkDataSource {
 
-    override suspend fun globalSearch(query: String): GlobalSearchResponse {
+    override suspend fun globalSearch(query: String): NetworkResult<GlobalSearchResponse> {
         return withContext(ioDispatcher) {
-            httpClient.get("api/v1/search") {
-                parameter("query", query)
-            }.body()
+            safeRequest {
+                httpClient.get("api/v1/search") {
+                    parameter("query", query)
+                }
+            }
         }
     }
 
-    override suspend fun createChat(request: CreateChatRequest): ChatResponse {
+    override suspend fun createChat(request: CreateChatRequest): NetworkResult<ChatResponse> {
         return withContext(ioDispatcher) {
-            httpClient.post("api/v1/chats") {
-                setBody(request)
-            }.body()
+            safeRequest {
+                httpClient.post("api/v1/chats") {
+                    setBody(request)
+                }
+            }
         }
     }
 
-    override suspend fun createPrivateChat(request: TargetUserRequest): ChatResponse {
+    override suspend fun createPrivateChat(request: TargetUserRequest): NetworkResult<ChatResponse> {
         return withContext(ioDispatcher) {
-            httpClient.post("api/v1/chats/private") {
-                setBody(request)
-            }.body()
+            safeRequest {
+                httpClient.post("api/v1/chats/private") {
+                    setBody(request)
+                }
+            }
         }
     }
 
-    override suspend fun getUserChats(): List<ChatResponse> {
+    override suspend fun getUserChats(): NetworkResult<List<ChatResponse>> {
         return withContext(ioDispatcher) {
-            httpClient.get("api/v1/chats").body()
+            safeRequest {
+                httpClient.get("api/v1/chats")
+            }
         }
     }
 
@@ -60,84 +69,110 @@ class KtorChatNetworkDataSource @Inject constructor(
         chatId: String,
         targetUserId: String,
         request: UpdatePermissionsRequest
-    ) {
-        httpClient.patch("api/v1/chats/$chatId/members/$targetUserId/permissions") {
-            setBody(request)
-        }
-    }
-
-    override suspend fun clearChatHistory(chatId: String, forAll: Boolean) {
+    ): NetworkResult<Unit> {
         return withContext(ioDispatcher) {
-            httpClient.delete("api/v1/chats/$chatId/history") {
-                parameter("forAll", forAll)
+            safeRequest {
+                httpClient.patch("api/v1/chats/$chatId/members/$targetUserId/permissions") {
+                    setBody(request)
+                }
             }
         }
     }
 
-    override suspend fun deleteChat(chatId: String) {
+    override suspend fun clearChatHistory(chatId: String, forAll: Boolean): NetworkResult<Unit> {
         return withContext(ioDispatcher) {
-            httpClient.delete("api/v1/chats/$chatId")
-        }
-    }
-
-    override suspend fun getChatMembers(chatId: String, page: Int, size: Int): PageResponse<ChatMemberResponse> {
-        return withContext(ioDispatcher) {
-            httpClient.get("api/v1/chats/$chatId/members") {
-                parameter("page", page)
-                parameter("size", size)
-            }.body()
-        }
-    }
-
-    override suspend fun inviteUser(chatId: String, request: TargetUserRequest) {
-        return withContext(ioDispatcher) {
-            httpClient.post("api/v1/chats/$chatId/members") {
-                setBody(request)
+            safeRequest {
+                httpClient.delete("api/v1/chats/$chatId/history") {
+                    parameter("forAll", forAll)
+                }
             }
         }
     }
 
-    override suspend fun kickUser(chatId: String, targetUserId: String) {
+    override suspend fun deleteChat(chatId: String): NetworkResult<Unit> {
         return withContext(ioDispatcher) {
-            httpClient.delete("api/v1/chats/$chatId/members/$targetUserId")
-        }
-    }
-
-    override suspend fun leaveChat(chatId: String) {
-        return withContext(ioDispatcher) {
-            httpClient.delete("api/v1/chats/$chatId/members/me")
-        }
-    }
-
-    override suspend fun updateChatInfo(chatId: String, request: UpdateChatInfoRequest) {
-        return withContext(ioDispatcher) {
-            httpClient.patch("api/v1/chats/$chatId") {
-                setBody(request)
+            safeRequest {
+                httpClient.delete("api/v1/chats/$chatId")
             }
         }
     }
 
-    override suspend fun generateInviteLink(chatId: String): String {
+    override suspend fun getChatMembers(chatId: String, page: Int, size: Int): NetworkResult<PageResponse<ChatMemberResponse>> {
         return withContext(ioDispatcher) {
-            httpClient.post("api/v1/chats/$chatId/invite-link").body()
+            safeRequest {
+                httpClient.get("api/v1/chats/$chatId/members") {
+                    parameter("page", page)
+                    parameter("size", size)
+                }
+            }
         }
     }
 
-    override suspend fun joinChatByLink(inviteCode: String): ChatResponse {
+    override suspend fun inviteUser(chatId: String, request: TargetUserRequest): NetworkResult<Unit> {
         return withContext(ioDispatcher) {
-            httpClient.post("api/v1/chats/join/$inviteCode").body()
+            safeRequest {
+                httpClient.post("api/v1/chats/$chatId/members") {
+                    setBody(request)
+                }
+            }
         }
     }
 
-    override suspend fun pinChat(chatId: String) {
+    override suspend fun kickUser(chatId: String, targetUserId: String): NetworkResult<Unit> {
         return withContext(ioDispatcher) {
-            httpClient.post("api/v1/chats/$chatId/pin")
+            safeRequest {
+                httpClient.delete("api/v1/chats/$chatId/members/$targetUserId")
+            }
         }
     }
 
-    override suspend fun unpinChat(chatId: String) {
+    override suspend fun leaveChat(chatId: String): NetworkResult<Unit> {
         return withContext(ioDispatcher) {
-            httpClient.delete("api/v1/chats/$chatId/pin")
+            safeRequest {
+                httpClient.delete("api/v1/chats/$chatId/members/me")
+            }
+        }
+    }
+
+    override suspend fun updateChatInfo(chatId: String, request: UpdateChatInfoRequest): NetworkResult<Unit> {
+        return withContext(ioDispatcher) {
+            safeRequest {
+                httpClient.patch("api/v1/chats/$chatId") {
+                    setBody(request)
+                }
+            }
+        }
+    }
+
+    override suspend fun generateInviteLink(chatId: String): NetworkResult<String> {
+        return withContext(ioDispatcher) {
+            safeRequest {
+                httpClient.post("api/v1/chats/$chatId/invite-link")
+            }
+        }
+    }
+
+    override suspend fun joinChatByLink(inviteCode: String): NetworkResult<ChatResponse> {
+        return withContext(ioDispatcher) {
+            safeRequest {
+                httpClient.post("api/v1/chats/join/$inviteCode")
+            }
+        }
+    }
+
+    override suspend fun pinChat(chatId: String): NetworkResult<Unit> {
+        return withContext(ioDispatcher) {
+            safeRequest {
+                httpClient.post("api/v1/chats/$chatId/pin")
+            }
+        }
+    }
+
+    override suspend fun unpinChat(chatId: String): NetworkResult<Unit> {
+        return withContext(ioDispatcher) {
+            safeRequest {
+                httpClient.delete("api/v1/chats/$chatId/pin")
+            }
         }
     }
 }

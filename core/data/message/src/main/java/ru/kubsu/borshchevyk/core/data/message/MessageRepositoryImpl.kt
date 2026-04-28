@@ -13,6 +13,7 @@ import ru.kubsu.borshchevyk.core.model.domain.Message
 import ru.kubsu.borshchevyk.core.model.domain.MessageReaction
 import ru.kubsu.borshchevyk.core.model.domain.MessageSource
 import ru.kubsu.borshchevyk.core.model.domain.MessageStatus
+import ru.kubsu.borshchevyk.core.model.domain.getOrThrow
 import ru.kubsu.borshchevyk.core.model.dto.AttachmentType
 import ru.kubsu.borshchevyk.core.model.dto.EditMessageRequest
 import ru.kubsu.borshchevyk.core.model.dto.MessageResponse
@@ -42,15 +43,15 @@ class MessageRepositoryImpl @Inject constructor(
                 forwardedFromChatId = forwardedFromChatId,
                 forwardedFromUserId = forwardedFromUserId
             )
-        ).toDomain()
+        ).getOrThrow().toDomain()
     }
 
     override suspend fun editMessage(chatId: String, messageId: String, newText: String): Message {
-        return networkDataSource.editMessage(chatId, messageId, EditMessageRequest(text = newText)).toDomain()
+        return networkDataSource.editMessage(chatId, messageId, EditMessageRequest(text = newText)).getOrThrow().toDomain()
     }
 
     override suspend fun loadChatHistory(chatId: String, page: Int, size: Int): List<Message> {
-        return networkDataSource.loadChatHistory(chatId, page, size).map { it.toDomain() }
+        return networkDataSource.loadChatHistory(chatId, page, size).getOrThrow().map { it.toDomain() }
     }
 
     override suspend fun connectWebSocket() {
@@ -93,35 +94,35 @@ class MessageRepositoryImpl @Inject constructor(
     }
 
     override suspend fun deleteMessage(chatId: String, messageId: String, forAll: Boolean) {
-        networkDataSource.deleteMessage(chatId, messageId, forAll)
+        networkDataSource.deleteMessage(chatId, messageId, forAll).getOrThrow()
     }
 
     override suspend fun addReaction(chatId: String, messageId: String, reaction: String) {
-        networkDataSource.addReaction(chatId, messageId, reaction)
+        networkDataSource.addReaction(chatId, messageId, reaction).getOrThrow()
     }
 
     override suspend fun removeReaction(chatId: String, messageId: String, reaction: String) {
-        networkDataSource.removeReaction(chatId, messageId, reaction)
+        networkDataSource.removeReaction(chatId, messageId, reaction).getOrThrow()
     }
 
     override suspend fun pinMessage(chatId: String, messageId: String) {
-        networkDataSource.pinMessage(chatId, messageId)
+        networkDataSource.pinMessage(chatId, messageId).getOrThrow()
     }
 
     override suspend fun unpinMessage(chatId: String, messageId: String) {
-        networkDataSource.unpinMessage(chatId, messageId)
+        networkDataSource.unpinMessage(chatId, messageId).getOrThrow()
     }
 
     override suspend fun getPinnedMessages(chatId: String): List<Message> {
-        return networkDataSource.getPinnedMessages(chatId).map { it.toDomain() }
+        return networkDataSource.getPinnedMessages(chatId).getOrThrow().map { it.toDomain() }
     }
 
     override suspend fun readMessage(chatId: String, messageId: String) {
-        networkDataSource.readMessage(chatId, messageId)
+        networkDataSource.readMessage(chatId, messageId).getOrThrow()
     }
 
     override suspend fun getMessageReaders(chatId: String, messageId: String): List<ru.kubsu.borshchevyk.core.model.domain.User> {
-        return networkDataSource.getMessageReaders(chatId, messageId).map {
+        return networkDataSource.getMessageReaders(chatId, messageId).getOrThrow().map {
             ru.kubsu.borshchevyk.core.model.domain.User(
                 userId = it.id,
                 firstName = it.firstName,
@@ -138,7 +139,7 @@ class MessageRepositoryImpl @Inject constructor(
         page: Int,
         size: Int
     ): List<Message> {
-        return networkDataSource.getMessageComments(chatId, messageId, page, size).map { it.toDomain() }
+        return networkDataSource.getMessageComments(chatId, messageId, page, size).getOrThrow().map { it.toDomain() }
     }
 
     private fun NotificationDto.MessageDto.toDomain(): Message = Message(

@@ -10,6 +10,7 @@ import ru.kubsu.borshchevyk.core.model.domain.DomainTargetUserParam
 import ru.kubsu.borshchevyk.core.model.domain.DomainUpdateChatInfoParam
 import ru.kubsu.borshchevyk.core.model.domain.DomainUpdatePermissionsParam
 import ru.kubsu.borshchevyk.core.model.domain.GlobalSearchResults
+import ru.kubsu.borshchevyk.core.model.domain.getOrThrow
 import ru.kubsu.borshchevyk.core.model.dto.ChatMemberResponse
 import ru.kubsu.borshchevyk.core.model.dto.ChatResponse
 import ru.kubsu.borshchevyk.core.model.dto.CreateChatRequest
@@ -31,17 +32,17 @@ class ChatRepositoryImpl @Inject constructor(
                 description = request.description,
                 initialMemberIds = request.initialMemberIds
             )
-        ).toDomain()
+        ).getOrThrow().toDomain()
     }
 
     override suspend fun createPrivateChat(request: DomainTargetUserParam): Chat {
         return networkDataSource.createPrivateChat(
             TargetUserRequest(request.targetUserId)
-        ).toDomain()
+        ).getOrThrow().toDomain()
     }
 
     override suspend fun getUserChats(): List<Chat> {
-        return networkDataSource.getUserChats().map { it.toDomain() }
+        return networkDataSource.getUserChats().getOrThrow().map { it.toDomain() }
     }
 
     override suspend fun updatePermissions(chatId: String, targetUserId: String, request: DomainUpdatePermissionsParam) {
@@ -54,19 +55,19 @@ class ChatRepositoryImpl @Inject constructor(
                 canInviteUsers = request.canInviteUsers,
                 canChangeInfo = request.canChangeInfo
             )
-        )
+        ).getOrThrow()
     }
 
     override suspend fun clearChatHistory(chatId: String, forAll: Boolean) {
-        networkDataSource.clearChatHistory(chatId, forAll)
+        networkDataSource.clearChatHistory(chatId, forAll).getOrThrow()
     }
 
     override suspend fun deleteChat(chatId: String) {
-        networkDataSource.deleteChat(chatId)
+        networkDataSource.deleteChat(chatId).getOrThrow()
     }
 
     override suspend fun getChatMembers(chatId: String, page: Int, size: Int): DomainPage<ChatMember> {
-        val response = networkDataSource.getChatMembers(chatId, page, size)
+        val response = networkDataSource.getChatMembers(chatId, page, size).getOrThrow()
         return DomainPage(
             content = response.content.map { it.toDomain() },
             pageNumber = response.number,
@@ -78,15 +79,15 @@ class ChatRepositoryImpl @Inject constructor(
     }
 
     override suspend fun inviteUser(chatId: String, request: DomainTargetUserParam) {
-        networkDataSource.inviteUser(chatId, TargetUserRequest(request.targetUserId))
+        networkDataSource.inviteUser(chatId, TargetUserRequest(request.targetUserId)).getOrThrow()
     }
 
     override suspend fun kickUser(chatId: String, targetUserId: String) {
-        networkDataSource.kickUser(chatId, targetUserId)
+        networkDataSource.kickUser(chatId, targetUserId).getOrThrow()
     }
 
     override suspend fun leaveChat(chatId: String) {
-        networkDataSource.leaveChat(chatId)
+        networkDataSource.leaveChat(chatId).getOrThrow()
     }
 
     override suspend fun updateChatInfo(chatId: String, request: DomainUpdateChatInfoParam) {
@@ -96,27 +97,27 @@ class ChatRepositoryImpl @Inject constructor(
                 title = request.title,
                 description = request.description
             )
-        )
+        ).getOrThrow()
     }
 
     override suspend fun generateInviteLink(chatId: String): String {
-        return networkDataSource.generateInviteLink(chatId)
+        return networkDataSource.generateInviteLink(chatId).getOrThrow()
     }
 
     override suspend fun joinChatByLink(inviteCode: String): Chat {
-        return networkDataSource.joinChatByLink(inviteCode).toDomain()
+        return networkDataSource.joinChatByLink(inviteCode).getOrThrow().toDomain()
     }
 
     override suspend fun pinChat(chatId: String) {
-        networkDataSource.pinChat(chatId)
+        networkDataSource.pinChat(chatId).getOrThrow()
     }
 
     override suspend fun unpinChat(chatId: String) {
-        networkDataSource.unpinChat(chatId)
+        networkDataSource.unpinChat(chatId).getOrThrow()
     }
 
     override suspend fun globalSearch(query: String): ru.kubsu.borshchevyk.core.model.domain.GlobalSearchResults {
-        val response = networkDataSource.globalSearch(query)
+        val response = networkDataSource.globalSearch(query).getOrThrow()
         return ru.kubsu.borshchevyk.core.model.domain.GlobalSearchResults(
             users = response.users.map { 
                 ru.kubsu.borshchevyk.core.model.domain.User(
