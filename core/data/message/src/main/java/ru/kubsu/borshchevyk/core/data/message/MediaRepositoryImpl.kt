@@ -1,6 +1,8 @@
 package ru.kubsu.borshchevyk.core.data.message
 
 import ru.kubsu.borshchevyk.core.domain.message.MediaRepository
+import ru.kubsu.borshchevyk.core.model.domain.DomainAttachmentResponse
+import ru.kubsu.borshchevyk.core.model.domain.DomainAttachmentType
 import ru.kubsu.borshchevyk.core.model.dto.AttachmentResponse
 import ru.kubsu.borshchevyk.core.model.dto.AttachmentType
 import ru.kubsu.borshchevyk.core.model.dto.RequestUploadUrlRequest
@@ -17,7 +19,7 @@ class MediaRepositoryImpl @Inject constructor(
         originalFilename: String,
         contentType: String,
         extension: String,
-        type: AttachmentType,
+        type: DomainAttachmentType,
         sizeBytes: Long,
         width: Int?,
         height: Int?,
@@ -25,7 +27,7 @@ class MediaRepositoryImpl @Inject constructor(
     ): Pair<String, String> {
         val result = networkDataSource.requestUploadUrl(
             RequestUploadUrlRequest(
-                type = type,
+                type = type.toDto(),
                 contentType = contentType,
                 originalFilename = originalFilename,
                 extension = extension,
@@ -42,8 +44,8 @@ class MediaRepositoryImpl @Inject constructor(
         networkDataSource.uploadToS3(url, fileBytes, contentType)
     }
 
-    override suspend fun completeUpload(attachmentId: String): AttachmentResponse {
-        return networkDataSource.completeUpload(attachmentId)
+    override suspend fun completeUpload(attachmentId: String): DomainAttachmentResponse {
+        return networkDataSource.completeUpload(attachmentId).toDomain()
     }
 
     override suspend fun uploadAvatar(fileBytes: ByteArray, filename: String, contentType: String): String {
@@ -55,12 +57,12 @@ class MediaRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun uploadVoice(fileBytes: ByteArray, duration: Double): AttachmentResponse {
-        return networkDataSource.uploadVoice(fileBytes, duration)
+    override suspend fun uploadVoice(fileBytes: ByteArray, duration: Double): DomainAttachmentResponse {
+        return networkDataSource.uploadVoice(fileBytes, duration).toDomain()
     }
 
-    override suspend fun uploadCircle(fileBytes: ByteArray, duration: Double): AttachmentResponse {
-        return networkDataSource.uploadCircle(fileBytes, duration)
+    override suspend fun uploadCircle(fileBytes: ByteArray, duration: Double): DomainAttachmentResponse {
+        return networkDataSource.uploadCircle(fileBytes, duration).toDomain()
     }
 
     override suspend fun getAttachmentUrl(attachmentId: String): String {
@@ -79,4 +81,37 @@ class MediaRepositoryImpl @Inject constructor(
     override suspend fun validateAttachments(attachmentIds: List<String>): Boolean {
         return networkDataSource.validateAttachments(ValidateAttachmentsRequest(attachmentIds)).valid
     }
+
+    private fun DomainAttachmentType.toDto(): AttachmentType = when (this) {
+        DomainAttachmentType.PHOTO -> AttachmentType.PHOTO
+        DomainAttachmentType.VIDEO -> AttachmentType.VIDEO
+        DomainAttachmentType.VOICE -> AttachmentType.VOICE
+        DomainAttachmentType.CIRCLE -> AttachmentType.CIRCLE
+        DomainAttachmentType.FILE -> AttachmentType.FILE
+        DomainAttachmentType.STICKER -> AttachmentType.STICKER
+        DomainAttachmentType.AVATAR -> AttachmentType.AVATAR
+    }
+
+    private fun AttachmentType.toDomain(): DomainAttachmentType = when (this) {
+        AttachmentType.PHOTO -> DomainAttachmentType.PHOTO
+        AttachmentType.VIDEO -> DomainAttachmentType.VIDEO
+        AttachmentType.VOICE -> DomainAttachmentType.VOICE
+        AttachmentType.CIRCLE -> DomainAttachmentType.CIRCLE
+        AttachmentType.FILE -> DomainAttachmentType.FILE
+        AttachmentType.STICKER -> DomainAttachmentType.STICKER
+        AttachmentType.AVATAR -> DomainAttachmentType.AVATAR
+    }
+
+    private fun AttachmentResponse.toDomain(): DomainAttachmentResponse = DomainAttachmentResponse(
+        id = id,
+        type = type?.toDomain(),
+        originalFilename = originalFilename,
+        extension = extension,
+        sizeBytes = sizeBytes,
+        thumbnailKey = thumbnailKey,
+        updatedAt = updatedAt,
+        width = width,
+        height = height,
+        duration = duration
+    )
 }

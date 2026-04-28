@@ -29,9 +29,9 @@ import ru.kubsu.borshchevyk.core.domain.message.ObserveChatEventsUseCase
 import ru.kubsu.borshchevyk.core.domain.message.usecase.ObserveUserPresenceUseCase
 import ru.kubsu.borshchevyk.core.model.domain.ChatEvent
 import ru.kubsu.borshchevyk.core.model.domain.ChatType
+import ru.kubsu.borshchevyk.core.model.domain.DomainAttachmentType
 import ru.kubsu.borshchevyk.core.model.domain.ForwardPayload
 import ru.kubsu.borshchevyk.core.model.domain.Message
-import ru.kubsu.borshchevyk.core.model.dto.AttachmentType
 import ru.kubsu.borshchevyk.core.network.client.NetworkMonitor
 import ru.kubsu.borshchevyk.feature.chat.handlers.CallHandler
 import ru.kubsu.borshchevyk.feature.chat.handlers.MediaVoiceHandler
@@ -72,7 +72,7 @@ class ChatViewModel @Inject constructor(
 
     private var typingJob: Job? = null
     
-    private val failedMessagesData = mutableMapOf<String, Triple<String, List<AttachmentFile>, ForwardPayload?>>()
+    private val failedMessagesData = java.util.concurrent.ConcurrentHashMap<String, Triple<String, List<AttachmentFile>, ForwardPayload?>>()
 
     init {
         loadData()
@@ -147,7 +147,7 @@ class ChatViewModel @Inject constructor(
         networkMonitor.isOnline
             .onEach { isOnline ->
                 if (isOnline) {
-                    val failedIds = failedMessagesData.keys.toList()
+                    val failedIds = failedMessagesData.keys().toList()
                     failedIds.forEach { msgId -> onResendMessage(msgId) }
                 }
             }
@@ -259,6 +259,7 @@ class ChatViewModel @Inject constructor(
                     messageUseCases.sendTypingEvent(chatId, false)
                 }
             } catch (e: Exception) {
+                Log.w(TAG, "Failed to send typing event", e)
             }
         }
     }
@@ -304,7 +305,7 @@ class ChatViewModel @Inject constructor(
             attachments = attachments.map { 
                 ru.kubsu.borshchevyk.core.model.domain.Attachment(
                     id = "temp_${it.originalFilename}",
-                    type = if (it.contentType.startsWith("image/")) AttachmentType.PHOTO else AttachmentType.FILE,
+                    type = if (it.contentType.startsWith("image/")) DomainAttachmentType.PHOTO else DomainAttachmentType.FILE,
                     originalFilename = it.originalFilename,
                     extension = it.extension,
                     sizeBytes = it.bytes.size.toLong()
@@ -347,7 +348,7 @@ class ChatViewModel @Inject constructor(
                 val url = attachmentUseCases.getAttachmentUrl(attachmentId)
                 dispatch(ChatStateAction.UpdateAttachmentUrl(attachmentId, url))
             } catch (e: Exception) {
-                // Ignore silent resolution errors
+                Log.w(TAG, "Silently ignored attachment resolution error: ${e.message}")
             }
         }
     }
@@ -384,6 +385,7 @@ class ChatViewModel @Inject constructor(
                 try {
                     messageUseCases.markMessageAsRead(chatId, messageId)
                 } catch (e: Exception) {
+                    Log.e(TAG, "Failed to mark message as read: $messageId", e)
                 }
             }
         }

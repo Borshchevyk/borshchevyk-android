@@ -24,7 +24,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import ru.kubsu.borshchevyk.core.model.domain.Attachment
-import ru.kubsu.borshchevyk.core.model.dto.AttachmentType
+import ru.kubsu.borshchevyk.core.model.domain.DomainAttachmentType
 import ru.kubsu.borshchevyk.core.ui.theme.BorshchevykTheme
 import java.util.Locale
 
@@ -56,7 +56,7 @@ internal fun FileAttachmentCard(
         ) {
             Icon(
                 imageVector = when(attachment.type) {
-                    AttachmentType.VOICE -> Icons.Default.Description // Placeholder
+                    DomainAttachmentType.VOICE -> Icons.Default.Description // Placeholder
                     else -> Icons.Default.Description
                 },
                 contentDescription = "File",

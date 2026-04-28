@@ -24,7 +24,7 @@ import androidx.compose.ui.unit.dp
 import coil.compose.SubcomposeAsyncImage
 import coil.request.ImageRequest
 import ru.kubsu.borshchevyk.core.model.domain.Attachment
-import ru.kubsu.borshchevyk.core.model.dto.AttachmentType
+import ru.kubsu.borshchevyk.core.model.domain.DomainAttachmentType
 import ru.kubsu.borshchevyk.core.ui.theme.BorshchevykTheme
 
 @Composable
@@ -70,7 +70,7 @@ internal fun AttachmentItem(
     }
 
     when (attachment.type) {
-        AttachmentType.PHOTO -> {
+        DomainAttachmentType.PHOTO -> {
             if (url != null && !loadError) {
                 SubcomposeAsyncImage(
                     model = imageRequest,
@@ -97,7 +97,7 @@ internal fun AttachmentItem(
                 FileAttachmentCard(attachment, isFromMe)
             }
         }
-        AttachmentType.CIRCLE -> {
+        DomainAttachmentType.CIRCLE -> {
             CircleVideoPlayer(
                 url = url,
                 duration = attachment.duration ?: 0.0,
@@ -106,7 +106,7 @@ internal fun AttachmentItem(
                 onLoadError = { loadError = true }
             )
         }
-        AttachmentType.VOICE -> {
+        DomainAttachmentType.VOICE -> {
             VoiceMessagePlayer(
                 url = url,
                 duration = attachment.duration ?: 0.0,

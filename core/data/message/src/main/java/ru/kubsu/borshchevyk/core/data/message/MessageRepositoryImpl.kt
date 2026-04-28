@@ -175,7 +175,7 @@ class MessageRepositoryImpl @Inject constructor(
         attachments = attachments?.map {
             Attachment(
                 id = it.id,
-                type = it.type ?: AttachmentType.FILE,
+                type = it.type?.toDomain() ?: ru.kubsu.borshchevyk.core.model.domain.DomainAttachmentType.FILE,
                 originalFilename = it.originalFilename ?: "file",
                 extension = it.extension ?: "",
                 sizeBytes = it.sizeBytes ?: 0L,
@@ -186,7 +186,7 @@ class MessageRepositoryImpl @Inject constructor(
                 duration = it.duration
             )
         } ?: attachmentIdsOld?.map { 
-            Attachment(id = it.id, type = AttachmentType.FILE) 
+            Attachment(id = it.id, type = ru.kubsu.borshchevyk.core.model.domain.DomainAttachmentType.FILE) 
         } ?: emptyList()
     )
 
@@ -225,7 +225,7 @@ class MessageRepositoryImpl @Inject constructor(
         attachments = attachments?.map {
             Attachment(
                 id = it.id,
-                type = it.type ?: AttachmentType.FILE,
+                type = it.type?.toDomain() ?: ru.kubsu.borshchevyk.core.model.domain.DomainAttachmentType.FILE,
                 originalFilename = it.originalFilename ?: "file",
                 extension = it.extension ?: "",
                 sizeBytes = it.sizeBytes ?: 0L,
@@ -235,7 +235,17 @@ class MessageRepositoryImpl @Inject constructor(
                 height = it.height,
                 duration = it.duration
             )
-        } ?: attachmentIdsOld?.map { Attachment(id = it, type = AttachmentType.FILE) 
+        } ?: attachmentIdsOld?.map { Attachment(id = it, type = ru.kubsu.borshchevyk.core.model.domain.DomainAttachmentType.FILE) 
         } ?: emptyList()
     )
+
+    private fun AttachmentType.toDomain(): ru.kubsu.borshchevyk.core.model.domain.DomainAttachmentType = when (this) {
+        AttachmentType.PHOTO -> ru.kubsu.borshchevyk.core.model.domain.DomainAttachmentType.PHOTO
+        AttachmentType.VIDEO -> ru.kubsu.borshchevyk.core.model.domain.DomainAttachmentType.VIDEO
+        AttachmentType.VOICE -> ru.kubsu.borshchevyk.core.model.domain.DomainAttachmentType.VOICE
+        AttachmentType.CIRCLE -> ru.kubsu.borshchevyk.core.model.domain.DomainAttachmentType.CIRCLE
+        AttachmentType.FILE -> ru.kubsu.borshchevyk.core.model.domain.DomainAttachmentType.FILE
+        AttachmentType.STICKER -> ru.kubsu.borshchevyk.core.model.domain.DomainAttachmentType.STICKER
+        AttachmentType.AVATAR -> ru.kubsu.borshchevyk.core.model.domain.DomainAttachmentType.AVATAR
+    }
 }

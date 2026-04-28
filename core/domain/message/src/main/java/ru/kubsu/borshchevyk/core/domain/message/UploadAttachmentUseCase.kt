@@ -1,6 +1,6 @@
 package ru.kubsu.borshchevyk.core.domain.message
 
-import ru.kubsu.borshchevyk.core.model.dto.AttachmentType
+import ru.kubsu.borshchevyk.core.model.domain.DomainAttachmentType
 import javax.inject.Inject
 
 class UploadAttachmentUseCase @Inject constructor(
@@ -11,7 +11,7 @@ class UploadAttachmentUseCase @Inject constructor(
         originalFilename: String,
         contentType: String,
         extension: String,
-        type: AttachmentType,
+        type: DomainAttachmentType,
         width: Int? = null,
         height: Int? = null,
         duration: Double? = null

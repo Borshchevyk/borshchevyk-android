@@ -87,7 +87,7 @@ internal fun MessageBubble(
         RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp, bottomStart = 4.dp, bottomEnd = 20.dp)
     }
 
-    val isOnlyCircle = message.text.isBlank() && message.attachments.size == 1 && message.attachments.first().type == ru.kubsu.borshchevyk.core.model.dto.AttachmentType.CIRCLE
+    val isOnlyCircle = message.text.isBlank() && message.attachments.size == 1 && message.attachments.first().type == ru.kubsu.borshchevyk.core.model.domain.DomainAttachmentType.CIRCLE
 
     Column(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),

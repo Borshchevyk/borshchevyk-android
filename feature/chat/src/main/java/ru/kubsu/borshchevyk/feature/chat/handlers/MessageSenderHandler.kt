@@ -2,9 +2,9 @@ package ru.kubsu.borshchevyk.feature.chat.handlers
 
 import ru.kubsu.borshchevyk.core.domain.message.ChatAttachmentUseCases
 import ru.kubsu.borshchevyk.core.domain.message.ChatMessageUseCases
+import ru.kubsu.borshchevyk.core.model.domain.DomainAttachmentType
 import ru.kubsu.borshchevyk.core.model.domain.ForwardPayload
 import ru.kubsu.borshchevyk.core.model.domain.Message
-import ru.kubsu.borshchevyk.core.model.dto.AttachmentType
 import ru.kubsu.borshchevyk.feature.chat.AttachmentFile
 import javax.inject.Inject
 
@@ -26,10 +26,10 @@ class MessageSenderHandler @Inject constructor(
         if (attachments.isNotEmpty()) {
             val uploadedIds = attachments.map { file ->
                 val type = when {
-                    file.contentType.startsWith("image/") -> AttachmentType.PHOTO
-                    file.contentType.startsWith("video/") -> AttachmentType.VIDEO
-                    file.contentType.startsWith("audio/") -> AttachmentType.VOICE
-                    else -> AttachmentType.FILE
+                    file.contentType.startsWith("image/") -> DomainAttachmentType.PHOTO
+                    file.contentType.startsWith("video/") -> DomainAttachmentType.VIDEO
+                    file.contentType.startsWith("audio/") -> DomainAttachmentType.VOICE
+                    else -> DomainAttachmentType.FILE
                 }
                 attachmentUseCases.uploadAttachment(
                     fileBytes = file.bytes,
