@@ -74,7 +74,14 @@ fun EditPrivacyRoute(
     ) { padding ->
         EditPrivacyScreen(
             uiState = uiState,
-            onUpdate = { viewModel.handleIntent(ProfileIntent.UpdatePrivacy(it)) },
+            onUpdate = { email, search, photo, invite ->
+                viewModel.handleIntent(ProfileIntent.UpdatePrivacy(
+                    emailVisibility = email,
+                    searchByEmailVisibility = search,
+                    profilePhotoVisibility = photo,
+                    inviteToChatVisibility = invite
+                ))
+            },
             modifier = Modifier.padding(padding)
         )
     }

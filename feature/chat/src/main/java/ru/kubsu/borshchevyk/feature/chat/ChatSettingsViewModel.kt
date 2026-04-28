@@ -26,9 +26,6 @@ import ru.kubsu.borshchevyk.core.domain.user.GetContactsUseCase
 import ru.kubsu.borshchevyk.core.domain.user.RemoveContactUseCase
 import ru.kubsu.borshchevyk.core.model.domain.ChatMember
 import ru.kubsu.borshchevyk.core.model.domain.ChatType
-import ru.kubsu.borshchevyk.core.model.dto.AddContactRequest
-import ru.kubsu.borshchevyk.core.model.dto.UpdateChatInfoRequest
-import ru.kubsu.borshchevyk.core.model.dto.UpdatePermissionsRequest
 import javax.inject.Inject
 
 data class ChatSettingsUiState(
@@ -115,11 +112,9 @@ class ChatSettingsViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 addContactUseCase(
-                    AddContactRequest(
-                        targetUserId = partnerId,
-                        firstName = firstName,
-                        lastName = lastName?.ifBlank { null }
-                    )
+                    targetUserId = partnerId,
+                    firstName = firstName,
+                    lastName = lastName?.ifBlank { null }
                 )
                 _uiState.update { it.copy(isContact = true) }
             } catch (e: Exception) {
@@ -162,10 +157,23 @@ class ChatSettingsViewModel @Inject constructor(
         }
     }
 
-    fun onUpdatePermissions(targetUserId: String, request: UpdatePermissionsRequest) {
+    fun onUpdatePermissions(
+        targetUserId: String,
+        canSendMessages: Boolean,
+        canDeleteMessages: Boolean,
+        canInviteUsers: Boolean,
+        canChangeInfo: Boolean
+    ) {
         viewModelScope.launch {
             try {
-                updateMemberPermissionsUseCase(chatId, targetUserId, request)
+                updateMemberPermissionsUseCase(
+                    chatId = chatId,
+                    targetUserId = targetUserId,
+                    canSendMessages = canSendMessages,
+                    canDeleteMessages = canDeleteMessages,
+                    canInviteUsers = canInviteUsers,
+                    canChangeInfo = canChangeInfo
+                )
                 val membersPage = getChatMembersUseCase(chatId, 0, 100)
                 _uiState.update { it.copy(members = membersPage.content) }
             } catch (e: Exception) {
@@ -221,7 +229,7 @@ class ChatSettingsViewModel @Inject constructor(
     fun onUpdateChatInfo(title: String?, description: String?) {
         viewModelScope.launch {
             try {
-                updateChatInfoUseCase(chatId, UpdateChatInfoRequest(title = title, description = description))
+                updateChatInfoUseCase(chatId, title, description)
                 loadData() // Refresh info
             } catch (e: Exception) {
                 _uiState.update { it.copy(error = e.message) }

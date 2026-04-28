@@ -48,12 +48,12 @@ class CallViewModel @Inject constructor(
         viewModelScope.launch {
             observeCallEventsUseCase().collect { event ->
                 if (event.callId == callId) {
-                    if (event.eventType == "REJECTED") {
-                        val message = "Call rejected" + (event.actor?.firstName?.let { " by $it" } ?: "")
+                    if (event.type == "REJECTED") {
+                        val message = "Call rejected"
                         _uiState.value = CallUiState.Error(message)
                         _effect.send(CallEffect.ShowError(message))
                         _effect.send(CallEffect.CallEnded)
-                    } else if (event.eventType == "ENDED") {
+                    } else if (event.type == "ENDED") {
                         _effect.send(CallEffect.CallEnded)
                     }
                 }

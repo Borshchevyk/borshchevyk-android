@@ -9,7 +9,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import ru.kubsu.borshchevyk.core.domain.call.usecase.LeaveCallUseCase
 import ru.kubsu.borshchevyk.core.domain.call.usecase.ObserveCallEventsUseCase
-import ru.kubsu.borshchevyk.core.model.dto.NotificationDto
+import ru.kubsu.borshchevyk.core.model.domain.DomainCallEvent
 import javax.inject.Inject
 
 @HiltViewModel
@@ -18,15 +18,15 @@ class IncomingCallViewModel @Inject constructor(
     private val leaveCallUseCase: LeaveCallUseCase
 ) : ViewModel() {
 
-    private val _incomingCall = MutableStateFlow<NotificationDto.CallEventDto?>(null)
-    val incomingCall: StateFlow<NotificationDto.CallEventDto?> = _incomingCall.asStateFlow()
+    private val _incomingCall = MutableStateFlow<DomainCallEvent?>(null)
+    val incomingCall: StateFlow<DomainCallEvent?> = _incomingCall.asStateFlow()
 
     init {
         viewModelScope.launch {
             observeCallEventsUseCase().collect { event ->
-                if (event.eventType == "INITIATED") {
+                if (event.type == "INITIATED") {
                     _incomingCall.value = event
-                } else if (event.eventType == "ENDED" || event.eventType == "REJECTED" || event.eventType == "ACCEPTED") {
+                } else if (event.type == "ENDED" || event.type == "REJECTED" || event.type == "ACCEPTED") {
                     if (_incomingCall.value?.callId == event.callId) {
                         _incomingCall.value = null
                     }

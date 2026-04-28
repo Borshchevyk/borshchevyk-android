@@ -21,8 +21,7 @@ import ru.kubsu.borshchevyk.core.domain.user.UpdateAvatarUseCase
 import ru.kubsu.borshchevyk.core.domain.user.UpdatePrivacySettingsUseCase
 import ru.kubsu.borshchevyk.core.domain.user.UpdateProfileUseCase
 import ru.kubsu.borshchevyk.core.model.domain.User
-import ru.kubsu.borshchevyk.core.model.dto.UpdatePrivacySettingsRequest
-import ru.kubsu.borshchevyk.core.model.dto.UpdateProfileRequest
+import ru.kubsu.borshchevyk.core.model.domain.Visibility
 import javax.inject.Inject
 
 @HiltViewModel
@@ -53,7 +52,12 @@ class ProfileViewModel @Inject constructor(
             is ProfileIntent.ReloadData -> loadData()
             is ProfileIntent.UpdateProfile -> onUpdateProfile(intent.firstName, intent.lastName, intent.bio)
             is ProfileIntent.UpdateAvatar -> onUpdateAvatar(intent.fileBytes, intent.filename, intent.contentType)
-            is ProfileIntent.UpdatePrivacy -> onUpdatePrivacy(intent.request)
+            is ProfileIntent.UpdatePrivacy -> onUpdatePrivacy(
+                intent.emailVisibility,
+                intent.searchByEmailVisibility,
+                intent.profilePhotoVisibility,
+                intent.inviteToChatVisibility
+            )
             is ProfileIntent.Logout -> onLogout()
             is ProfileIntent.OpenEditProfile -> sendEffect(ProfileEffect.NavigateToEditProfile)
             is ProfileIntent.OpenEditPrivacy -> sendEffect(ProfileEffect.NavigateToEditPrivacy)
@@ -118,7 +122,10 @@ class ProfileViewModel @Inject constructor(
             _uiState.update { it.copy(isLoading = true) }
             try {
                 val updatedUser = updateProfileUseCase(
-                    UpdateProfileRequest(firstName = firstName, lastName = lastName, bio = bio)
+                    firstName = firstName, 
+                    lastName = lastName.ifBlank { null }, 
+                    bio = bio.ifBlank { null }, 
+                    avatarUrl = null
                 )
                 _uiState.update { it.copy(user = updatedUser, isLoading = false) }
                 sendEffect(ProfileEffect.NavigateBack)
@@ -129,13 +136,19 @@ class ProfileViewModel @Inject constructor(
         }
     }
 
-    private fun onUpdatePrivacy(request: UpdatePrivacySettingsRequest) {
+    private fun onUpdatePrivacy(
+        emailVisibility: Visibility?,
+        searchByEmailVisibility: Visibility?,
+        profilePhotoVisibility: Visibility?,
+        inviteToChatVisibility: Visibility?
+    ) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
             try {
-                val updatedSettings = updatePrivacySettingsUseCase(request)
+                val updatedSettings = updatePrivacySettingsUseCase(
+                    emailVisibility, searchByEmailVisibility, profilePhotoVisibility, inviteToChatVisibility
+                )
                 _uiState.update { it.copy(privacySettings = updatedSettings, isLoading = false) }
-                // Optionally navigate back after saving privacy settings
             } catch (e: Exception) {
                 _uiState.update { it.copy(isLoading = false) }
                 sendEffect(ProfileEffect.ShowError(e.message ?: "Failed to update privacy settings"))

@@ -2,13 +2,18 @@ package ru.kubsu.borshchevyk.feature.profile
 
 import ru.kubsu.borshchevyk.core.model.domain.PrivacySettings
 import ru.kubsu.borshchevyk.core.model.domain.User
-import ru.kubsu.borshchevyk.core.model.dto.UpdatePrivacySettingsRequest
+import ru.kubsu.borshchevyk.core.model.domain.Visibility
 
 sealed interface ProfileIntent {
     object ReloadData : ProfileIntent
     data class UpdateProfile(val firstName: String, val lastName: String, val bio: String) : ProfileIntent
     data class UpdateAvatar(val fileBytes: ByteArray, val filename: String, val contentType: String) : ProfileIntent
-    data class UpdatePrivacy(val request: UpdatePrivacySettingsRequest) : ProfileIntent
+    data class UpdatePrivacy(
+        val emailVisibility: Visibility? = null,
+        val searchByEmailVisibility: Visibility? = null,
+        val profilePhotoVisibility: Visibility? = null,
+        val inviteToChatVisibility: Visibility? = null
+    ) : ProfileIntent
     object Logout : ProfileIntent
     object OpenEditProfile : ProfileIntent
     object OpenEditPrivacy : ProfileIntent

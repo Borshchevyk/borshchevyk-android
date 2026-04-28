@@ -1,9 +1,13 @@
 package ru.kubsu.borshchevyk.core.data.user
 
 import ru.kubsu.borshchevyk.core.domain.user.UserRepository
+import ru.kubsu.borshchevyk.core.model.domain.DomainUpdateAvatarParam
+import ru.kubsu.borshchevyk.core.model.domain.DomainUpdatePrivacySettingsParam
+import ru.kubsu.borshchevyk.core.model.domain.DomainUpdateProfileParam
 import ru.kubsu.borshchevyk.core.model.domain.PrivacySettings
 import ru.kubsu.borshchevyk.core.model.domain.User
 import ru.kubsu.borshchevyk.core.model.dto.PrivacySettingsResponse
+import ru.kubsu.borshchevyk.core.model.dto.UpdateAvatarRequest
 import ru.kubsu.borshchevyk.core.model.dto.UpdatePrivacySettingsRequest
 import ru.kubsu.borshchevyk.core.model.dto.UpdateProfileRequest
 import ru.kubsu.borshchevyk.core.model.dto.UserProfileResponse
@@ -32,14 +36,23 @@ class UserRepositoryImpl @Inject constructor(
         return user
     }
 
-    override suspend fun updateProfile(request: UpdateProfileRequest): User {
-        val user = networkDataSource.updateProfile(request).toDomain()
+    override suspend fun updateProfile(request: DomainUpdateProfileParam): User {
+        val user = networkDataSource.updateProfile(
+            UpdateProfileRequest(
+                firstName = request.firstName,
+                lastName = request.lastName,
+                bio = request.bio,
+                avatarUrl = request.avatarUrl
+            )
+        ).toDomain()
         userCache[user.userId] = user
         return user
     }
 
-    override suspend fun updateAvatar(request: ru.kubsu.borshchevyk.core.model.dto.UpdateAvatarRequest): User {
-        val user = networkDataSource.updateAvatar(request).toDomain()
+    override suspend fun updateAvatar(request: DomainUpdateAvatarParam): User {
+        val user = networkDataSource.updateAvatar(
+            UpdateAvatarRequest(avatarUrl = request.avatarUrl)
+        ).toDomain()
         userCache[user.userId] = user
         return user
     }
@@ -48,8 +61,15 @@ class UserRepositoryImpl @Inject constructor(
         return networkDataSource.getPrivacySettings().toDomain()
     }
 
-    override suspend fun updatePrivacySettings(request: UpdatePrivacySettingsRequest): PrivacySettings {
-        return networkDataSource.updatePrivacySettings(request).toDomain()
+    override suspend fun updatePrivacySettings(request: DomainUpdatePrivacySettingsParam): PrivacySettings {
+        return networkDataSource.updatePrivacySettings(
+            UpdatePrivacySettingsRequest(
+                emailVisibility = request.emailVisibility,
+                searchByEmailVisibility = request.searchByEmailVisibility,
+                profilePhotoVisibility = request.profilePhotoVisibility,
+                inviteToChatVisibility = request.inviteToChatVisibility
+            )
+        ).toDomain()
     }
 
     private fun UserProfileResponse.toDomain(): User = User(

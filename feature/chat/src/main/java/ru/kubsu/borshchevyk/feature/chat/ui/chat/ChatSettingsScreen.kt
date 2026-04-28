@@ -59,7 +59,7 @@ internal fun ChatSettingsScreen(
     onBackClick: () -> Unit,
     onShowInviteSearch: () -> Unit,
     onGenerateLink: () -> Unit,
-    onUpdatePermissions: (String, UpdatePermissionsRequest) -> Unit,
+    onUpdatePermissions: (String, Boolean, Boolean, Boolean, Boolean) -> Unit,
     onClearHistory: (Boolean) -> Unit,
     onDeleteChat: () -> Unit,
     onKickUser: (String) -> Unit,
@@ -158,8 +158,8 @@ internal fun ChatSettingsScreen(
                     currentUserId = uiState.currentUserId,
                     canManagePermissions = canManagePermissions,
                     onDismiss = { memberIdForPermissions = null },
-                    onConfirm = { userId, req ->
-                        onUpdatePermissions(userId, req)
+                    onConfirm = { userId, canSend, canDelete, canInvite, canChange ->
+                        onUpdatePermissions(userId, canSend, canDelete, canInvite, canChange)
                         memberIdForPermissions = null
                     },
                     onKickUser = { userId ->

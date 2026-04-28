@@ -4,10 +4,15 @@ import ru.kubsu.borshchevyk.core.domain.chat.ChatRepository
 import ru.kubsu.borshchevyk.core.model.domain.Chat
 import ru.kubsu.borshchevyk.core.model.domain.ChatMember
 import ru.kubsu.borshchevyk.core.model.domain.ChatMemberRole
+import ru.kubsu.borshchevyk.core.model.domain.DomainCreateChatParam
+import ru.kubsu.borshchevyk.core.model.domain.DomainPage
+import ru.kubsu.borshchevyk.core.model.domain.DomainTargetUserParam
+import ru.kubsu.borshchevyk.core.model.domain.DomainUpdateChatInfoParam
+import ru.kubsu.borshchevyk.core.model.domain.DomainUpdatePermissionsParam
+import ru.kubsu.borshchevyk.core.model.domain.GlobalSearchResults
 import ru.kubsu.borshchevyk.core.model.dto.ChatMemberResponse
 import ru.kubsu.borshchevyk.core.model.dto.ChatResponse
 import ru.kubsu.borshchevyk.core.model.dto.CreateChatRequest
-import ru.kubsu.borshchevyk.core.model.dto.PageResponse
 import ru.kubsu.borshchevyk.core.model.dto.TargetUserRequest
 import ru.kubsu.borshchevyk.core.model.dto.UpdateChatInfoRequest
 import ru.kubsu.borshchevyk.core.model.dto.UpdatePermissionsRequest
@@ -18,20 +23,38 @@ class ChatRepositoryImpl @Inject constructor(
     private val networkDataSource: ChatNetworkDataSource
 ) : ChatRepository {
 
-    override suspend fun createChat(request: CreateChatRequest): Chat {
-        return networkDataSource.createChat(request).toDomain()
+    override suspend fun createChat(request: DomainCreateChatParam): Chat {
+        return networkDataSource.createChat(
+            CreateChatRequest(
+                type = request.type,
+                title = request.title,
+                description = request.description,
+                initialMemberIds = request.initialMemberIds
+            )
+        ).toDomain()
     }
 
-    override suspend fun createPrivateChat(request: TargetUserRequest): Chat {
-        return networkDataSource.createPrivateChat(request).toDomain()
+    override suspend fun createPrivateChat(request: DomainTargetUserParam): Chat {
+        return networkDataSource.createPrivateChat(
+            TargetUserRequest(request.targetUserId)
+        ).toDomain()
     }
 
     override suspend fun getUserChats(): List<Chat> {
         return networkDataSource.getUserChats().map { it.toDomain() }
     }
 
-    override suspend fun updatePermissions(chatId: String, targetUserId: String, request: UpdatePermissionsRequest) {
-        networkDataSource.updatePermissions(chatId, targetUserId, request)
+    override suspend fun updatePermissions(chatId: String, targetUserId: String, request: DomainUpdatePermissionsParam) {
+        networkDataSource.updatePermissions(
+            chatId, 
+            targetUserId, 
+            UpdatePermissionsRequest(
+                canSendMessages = request.canSendMessages,
+                canDeleteMessages = request.canDeleteMessages,
+                canInviteUsers = request.canInviteUsers,
+                canChangeInfo = request.canChangeInfo
+            )
+        )
     }
 
     override suspend fun clearChatHistory(chatId: String, forAll: Boolean) {
@@ -42,19 +65,20 @@ class ChatRepositoryImpl @Inject constructor(
         networkDataSource.deleteChat(chatId)
     }
 
-    override suspend fun getChatMembers(chatId: String, page: Int, size: Int): PageResponse<ChatMember> {
+    override suspend fun getChatMembers(chatId: String, page: Int, size: Int): DomainPage<ChatMember> {
         val response = networkDataSource.getChatMembers(chatId, page, size)
-        return PageResponse(
+        return DomainPage(
             content = response.content.map { it.toDomain() },
+            pageNumber = response.number,
+            pageSize = response.size,
             totalElements = response.totalElements,
             totalPages = response.totalPages,
-            size = response.size,
-            number = response.number
+            last = response.content.isEmpty() // simplified last check
         )
     }
 
-    override suspend fun inviteUser(chatId: String, request: TargetUserRequest) {
-        networkDataSource.inviteUser(chatId, request)
+    override suspend fun inviteUser(chatId: String, request: DomainTargetUserParam) {
+        networkDataSource.inviteUser(chatId, TargetUserRequest(request.targetUserId))
     }
 
     override suspend fun kickUser(chatId: String, targetUserId: String) {
@@ -65,8 +89,14 @@ class ChatRepositoryImpl @Inject constructor(
         networkDataSource.leaveChat(chatId)
     }
 
-    override suspend fun updateChatInfo(chatId: String, request: UpdateChatInfoRequest) {
-        networkDataSource.updateChatInfo(chatId, request)
+    override suspend fun updateChatInfo(chatId: String, request: DomainUpdateChatInfoParam) {
+        networkDataSource.updateChatInfo(
+            chatId, 
+            UpdateChatInfoRequest(
+                title = request.title,
+                description = request.description
+            )
+        )
     }
 
     override suspend fun generateInviteLink(chatId: String): String {

@@ -2,7 +2,7 @@ package ru.kubsu.borshchevyk.core.domain.chat
 
 import ru.kubsu.borshchevyk.core.model.domain.Chat
 import ru.kubsu.borshchevyk.core.model.domain.ChatType
-import ru.kubsu.borshchevyk.core.model.dto.CreateChatRequest
+import ru.kubsu.borshchevyk.core.model.domain.DomainCreateChatParam
 import javax.inject.Inject
 
 class CreateGroupChatUseCase @Inject constructor(
@@ -10,7 +10,7 @@ class CreateGroupChatUseCase @Inject constructor(
 ) {
     suspend operator fun invoke(title: String, description: String? = null, memberIds: List<String> = emptyList()): Chat {
         return chatRepository.createChat(
-            CreateChatRequest(
+            DomainCreateChatParam(
                 type = ChatType.GROUP,
                 title = title,
                 description = description,

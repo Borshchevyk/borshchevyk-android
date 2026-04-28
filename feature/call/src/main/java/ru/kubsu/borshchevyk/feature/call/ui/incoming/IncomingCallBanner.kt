@@ -50,7 +50,7 @@ fun IncomingCallBanner(
                             color = MaterialTheme.colorScheme.onPrimaryContainer
                         )
                         Text(
-                            text = callEvent.initiator?.firstName ?: "Unknown User",
+                            text = "Incoming call...",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onPrimaryContainer
                         )
