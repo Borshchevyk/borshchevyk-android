@@ -1,7 +1,6 @@
 package ru.kubsu.borshchevyk.core.domain.message
 
 import ru.kubsu.borshchevyk.core.model.domain.Message
-import ru.kubsu.borshchevyk.core.model.dto.SendMessageRequest
 import javax.inject.Inject
 
 class SendMessageUseCase @Inject constructor(
@@ -15,13 +14,11 @@ class SendMessageUseCase @Inject constructor(
         forwardedFromUserId: String? = null
     ): Message {
         return messageRepository.sendMessage(
-            chatId, 
-            SendMessageRequest(
-                text = text,
-                attachmentIds = attachmentIds,
-                forwardedFromChatId = forwardedFromChatId,
-                forwardedFromUserId = forwardedFromUserId
-            )
+            chatId = chatId,
+            text = text,
+            attachmentIds = attachmentIds,
+            forwardedFromChatId = forwardedFromChatId,
+            forwardedFromUserId = forwardedFromUserId
         )
     }
 }

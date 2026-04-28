@@ -1,29 +1,36 @@
 package ru.kubsu.borshchevyk.core.domain.message
+
 import kotlinx.coroutines.flow.Flow
+import ru.kubsu.borshchevyk.core.model.domain.DomainGlobalChatEvent
+import ru.kubsu.borshchevyk.core.model.domain.DomainPresenceStatus
+import ru.kubsu.borshchevyk.core.model.domain.DomainReactionEvent
+import ru.kubsu.borshchevyk.core.model.domain.DomainReadReceiptEvent
+import ru.kubsu.borshchevyk.core.model.domain.DomainTypingEvent
 import ru.kubsu.borshchevyk.core.model.domain.Message
-import ru.kubsu.borshchevyk.core.model.dto.NotificationDto
-import ru.kubsu.borshchevyk.core.model.dto.ReactionEvent
-import ru.kubsu.borshchevyk.core.model.dto.ReadReceiptEvent
-import ru.kubsu.borshchevyk.core.model.dto.SendMessageRequest
-import ru.kubsu.borshchevyk.core.model.dto.TypingEvent
 
 interface MessageRepository {
-    suspend fun sendMessage(chatId: String, request: SendMessageRequest): Message
+    suspend fun sendMessage(
+        chatId: String, 
+        text: String, 
+        attachmentIds: List<String>?, 
+        forwardedFromChatId: String?, 
+        forwardedFromUserId: String?
+    ): Message
     suspend fun editMessage(chatId: String, messageId: String, newText: String): Message
     suspend fun loadChatHistory(chatId: String, page: Int = 0, size: Int = 50): List<Message>
 
     suspend fun connectWebSocket()
     suspend fun disconnectWebSocket()
 
-    fun observeNewMessages(): Flow<NotificationDto.MessageDto>
-    fun observeChatEvents(): Flow<NotificationDto.ChatEventDto>
+    fun observeNewMessages(): Flow<Message>
+    fun observeChatEvents(): Flow<DomainGlobalChatEvent>
     fun observeDeletedMessages(): Flow<String>
-    fun observeTyping(chatId: String): Flow<TypingEvent>
-    fun observeReactions(chatId: String): Flow<ReactionEvent>
+    fun observeTyping(chatId: String): Flow<DomainTypingEvent>
+    fun observeReactions(chatId: String): Flow<DomainReactionEvent>
     fun observePins(chatId: String): Flow<String>
     fun observeUnpins(chatId: String): Flow<String>
-    fun observeReadReceipts(chatId: String): Flow<ReadReceiptEvent>
-    fun observePresence(userId: String): Flow<ru.kubsu.borshchevyk.core.model.dto.PresenceStatusResponse>
+    fun observeReadReceipts(chatId: String): Flow<DomainReadReceiptEvent>
+    fun observePresence(userId: String): Flow<DomainPresenceStatus>
     
     suspend fun sendTypingEvent(chatId: String, isTyping: Boolean)
 

@@ -58,15 +58,15 @@ class ChatListViewModel @Inject constructor(
                 connectWebSocketUseCase()
                 
                 observeNewMessagesUseCase()
-                    .onEach { messageDto ->
-                        Log.d(TAG, "WS: Received new message notification for chat ${messageDto.chat.id}. Reloading chats.")
+                    .onEach { message ->
+                        Log.d(TAG, "WS: Received new message notification for chat ${message.chatId}. Reloading chats.")
                         loadChats(showLoading = false)
                     }
                     .launchIn(this)
                 
                 observeGlobalChatEventsUseCase()
                     .onEach { event ->
-                        Log.d(TAG, "WS: Received chat event ${event.action} for chat ${event.chat.id}. Reloading chats.")
+                        Log.d(TAG, "WS: Received chat event ${event.action} for chat ${event.chatId}. Reloading chats.")
                         if (event.action == "PINNED" || event.action == "UNPINNED") {
                             loadChats(showLoading = false)
                         }
