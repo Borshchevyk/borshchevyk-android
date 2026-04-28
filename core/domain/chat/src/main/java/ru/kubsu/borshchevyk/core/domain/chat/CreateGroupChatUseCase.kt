@@ -8,7 +8,7 @@ import javax.inject.Inject
 class CreateGroupChatUseCase @Inject constructor(
     private val chatRepository: ChatRepository
 ) {
-    suspend operator fun invoke(title: String, description: String? = null, memberIds: List<String> = emptyList()): Chat {
+    suspend operator fun invoke(title: String, description: String? = null, memberIds: List<String> = emptyList()): String {
         return chatRepository.createChat(
             DomainCreateChatParam(
                 type = ChatType.GROUP,

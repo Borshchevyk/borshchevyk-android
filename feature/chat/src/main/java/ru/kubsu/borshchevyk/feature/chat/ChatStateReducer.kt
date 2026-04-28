@@ -41,6 +41,16 @@ fun ChatUiState.reduce(action: ChatStateAction): ChatUiState {
         is ChatStateAction.SetEditingMessage -> {
             if (this is ChatUiState.Content) this.copy(input = this.input.copy(editingMessage = action.message)) else this
         }
+        is ChatStateAction.MessageUpdated -> {
+            if (this is ChatUiState.Content) {
+                val updatedMessages = this.feed.messages.map { if (it.id == action.message.id) action.message else it }
+                val updatedPinned = this.feed.pinnedMessages.map { if (it.id == action.message.id) action.message else it }
+                this.copy(
+                    feed = this.feed.copy(messages = updatedMessages, pinnedMessages = updatedPinned),
+                    input = this.input.copy(editingMessage = null)
+                )
+            } else this
+        }
         is ChatStateAction.MessageSending -> {
             if (this is ChatUiState.Content) {
                 this.copy(
@@ -51,12 +61,8 @@ fun ChatUiState.reduce(action: ChatStateAction): ChatUiState {
         }
         is ChatStateAction.MessageSent -> {
             if (this is ChatUiState.Content) {
-                val alreadyExists = this.feed.messages.any { it.id == action.message.id }
-                val updatedMessages = if (alreadyExists) {
-                    this.feed.messages.map { if (it.id == action.message.id) action.message else it }.filterNot { it.id == action.tempId }
-                } else {
-                    this.feed.messages.map { if (it.id == action.tempId) action.message else it }
-                }
+                // Just remove temp message, the real one will come via Flow
+                val updatedMessages = this.feed.messages.filterNot { it.id == action.tempId }
                 this.copy(
                     feed = this.feed.copy(messages = updatedMessages),
                     input = this.input.copy(isSending = false)
@@ -95,16 +101,7 @@ fun ChatUiState.reduce(action: ChatStateAction): ChatUiState {
                 this.copy(feed = this.feed.copy(commentsByMessageId = newMap))
             } else this
         }
-        is ChatStateAction.MessageUpdated -> {
-            if (this is ChatUiState.Content) {
-                val updatedMessages = this.feed.messages.map { if (it.id == action.message.id) action.message else it }
-                val updatedPinned = this.feed.pinnedMessages.map { if (it.id == action.message.id) action.message else it }
-                this.copy(
-                    feed = this.feed.copy(messages = updatedMessages, pinnedMessages = updatedPinned),
-                    input = this.input.copy(editingMessage = null)
-                )
-            } else this
-        }
+
         is ChatStateAction.MessageRemoved -> {
             if (this is ChatUiState.Content) {
                 this.copy(

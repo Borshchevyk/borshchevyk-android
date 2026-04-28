@@ -99,9 +99,9 @@ class SearchViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
             try {
-                val chat = createPrivateChatUseCase(userId)
+                val chatId = createPrivateChatUseCase(userId)
                 _uiState.update { it.copy(isLoading = false) }
-                _effect.send(SearchEffect.NavigateToChat(chat.id))
+                _effect.send(SearchEffect.NavigateToChat(chatId))
             } catch (e: Exception) {
                 _uiState.update { it.copy(isLoading = false) }
                 _effect.send(SearchEffect.ShowError(e.message ?: "Failed to create chat"))

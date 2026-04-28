@@ -17,7 +17,7 @@ class MessageSenderHandler @Inject constructor(
         text: String,
         attachments: List<AttachmentFile>,
         forwardPayload: ForwardPayload?
-    ): Message {
+    ) {
         val attachmentIds = mutableListOf<String>()
         if (forwardPayload != null) {
             attachmentIds.addAll(forwardPayload.attachmentIds)
@@ -48,7 +48,7 @@ class MessageSenderHandler @Inject constructor(
         val finalAttachmentIds = if (attachmentIds.isNotEmpty()) attachmentIds else null
         val finalText = if (text.isNotBlank()) text else forwardPayload?.text ?: ""
 
-        return messageUseCases.sendMessage(
+        messageUseCases.sendMessage(
             chatId = chatId,
             text = finalText,
             attachmentIds = finalAttachmentIds,

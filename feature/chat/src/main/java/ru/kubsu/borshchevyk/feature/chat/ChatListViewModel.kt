@@ -126,8 +126,8 @@ class ChatListViewModel @Inject constructor(
     fun onCreatePrivateChat(targetUserId: String, onSuccess: (String) -> Unit) {
         viewModelScope.launch {
             try {
-                val chat = createPrivateChatUseCase(targetUserId)
-                onSuccess(chat.id)
+                val chatId = createPrivateChatUseCase(targetUserId)
+                onSuccess(chatId)
             } catch (e: Exception) {
                 _uiState.update { it.copy(error = e.message) }
             }
@@ -137,8 +137,8 @@ class ChatListViewModel @Inject constructor(
     fun onCreateGroupChat(title: String, description: String?, onSuccess: (String) -> Unit) {
         viewModelScope.launch {
             try {
-                val chat = createGroupChatUseCase(title, description)
-                onSuccess(chat.id)
+                val chatId = createGroupChatUseCase(title, description)
+                onSuccess(chatId)
             } catch (e: Exception) {
                 _uiState.update { it.copy(error = e.message) }
             }

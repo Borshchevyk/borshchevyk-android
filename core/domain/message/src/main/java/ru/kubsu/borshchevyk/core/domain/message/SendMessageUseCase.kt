@@ -12,8 +12,8 @@ class SendMessageUseCase @Inject constructor(
         attachmentIds: List<String>? = null,
         forwardedFromChatId: String? = null,
         forwardedFromUserId: String? = null
-    ): Message {
-        return messageRepository.sendMessage(
+    ) {
+        messageRepository.sendMessage(
             chatId = chatId,
             text = text,
             attachmentIds = attachmentIds,

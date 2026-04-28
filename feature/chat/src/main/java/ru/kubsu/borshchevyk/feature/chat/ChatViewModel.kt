@@ -331,13 +331,12 @@ class ChatViewModel @Inject constructor(
     private fun performSendMessage(tempId: String, text: String, attachments: List<AttachmentFile>, forwardPayload: ForwardPayload?) {
         viewModelScope.launch {
             try {
-                val newMessage = messageSenderHandler.sendMessage(chatId, text, attachments, forwardPayload)
-                dispatch(ChatStateAction.MessageSent(tempId, newMessage))
+                messageSenderHandler.sendMessage(chatId, text, attachments, forwardPayload)
                 
-                newMessage.attachments.forEach {
-                    resolveAttachmentUrl(it.id)
-                }
-
+                // Let observeNewMessages flow update the real message from DB/Network
+                // but we should still clear the temp message from UI state and stop loading
+                dispatch(ChatStateAction.MessageSent(tempId))
+                
                 messageUseCases.sendTypingEvent(chatId, false)
                 typingJob?.cancel()
             } catch (e: Exception) {
@@ -366,8 +365,9 @@ class ChatViewModel @Inject constructor(
         if (newText.isBlank()) return
         viewModelScope.launch {
             try {
-                val updatedMessage = messageUseCases.editMessage(chatId, messageId, newText)
-                dispatch(ChatStateAction.MessageUpdated(updatedMessage))
+                messageUseCases.editMessage(chatId, messageId, newText)
+                // DB observation will handle the update, just clear editing state
+                dispatch(ChatStateAction.SetEditingMessage(null))
             } catch (e: Exception) {
                 _effect.send(ChatEffect.ShowError(e.message ?: "Failed to edit message"))
             }

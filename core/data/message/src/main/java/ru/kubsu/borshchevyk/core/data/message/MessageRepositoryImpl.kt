@@ -37,7 +37,7 @@ class MessageRepositoryImpl @Inject constructor(
         attachmentIds: List<String>?, 
         forwardedFromChatId: String?, 
         forwardedFromUserId: String?
-    ): Message {
+    ) {
         val messageEntity = networkDataSource.sendMessage(
             chatId, 
             SendMessageRequest(
@@ -51,15 +51,13 @@ class MessageRepositoryImpl @Inject constructor(
         withContext(ioDispatcher) {
             messageDao.upsertMessage(messageEntity)
         }
-        return messageEntity.toDomain()
     }
 
-    override suspend fun editMessage(chatId: String, messageId: String, newText: String): Message {
+    override suspend fun editMessage(chatId: String, messageId: String, newText: String) {
         val messageEntity = networkDataSource.editMessage(chatId, messageId, EditMessageRequest(text = newText)).getOrThrow().toEntity()
         withContext(ioDispatcher) {
             messageDao.upsertMessage(messageEntity)
         }
-        return messageEntity.toDomain()
     }
 
     override fun observeChatHistory(chatId: String): Flow<List<Message>> {
@@ -113,9 +111,11 @@ class MessageRepositoryImpl @Inject constructor(
     override fun observeReadReceipts(chatId: String): Flow<DomainReadReceiptEvent> = 
         chatWebSocketDataSource.observeReadReceipts(chatId).map { DomainReadReceiptEvent(it.messageId, it.user.id) }
             .onEach { event ->
-                val msg = messageDao.getMessage(event.messageId)
-                if (msg != null && msg.status != MessageStatus.READ) {
-                    messageDao.upsertMessage(msg.copy(status = MessageStatus.READ))
+                withContext(ioDispatcher) {
+                    val msg = messageDao.getMessage(event.messageId)
+                    if (msg != null && msg.status != MessageStatus.READ) {
+                        messageDao.upsertMessage(msg.copy(status = MessageStatus.READ))
+                    }
                 }
             }
 

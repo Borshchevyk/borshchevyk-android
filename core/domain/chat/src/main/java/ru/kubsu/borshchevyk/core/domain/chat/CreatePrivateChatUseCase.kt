@@ -7,7 +7,7 @@ import javax.inject.Inject
 class CreatePrivateChatUseCase @Inject constructor(
     private val chatRepository: ChatRepository
 ) {
-    suspend operator fun invoke(targetUserId: String): Chat {
+    suspend operator fun invoke(targetUserId: String): String {
         return chatRepository.createPrivateChat(DomainTargetUserParam(targetUserId))
     }
 }

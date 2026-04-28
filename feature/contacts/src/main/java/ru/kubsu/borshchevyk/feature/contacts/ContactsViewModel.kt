@@ -68,9 +68,9 @@ class ContactsViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
             try {
-                val chat = createPrivateChatUseCase(userId)
+                val chatId = createPrivateChatUseCase(userId)
                 _uiState.update { it.copy(isLoading = false) }
-                _effect.send(ContactsEffect.NavigateToChat(chat.id))
+                _effect.send(ContactsEffect.NavigateToChat(chatId))
             } catch (e: Exception) {
                 _uiState.update { it.copy(isLoading = false) }
                 _effect.send(ContactsEffect.ShowError(e.message ?: "Failed to start chat"))

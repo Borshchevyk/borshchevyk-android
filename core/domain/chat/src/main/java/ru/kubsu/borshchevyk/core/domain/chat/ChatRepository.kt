@@ -12,8 +12,8 @@ import ru.kubsu.borshchevyk.core.model.domain.GlobalSearchResults
 import kotlinx.coroutines.flow.Flow
 
 interface ChatRepository {
-    suspend fun createChat(request: DomainCreateChatParam): Chat
-    suspend fun createPrivateChat(request: DomainTargetUserParam): Chat
+    suspend fun createChat(request: DomainCreateChatParam): String
+    suspend fun createPrivateChat(request: DomainTargetUserParam): String
     fun observeUserChats(): Flow<List<Chat>>
     suspend fun syncUserChats()
     suspend fun getUserChats(): List<Chat>

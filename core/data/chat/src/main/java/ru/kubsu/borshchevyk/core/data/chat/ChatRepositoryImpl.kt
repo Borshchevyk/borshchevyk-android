@@ -6,6 +6,7 @@ import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import ru.kubsu.borshchevyk.core.database.dao.ChatDao
+import ru.kubsu.borshchevyk.core.database.dao.MessageDao
 import ru.kubsu.borshchevyk.core.domain.chat.ChatRepository
 import ru.kubsu.borshchevyk.core.model.domain.Chat
 import ru.kubsu.borshchevyk.core.model.domain.ChatMember
@@ -30,6 +31,7 @@ import javax.inject.Inject
 class ChatRepositoryImpl @Inject constructor(
     private val networkDataSource: ChatNetworkDataSource,
     private val chatDao: ChatDao,
+    private val messageDao: MessageDao,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher
 ) : ChatRepository {
 
@@ -37,7 +39,7 @@ class ChatRepositoryImpl @Inject constructor(
         entities.map { it.toDomain() }
     }
 
-    override suspend fun createChat(request: DomainCreateChatParam): Chat {
+    override suspend fun createChat(request: DomainCreateChatParam): String {
         val chatEntity = networkDataSource.createChat(
             CreateChatRequest(
                 type = request.type,
@@ -47,15 +49,15 @@ class ChatRepositoryImpl @Inject constructor(
             )
         ).getOrThrow().toEntity()
         chatDao.upsertChat(chatEntity)
-        return chatEntity.toDomain()
+        return chatEntity.id
     }
 
-    override suspend fun createPrivateChat(request: DomainTargetUserParam): Chat {
+    override suspend fun createPrivateChat(request: DomainTargetUserParam): String {
         val chatEntity = networkDataSource.createPrivateChat(
             TargetUserRequest(request.targetUserId)
         ).getOrThrow().toEntity()
         chatDao.upsertChat(chatEntity)
-        return chatEntity.toDomain()
+        return chatEntity.id
     }
 
     override suspend fun syncUserChats() {
@@ -91,6 +93,9 @@ class ChatRepositoryImpl @Inject constructor(
 
     override suspend fun clearChatHistory(chatId: String, forAll: Boolean) {
         networkDataSource.clearChatHistory(chatId, forAll).getOrThrow()
+        withContext(ioDispatcher) {
+            messageDao.deleteMessagesByChat(chatId)
+        }
     }
 
     override suspend fun deleteChat(chatId: String) {
@@ -119,6 +124,10 @@ class ChatRepositoryImpl @Inject constructor(
 
     override suspend fun leaveChat(chatId: String) {
         networkDataSource.leaveChat(chatId).getOrThrow()
+        withContext(ioDispatcher) {
+            chatDao.deleteChat(chatId)
+            messageDao.deleteMessagesByChat(chatId)
+        }
     }
 
     override suspend fun updateChatInfo(chatId: String, request: DomainUpdateChatInfoParam) {
