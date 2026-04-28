@@ -123,6 +123,7 @@ class KrossbowWebSocketDataSource @Inject constructor(
             Log.e(TAG, "Error disconnecting WebSocket", e)
         } finally {
             _session.value = null
+            sharedFlows.clear()
         }
     }
 
