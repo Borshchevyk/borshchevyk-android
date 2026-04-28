@@ -9,9 +9,13 @@ import ru.kubsu.borshchevyk.core.model.domain.DomainUpdateChatInfoParam
 import ru.kubsu.borshchevyk.core.model.domain.DomainUpdatePermissionsParam
 import ru.kubsu.borshchevyk.core.model.domain.GlobalSearchResults
 
+import kotlinx.coroutines.flow.Flow
+
 interface ChatRepository {
     suspend fun createChat(request: DomainCreateChatParam): Chat
     suspend fun createPrivateChat(request: DomainTargetUserParam): Chat
+    fun observeUserChats(): Flow<List<Chat>>
+    suspend fun syncUserChats()
     suspend fun getUserChats(): List<Chat>
     suspend fun updatePermissions(chatId: String, targetUserId: String, request: DomainUpdatePermissionsParam)
     suspend fun updateChatInfo(chatId: String, request: DomainUpdateChatInfoParam)

@@ -20,6 +20,7 @@ dependencies {
     implementation(project(":core:model"))
     implementation(project(":core:domain:user"))
     implementation(project(":core:network:user"))
+    implementation(project(":core:network:client"))
     
     implementation(libs.kotlinx.coroutines.core)
     implementation(project(":core:database"))

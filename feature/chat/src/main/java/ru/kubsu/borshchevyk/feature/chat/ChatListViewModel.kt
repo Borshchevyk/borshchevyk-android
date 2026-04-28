@@ -13,7 +13,8 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import ru.kubsu.borshchevyk.core.domain.chat.CreateGroupChatUseCase
 import ru.kubsu.borshchevyk.core.domain.chat.CreatePrivateChatUseCase
-import ru.kubsu.borshchevyk.core.domain.chat.GetUserChatsUseCase
+import ru.kubsu.borshchevyk.core.domain.chat.ObserveUserChatsUseCase
+import ru.kubsu.borshchevyk.core.domain.chat.SyncUserChatsUseCase
 import ru.kubsu.borshchevyk.core.domain.chat.JoinChatUseCase
 import ru.kubsu.borshchevyk.core.domain.chat.PinChatUseCase
 import ru.kubsu.borshchevyk.core.domain.chat.UnpinChatUseCase
@@ -31,7 +32,8 @@ data class ChatListUiState(
 
 @HiltViewModel
 class ChatListViewModel @Inject constructor(
-    private val getUserChatsUseCase: GetUserChatsUseCase,
+    private val observeUserChatsUseCase: ObserveUserChatsUseCase,
+    private val syncUserChatsUseCase: SyncUserChatsUseCase,
     private val createPrivateChatUseCase: CreatePrivateChatUseCase,
     private val createGroupChatUseCase: CreateGroupChatUseCase,
     private val connectWebSocketUseCase: ConnectWebSocketUseCase,
@@ -47,8 +49,18 @@ class ChatListViewModel @Inject constructor(
     val uiState: StateFlow<ChatListUiState> = _uiState.asStateFlow()
 
     init {
+        observeChats()
         loadChats()
         connectAndObserveWebSockets()
+    }
+
+    private fun observeChats() {
+        observeUserChatsUseCase()
+            .onEach { chats ->
+                val sortedChats = chats.sortedWith(compareByDescending<Chat> { it.isPinned }.thenByDescending { it.createdAt })
+                _uiState.update { it.copy(chats = sortedChats, isLoading = false) }
+            }
+            .launchIn(viewModelScope)
     }
 
     private fun connectAndObserveWebSockets() {
@@ -59,14 +71,14 @@ class ChatListViewModel @Inject constructor(
                 
                 observeNewMessagesUseCase()
                     .onEach { message ->
-                        Log.d(TAG, "WS: Received new message notification for chat ${message.chatId}. Reloading chats.")
+                        Log.d(TAG, "WS: Received new message notification for chat ${message.chatId}. Syncing chats.")
                         loadChats(showLoading = false)
                     }
                     .launchIn(this)
                 
                 observeGlobalChatEventsUseCase()
                     .onEach { event ->
-                        Log.d(TAG, "WS: Received chat event ${event.action} for chat ${event.chatId}. Reloading chats.")
+                        Log.d(TAG, "WS: Received chat event ${event.action} for chat ${event.chatId}. Syncing chats.")
                         if (event.action == "PINNED" || event.action == "UNPINNED") {
                             loadChats(showLoading = false)
                         }
@@ -82,9 +94,7 @@ class ChatListViewModel @Inject constructor(
         viewModelScope.launch {
             if (showLoading) _uiState.update { it.copy(isLoading = true, error = null) }
             try {
-                val chats = getUserChatsUseCase()
-                val sortedChats = chats.sortedWith(compareByDescending<Chat> { it.isPinned }.thenByDescending { it.createdAt })
-                _uiState.update { it.copy(chats = sortedChats, isLoading = false) }
+                syncUserChatsUseCase()
             } catch (e: Exception) {
                 _uiState.update { it.copy(isLoading = false, error = e.message) }
             }

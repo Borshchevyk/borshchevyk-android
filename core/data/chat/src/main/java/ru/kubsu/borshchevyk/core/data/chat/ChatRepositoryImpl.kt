@@ -1,5 +1,11 @@
 package ru.kubsu.borshchevyk.core.data.chat
 
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.withContext
+import ru.kubsu.borshchevyk.core.database.dao.ChatDao
 import ru.kubsu.borshchevyk.core.domain.chat.ChatRepository
 import ru.kubsu.borshchevyk.core.model.domain.Chat
 import ru.kubsu.borshchevyk.core.model.domain.ChatMember
@@ -18,31 +24,56 @@ import ru.kubsu.borshchevyk.core.model.dto.TargetUserRequest
 import ru.kubsu.borshchevyk.core.model.dto.UpdateChatInfoRequest
 import ru.kubsu.borshchevyk.core.model.dto.UpdatePermissionsRequest
 import ru.kubsu.borshchevyk.core.network.chat.ChatNetworkDataSource
+import ru.kubsu.borshchevyk.core.network.di.IoDispatcher
 import javax.inject.Inject
 
 class ChatRepositoryImpl @Inject constructor(
-    private val networkDataSource: ChatNetworkDataSource
+    private val networkDataSource: ChatNetworkDataSource,
+    private val chatDao: ChatDao,
+    @IoDispatcher private val ioDispatcher: CoroutineDispatcher
 ) : ChatRepository {
 
+    override fun observeUserChats(): Flow<List<Chat>> = chatDao.observeAllChats().map { entities -> 
+        entities.map { it.toDomain() }
+    }
+
     override suspend fun createChat(request: DomainCreateChatParam): Chat {
-        return networkDataSource.createChat(
+        val chatEntity = networkDataSource.createChat(
             CreateChatRequest(
                 type = request.type,
                 title = request.title,
                 description = request.description,
                 initialMemberIds = request.initialMemberIds
             )
-        ).getOrThrow().toDomain()
+        ).getOrThrow().toEntity()
+        chatDao.upsertChat(chatEntity)
+        return chatEntity.toDomain()
     }
 
     override suspend fun createPrivateChat(request: DomainTargetUserParam): Chat {
-        return networkDataSource.createPrivateChat(
+        val chatEntity = networkDataSource.createPrivateChat(
             TargetUserRequest(request.targetUserId)
-        ).getOrThrow().toDomain()
+        ).getOrThrow().toEntity()
+        chatDao.upsertChat(chatEntity)
+        return chatEntity.toDomain()
+    }
+
+    override suspend fun syncUserChats() {
+        withContext(ioDispatcher) {
+            val networkChats = networkDataSource.getUserChats().getOrThrow()
+            chatDao.upsertChats(networkChats.map { it.toEntity() })
+        }
     }
 
     override suspend fun getUserChats(): List<Chat> {
-        return networkDataSource.getUserChats().getOrThrow().map { it.toDomain() }
+        val cached = chatDao.observeAllChats().firstOrNull()
+        if (!cached.isNullOrEmpty()) {
+            syncUserChats() // sync in background or await? For simplicity, we just use it directly, but ideally it returns cached.
+            return cached.map { it.toDomain() }
+        }
+        val networkChats = networkDataSource.getUserChats().getOrThrow()
+        chatDao.upsertChats(networkChats.map { it.toEntity() })
+        return networkChats.map { it.toDomain() }
     }
 
     override suspend fun updatePermissions(chatId: String, targetUserId: String, request: DomainUpdatePermissionsParam) {

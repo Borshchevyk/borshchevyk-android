@@ -1,5 +1,11 @@
 package ru.kubsu.borshchevyk.core.data.user
 
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.withContext
+import ru.kubsu.borshchevyk.core.database.dao.UserDao
 import ru.kubsu.borshchevyk.core.domain.user.UserRepository
 import ru.kubsu.borshchevyk.core.model.domain.DomainUpdateAvatarParam
 import ru.kubsu.borshchevyk.core.model.domain.DomainUpdatePrivacySettingsParam
@@ -11,51 +17,61 @@ import ru.kubsu.borshchevyk.core.model.dto.PrivacySettingsResponse
 import ru.kubsu.borshchevyk.core.model.dto.UpdateAvatarRequest
 import ru.kubsu.borshchevyk.core.model.dto.UpdatePrivacySettingsRequest
 import ru.kubsu.borshchevyk.core.model.dto.UpdateProfileRequest
-import ru.kubsu.borshchevyk.core.model.dto.UserProfileResponse
+import ru.kubsu.borshchevyk.core.network.di.IoDispatcher
 import ru.kubsu.borshchevyk.core.network.user.UserNetworkDataSource
 import javax.inject.Inject
 
 class UserRepositoryImpl @Inject constructor(
-    private val networkDataSource: UserNetworkDataSource
+    private val networkDataSource: UserNetworkDataSource,
+    private val userDao: UserDao,
+    @IoDispatcher private val ioDispatcher: CoroutineDispatcher
 ) : UserRepository {
 
-    private val userCache = mutableMapOf<String, User>()
-
     override suspend fun searchUsers(query: String): List<User> {
-        val users = networkDataSource.searchUsers(query).getOrThrow().map { it.toDomain() }
-        users.forEach { userCache[it.userId] = it }
-        return users
+        val users = networkDataSource.searchUsers(query).getOrThrow().map { it.toEntity() }
+        userDao.upsertUsers(users)
+        return users.map { it.toDomain() }
+    }
+
+    override fun observeUserProfile(userId: String): Flow<User?> = userDao.observeUser(userId).map { it?.toDomain() }
+
+    override suspend fun syncUserProfile(userIdOrTag: String) {
+        withContext(ioDispatcher) {
+            val userEntity = networkDataSource.getUserProfile(userIdOrTag).getOrThrow().toEntity()
+            userDao.upsertUser(userEntity)
+        }
     }
 
     override suspend fun getUserProfile(userIdOrTag: String): User {
-        // Simple cache hit check
-        userCache[userIdOrTag]?.let { return it }
-        
-        val user = networkDataSource.getUserProfile(userIdOrTag).getOrThrow().toDomain()
-        userCache[user.userId] = user
-        userCache[user.tag] = user
-        return user
+        val cached = userDao.getUser(userIdOrTag)?.toDomain()
+        if (cached != null) {
+            syncUserProfile(userIdOrTag)
+            return cached
+        }
+        val userEntity = networkDataSource.getUserProfile(userIdOrTag).getOrThrow().toEntity()
+        userDao.upsertUser(userEntity)
+        return userEntity.toDomain()
     }
 
     override suspend fun updateProfile(request: DomainUpdateProfileParam): User {
-        val user = networkDataSource.updateProfile(
+        val userEntity = networkDataSource.updateProfile(
             UpdateProfileRequest(
                 firstName = request.firstName,
                 lastName = request.lastName,
                 bio = request.bio,
                 avatarUrl = request.avatarUrl
             )
-        ).getOrThrow().toDomain()
-        userCache[user.userId] = user
-        return user
+        ).getOrThrow().toEntity()
+        userDao.upsertUser(userEntity)
+        return userEntity.toDomain()
     }
 
     override suspend fun updateAvatar(request: DomainUpdateAvatarParam): User {
-        val user = networkDataSource.updateAvatar(
+        val userEntity = networkDataSource.updateAvatar(
             UpdateAvatarRequest(avatarUrl = request.avatarUrl)
-        ).getOrThrow().toDomain()
-        userCache[user.userId] = user
-        return user
+        ).getOrThrow().toEntity()
+        userDao.upsertUser(userEntity)
+        return userEntity.toDomain()
     }
 
     override suspend fun getPrivacySettings(): PrivacySettings {
@@ -72,17 +88,6 @@ class UserRepositoryImpl @Inject constructor(
             )
         ).getOrThrow().toDomain()
     }
-
-    private fun UserProfileResponse.toDomain(): User = User(
-        userId = userId,
-        email = email,
-        tag = tag,
-        firstName = firstName,
-        lastName = lastName,
-        bio = bio,
-        avatarUrl = avatarUrl,
-        avatars = avatars
-    )
 
     private fun PrivacySettingsResponse.toDomain(): PrivacySettings = PrivacySettings(
         userId = userId,
