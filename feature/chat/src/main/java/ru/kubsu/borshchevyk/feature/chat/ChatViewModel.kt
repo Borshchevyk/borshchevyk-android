@@ -28,8 +28,7 @@ import ru.kubsu.borshchevyk.core.domain.message.ChatAttachmentUseCases
 import ru.kubsu.borshchevyk.core.domain.message.ChatHistoryUseCases
 import ru.kubsu.borshchevyk.core.domain.message.ChatMessageUseCases
 import ru.kubsu.borshchevyk.core.domain.message.ObserveChatEventsUseCase
-import ru.kubsu.borshchevyk.core.domain.message.usecase.UploadCircleUseCase
-import ru.kubsu.borshchevyk.core.domain.message.usecase.UploadVoiceUseCase
+import ru.kubsu.borshchevyk.core.domain.message.usecase.ObserveUserPresenceUseCase
 import ru.kubsu.borshchevyk.core.model.domain.ChatEvent
 import ru.kubsu.borshchevyk.core.model.domain.ChatType
 import ru.kubsu.borshchevyk.core.model.domain.ForwardPayload
@@ -37,6 +36,9 @@ import ru.kubsu.borshchevyk.core.model.domain.Message
 import ru.kubsu.borshchevyk.core.model.domain.MessageReaction
 import ru.kubsu.borshchevyk.core.model.dto.AttachmentType
 import ru.kubsu.borshchevyk.core.network.client.NetworkMonitor
+import ru.kubsu.borshchevyk.feature.chat.handlers.CallHandler
+import ru.kubsu.borshchevyk.feature.chat.handlers.MediaVoiceHandler
+import ru.kubsu.borshchevyk.feature.chat.handlers.MessageSenderHandler
 import javax.inject.Inject
 
 @HiltViewModel
@@ -49,11 +51,10 @@ class ChatViewModel @Inject constructor(
     private val historyUseCases: ChatHistoryUseCases,
     private val attachmentUseCases: ChatAttachmentUseCases,
     private val networkMonitor: NetworkMonitor,
-    private val getChatMembersUseCase: GetChatMembersUseCase,
-    private val createCallUseCase: CreateCallUseCase,
-    private val uploadVoiceUseCase: UploadVoiceUseCase,
-    private val uploadCircleUseCase: UploadCircleUseCase,
-    private val observeUserPresenceUseCase: ru.kubsu.borshchevyk.core.domain.message.usecase.ObserveUserPresenceUseCase
+    private val observeUserPresenceUseCase: ObserveUserPresenceUseCase,
+    private val callHandler: CallHandler,
+    private val mediaVoiceHandler: MediaVoiceHandler,
+    private val messageSenderHandler: MessageSenderHandler
 ) : ViewModel() {
 
     private val TAG = "ChatViewModel"
@@ -112,11 +113,8 @@ class ChatViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 val currentUserId = state.context.currentUserId
-                val members = getChatMembersUseCase(chatId, 0, 100)
-                val participantIds = members.content.map { it.userId }.filter { it != currentUserId }
-                
-                if (participantIds.isNotEmpty()) {
-                    val callId = createCallUseCase(participantIds)
+                val callId = callHandler.initiateCall(chatId, currentUserId)
+                if (callId != null) {
                     _effect.send(ChatEffect.NavigateToCall(callId))
                 } else {
                     _effect.send(ChatEffect.ShowError("No participants to call"))
@@ -312,14 +310,7 @@ class ChatViewModel @Inject constructor(
     private fun onSendVoice(bytes: ByteArray, duration: Double) {
         viewModelScope.launch {
             try {
-                val attachmentResponse = uploadVoiceUseCase(bytes, duration)
-                messageUseCases.sendMessage(
-                    chatId = chatId,
-                    text = "",
-                    attachmentIds = listOf(attachmentResponse.id),
-                    forwardedFromChatId = null,
-                    forwardedFromUserId = null
-                )
+                mediaVoiceHandler.sendVoice(chatId, bytes, duration)
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to send voice message", e)
                 _effect.send(ChatEffect.ShowError("Failed to send voice message"))
@@ -330,14 +321,7 @@ class ChatViewModel @Inject constructor(
     private fun onSendCircle(bytes: ByteArray, duration: Double) {
         viewModelScope.launch {
             try {
-                val attachmentResponse = uploadCircleUseCase(bytes, duration)
-                messageUseCases.sendMessage(
-                    chatId = chatId,
-                    text = "",
-                    attachmentIds = listOf(attachmentResponse.id),
-                    forwardedFromChatId = null,
-                    forwardedFromUserId = null
-                )
+                mediaVoiceHandler.sendCircle(chatId, bytes, duration)
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to send circle message", e)
                 _effect.send(ChatEffect.ShowError("Failed to send video circle"))
@@ -391,43 +375,7 @@ class ChatViewModel @Inject constructor(
     private fun performSendMessage(tempId: String, text: String, attachments: List<AttachmentFile>, forwardPayload: ForwardPayload?) {
         viewModelScope.launch {
             try {
-                val attachmentIds = mutableListOf<String>()
-                if (forwardPayload != null) {
-                    attachmentIds.addAll(forwardPayload.attachmentIds)
-                }
-
-                if (attachments.isNotEmpty()) {
-                    val uploadedIds = attachments.map { file ->
-                        val type = when {
-                            file.contentType.startsWith("image/") -> AttachmentType.PHOTO
-                            file.contentType.startsWith("video/") -> AttachmentType.VIDEO
-                            file.contentType.startsWith("audio/") -> AttachmentType.VOICE
-                            else -> AttachmentType.FILE
-                        }
-                        attachmentUseCases.uploadAttachment(
-                            fileBytes = file.bytes,
-                            originalFilename = file.originalFilename,
-                            contentType = file.contentType,
-                            extension = file.extension,
-                            type = type,
-                            width = file.width,
-                            height = file.height,
-                            duration = file.duration?.toDouble()
-                        )
-                    }
-                    attachmentIds.addAll(uploadedIds)
-                }
-
-                val finalAttachmentIds = if (attachmentIds.isNotEmpty()) attachmentIds else null
-                val finalText = if (text.isNotBlank()) text else forwardPayload?.text ?: ""
-
-                val newMessage = messageUseCases.sendMessage(
-                    chatId = chatId,
-                    text = finalText,
-                    attachmentIds = finalAttachmentIds,
-                    forwardedFromChatId = forwardPayload?.fromChatId,
-                    forwardedFromUserId = forwardPayload?.fromUserId
-                )
+                val newMessage = messageSenderHandler.sendMessage(chatId, text, attachments, forwardPayload)
                 
                 _uiState.update { state ->
                     if (state is ChatUiState.Content) {
