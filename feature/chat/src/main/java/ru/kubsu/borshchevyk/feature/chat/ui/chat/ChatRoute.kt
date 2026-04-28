@@ -88,11 +88,28 @@ fun ChatRoute(
                 topBar = {
                     TopAppBar(
                         title = { 
-                            Text(
-                                text = if (state.context.isGroupChat) "Group Chat" else "Private Chat",
-                                style = BorshchevykTheme.typography.titleMedium,
-                                color = BorshchevykTheme.colors.onSurface
-                            ) 
+                            androidx.compose.foundation.layout.Column {
+                                Text(
+                                    text = state.context.chatName,
+                                    style = BorshchevykTheme.typography.titleMedium,
+                                    color = BorshchevykTheme.colors.onSurface
+                                ) 
+                                val typingUsers = state.input.typingUsers.filter { it != state.context.currentUserId }
+                                if (typingUsers.isNotEmpty()) {
+                                    Text(
+                                        text = if (typingUsers.size == 1) "User is typing..." else "Multiple users are typing...",
+                                        style = BorshchevykTheme.typography.labelSmall,
+                                        color = BorshchevykTheme.colors.primary
+                                    )
+                                } else {
+                                    // Empty text to keep the height consistent so title doesn't jump
+                                    Text(
+                                        text = " ",
+                                        style = BorshchevykTheme.typography.labelSmall,
+                                        color = androidx.compose.ui.graphics.Color.Transparent
+                                    )
+                                }
+                            }
                         },
                         navigationIcon = {
                             IconButton(onClick = onBackClick) {

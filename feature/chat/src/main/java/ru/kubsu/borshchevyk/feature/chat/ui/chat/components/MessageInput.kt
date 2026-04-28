@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -224,7 +223,7 @@ internal fun MessageInput(
                 }
             }
 
-            Row(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp).imePadding(), verticalAlignment = Alignment.Bottom) {
+            Row(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.Bottom) {
                 if (isRecordingVoice) {
                     Row(
                         modifier = Modifier.weight(1f).defaultMinSize(minHeight = 48.dp),
