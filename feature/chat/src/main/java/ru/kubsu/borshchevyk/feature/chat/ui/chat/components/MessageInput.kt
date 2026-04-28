@@ -177,51 +177,17 @@ internal fun MessageInput(
     ) {
         Column {
             if (forwardPayload != null) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().background(BorshchevykTheme.colors.primaryContainer).padding(horizontal = 16.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "Forwarding from ${forwardPayload.authorName}", 
-                        style = BorshchevykTheme.typography.bodyMedium, 
-                        color = BorshchevykTheme.colors.onPrimaryContainer
-                    )
-                }
+                ForwardPayloadBanner(forwardPayload)
             }
 
             if (editingMessage != null) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().background(BorshchevykTheme.colors.surfaceVariant).padding(horizontal = 16.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(text = "Editing message", style = BorshchevykTheme.typography.bodyMedium, color = BorshchevykTheme.colors.primary)
-                    IconButton(onClick = onCancelEdit, modifier = Modifier.size(24.dp)) {
-                        Icon(Icons.Default.Close, contentDescription = "Cancel edit", tint = BorshchevykTheme.colors.onSurfaceVariant)
-                    }
-                }
+                EditingMessageBanner(onCancelEdit)
             }
 
-            if (selectedAttachments.isNotEmpty()) {
-                Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
-                    selectedAttachments.forEach { attachment ->
-                        Box(modifier = Modifier.size(60.dp).padding(end = 8.dp).clip(RoundedCornerShape(8.dp)).background(BorshchevykTheme.colors.surfaceVariant)) {
-                            if (attachment.contentType.startsWith("image/")) {
-                                AsyncImage(model = attachment.uri, contentDescription = "Preview", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
-                            } else {
-                                Icon(Icons.Default.AttachFile, contentDescription = "File", tint = BorshchevykTheme.colors.onSurfaceVariant, modifier = Modifier.align(Alignment.Center))
-                            }
-                            IconButton(
-                                onClick = { selectedAttachments.remove(attachment) },
-                                modifier = Modifier.size(20.dp).align(Alignment.TopEnd).background(BorshchevykTheme.colors.error, CircleShape)
-                            ) {
-                                Icon(Icons.Default.Close, contentDescription = "Remove", tint = BorshchevykTheme.colors.onError, modifier = Modifier.size(12.dp))
-                            }
-                        }
-                    }
-                }
-            }
+            AttachmentPreviewRow(
+                attachments = selectedAttachments.toList(),
+                onRemoveAttachment = { selectedAttachments.remove(it) }
+            )
 
             Row(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.Bottom) {
                 if (isRecordingVoice) {
