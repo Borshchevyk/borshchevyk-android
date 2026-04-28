@@ -20,12 +20,14 @@ import ru.kubsu.borshchevyk.core.model.dto.MessageResponse
 import ru.kubsu.borshchevyk.core.model.dto.NotificationDto
 import ru.kubsu.borshchevyk.core.model.dto.SendMessageRequest
 import ru.kubsu.borshchevyk.core.network.message.MessageNetworkDataSource
-import ru.kubsu.borshchevyk.core.network.websocket.WebSocketDataSource
+import ru.kubsu.borshchevyk.core.network.websocket.ChatWebSocketDataSource
+import ru.kubsu.borshchevyk.core.network.websocket.PresenceWebSocketDataSource
 import javax.inject.Inject
 
 class MessageRepositoryImpl @Inject constructor(
     private val networkDataSource: MessageNetworkDataSource,
-    private val webSocketDataSource: WebSocketDataSource
+    private val chatWebSocketDataSource: ChatWebSocketDataSource,
+    private val presenceWebSocketDataSource: PresenceWebSocketDataSource
 ) : MessageRepository {
 
     override suspend fun sendMessage(
@@ -55,42 +57,42 @@ class MessageRepositoryImpl @Inject constructor(
     }
 
     override suspend fun connectWebSocket() {
-        webSocketDataSource.connect()
+        chatWebSocketDataSource.connect()
     }
 
     override suspend fun disconnectWebSocket() {
-        webSocketDataSource.disconnect()
+        chatWebSocketDataSource.disconnect()
     }
 
     override fun observeNewMessages(): Flow<Message> = 
-        webSocketDataSource.observeNewMessages().map { it.toDomain() }
+        chatWebSocketDataSource.observeNewMessages().map { it.toDomain() }
 
     override fun observeChatEvents(): Flow<DomainGlobalChatEvent> = 
-        webSocketDataSource.observeChatEvents().map { DomainGlobalChatEvent(it.chat.id, it.action) }
+        chatWebSocketDataSource.observeChatEvents().map { DomainGlobalChatEvent(it.chat.id, it.action) }
 
     override fun observeDeletedMessages(): Flow<String> = 
-        webSocketDataSource.observeDeletedMessages()
+        chatWebSocketDataSource.observeDeletedMessages()
 
     override fun observeTyping(chatId: String): Flow<DomainTypingEvent> = 
-        webSocketDataSource.observeTyping(chatId).map { DomainTypingEvent(it.user.id, it.isTyping) }
+        chatWebSocketDataSource.observeTyping(chatId).map { DomainTypingEvent(it.user.id, it.isTyping) }
 
     override fun observeReactions(chatId: String): Flow<DomainReactionEvent> = 
-        webSocketDataSource.observeReactions(chatId).map { DomainReactionEvent(it.messageId, it.user.id, it.reaction, it.isAdded) }
+        chatWebSocketDataSource.observeReactions(chatId).map { DomainReactionEvent(it.messageId, it.user.id, it.reaction, it.isAdded) }
 
     override fun observePins(chatId: String): Flow<String> = 
-        webSocketDataSource.observePins(chatId)
+        chatWebSocketDataSource.observePins(chatId)
 
     override fun observeUnpins(chatId: String): Flow<String> = 
-        webSocketDataSource.observeUnpins(chatId)
+        chatWebSocketDataSource.observeUnpins(chatId)
 
     override fun observeReadReceipts(chatId: String): Flow<DomainReadReceiptEvent> = 
-        webSocketDataSource.observeReadReceipts(chatId).map { DomainReadReceiptEvent(it.messageId, it.user.id) }
+        chatWebSocketDataSource.observeReadReceipts(chatId).map { DomainReadReceiptEvent(it.messageId, it.user.id) }
 
     override fun observePresence(userId: String): Flow<DomainPresenceStatus> = 
-        webSocketDataSource.observePresence(userId).map { DomainPresenceStatus(it.userId, it.isOnline, it.lastSeenAt) }
+        presenceWebSocketDataSource.observePresence(userId).map { DomainPresenceStatus(it.userId, it.isOnline, it.lastSeenAt) }
 
     override suspend fun sendTypingEvent(chatId: String, isTyping: Boolean) {
-        webSocketDataSource.sendTypingEvent(chatId, isTyping)
+        chatWebSocketDataSource.sendTypingEvent(chatId, isTyping)
     }
 
     override suspend fun deleteMessage(chatId: String, messageId: String, forAll: Boolean) {

@@ -6,12 +6,12 @@ import ru.kubsu.borshchevyk.core.domain.call.CallRepository
 import ru.kubsu.borshchevyk.core.model.domain.getOrThrow
 import ru.kubsu.borshchevyk.core.model.dto.CreateCallRequest
 import ru.kubsu.borshchevyk.core.network.call.CallNetworkDataSource
-import ru.kubsu.borshchevyk.core.network.websocket.WebSocketDataSource
+import ru.kubsu.borshchevyk.core.network.websocket.CallWebSocketDataSource
 import javax.inject.Inject
 
 class CallRepositoryImpl @Inject constructor(
     private val networkDataSource: CallNetworkDataSource,
-    private val webSocketDataSource: WebSocketDataSource
+    private val webSocketDataSource: CallWebSocketDataSource
 ) : CallRepository {
 
     override suspend fun createCall(participantsIds: List<String>): String {
