@@ -60,3 +60,10 @@ data class ReadReceiptEvent(
     val user: ShortUserDto,
     val messageId: String
 )
+
+@Serializable
+data class PresenceStatusResponse(
+    val userId: String,
+    @SerialName("online") val isOnline: Boolean,
+    val lastSeenAt: Long? = null
+)

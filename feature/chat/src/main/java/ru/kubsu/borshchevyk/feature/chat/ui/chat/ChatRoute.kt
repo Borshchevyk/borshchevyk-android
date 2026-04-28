@@ -101,6 +101,27 @@ fun ChatRoute(
                                         style = BorshchevykTheme.typography.labelSmall,
                                         color = BorshchevykTheme.colors.primary
                                     )
+                                } else if (state.context.isOnline == true) {
+                                    Text(
+                                        text = "online",
+                                        style = BorshchevykTheme.typography.labelSmall,
+                                        color = BorshchevykTheme.colors.primary
+                                    )
+                                } else if (state.context.isOnline == false && state.context.lastSeenAt != null) {
+                                    val time = java.time.Instant.ofEpochMilli(state.context.lastSeenAt!!)
+                                        .atZone(java.time.ZoneId.systemDefault())
+                                        .toLocalDateTime()
+                                    val now = java.time.LocalDateTime.now()
+                                    val formatter = if (time.toLocalDate() == now.toLocalDate()) {
+                                        java.time.format.DateTimeFormatter.ofPattern("HH:mm")
+                                    } else {
+                                        java.time.format.DateTimeFormatter.ofPattern("MMM d, HH:mm")
+                                    }
+                                    Text(
+                                        text = "last seen at ${time.format(formatter)}",
+                                        style = BorshchevykTheme.typography.labelSmall,
+                                        color = BorshchevykTheme.colors.onSurfaceVariant
+                                    )
                                 } else {
                                     // Empty text to keep the height consistent so title doesn't jump
                                     Text(

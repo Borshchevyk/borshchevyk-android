@@ -8,7 +8,9 @@ data class ChatContext(
     val chatId: String = "",
     val currentUserId: String = "",
     val isGroupChat: Boolean = false,
-    val chatName: String = ""
+    val chatName: String = "",
+    val isOnline: Boolean? = null,
+    val lastSeenAt: Long? = null
 )
 
 data class MessageFeed(

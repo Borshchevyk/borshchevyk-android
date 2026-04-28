@@ -23,7 +23,8 @@ interface MessageRepository {
     fun observePins(chatId: String): Flow<String>
     fun observeUnpins(chatId: String): Flow<String>
     fun observeReadReceipts(chatId: String): Flow<ReadReceiptEvent>
-
+    fun observePresence(userId: String): Flow<ru.kubsu.borshchevyk.core.model.dto.PresenceStatusResponse>
+    
     suspend fun sendTypingEvent(chatId: String, isTyping: Boolean)
 
     suspend fun deleteMessage(chatId: String, messageId: String, forAll: Boolean)

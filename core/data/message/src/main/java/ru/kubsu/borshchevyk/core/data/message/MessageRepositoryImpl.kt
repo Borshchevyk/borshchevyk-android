@@ -57,6 +57,8 @@ class MessageRepositoryImpl @Inject constructor(
 
     override fun observeReadReceipts(chatId: String): Flow<ReadReceiptEvent> = webSocketDataSource.observeReadReceipts(chatId)
 
+    override fun observePresence(userId: String): Flow<ru.kubsu.borshchevyk.core.model.dto.PresenceStatusResponse> = webSocketDataSource.observePresence(userId)
+
     override suspend fun sendTypingEvent(chatId: String, isTyping: Boolean) {
         webSocketDataSource.sendTypingEvent(chatId, isTyping)
     }
