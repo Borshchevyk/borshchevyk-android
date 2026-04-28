@@ -22,6 +22,8 @@ dependencies {
     implementation(project(":core:network:user"))
     
     implementation(libs.kotlinx.coroutines.core)
+    implementation(project(":core:database"))
+    
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
 }

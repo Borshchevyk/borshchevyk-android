@@ -21,6 +21,8 @@ dependencies {
     implementation(project(":core:domain:chat"))
     implementation(project(":core:network:chat"))
     
+    implementation(project(":core:database"))
+    
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
