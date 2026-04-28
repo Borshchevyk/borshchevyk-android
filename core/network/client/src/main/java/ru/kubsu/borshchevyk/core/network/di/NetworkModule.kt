@@ -61,7 +61,7 @@ object NetworkModule {
             }
             
             defaultRequest {
-                url("https://dev.borshchevik.su/")
+                url("https://borshchevik.su/")
                 contentType(ContentType.Application.Json)
             }
         }
@@ -72,7 +72,7 @@ object NetworkModule {
             
             // Add Authorization header ONLY if requesting our own backend.
             // S3 pre-signed URLs (upload/download) will fail if we add an Authorization header.
-            val isBackEndRequest = host.isEmpty() || host == "dev.borshchevik.su" || host.endsWith(".dev.borshchevik.su")
+            val isBackEndRequest = host.isEmpty() || host == "borshchevik.su" || host.endsWith(".borshchevik.su")
             val isS3Request = host.contains("s3.cloud.ru") || host.contains("amazonaws.com")
             
             if (token != null && isBackEndRequest && !isS3Request && !context.url.pathSegments.contains("auth")) {

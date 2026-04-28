@@ -52,7 +52,8 @@ class ChatViewModel @Inject constructor(
     private val getChatMembersUseCase: GetChatMembersUseCase,
     private val createCallUseCase: CreateCallUseCase,
     private val uploadVoiceUseCase: UploadVoiceUseCase,
-    private val uploadCircleUseCase: UploadCircleUseCase
+    private val uploadCircleUseCase: UploadCircleUseCase,
+    private val observeUserPresenceUseCase: ru.kubsu.borshchevyk.core.domain.message.usecase.ObserveUserPresenceUseCase
 ) : ViewModel() {
 
     private val TAG = "ChatViewModel"
@@ -250,7 +251,8 @@ class ChatViewModel @Inject constructor(
                         currentUserId = userId,
                         isGroupChat = isGroup,
                         chatName = chatTitle
-                    ),                    feed = MessageFeed(
+                    ),
+                    feed = MessageFeed(
                         messages = history,
                         pinnedMessages = pinned
                     ),
@@ -258,6 +260,17 @@ class ChatViewModel @Inject constructor(
                         forwardPayload = initialForwardPayload
                     )
                 )
+
+                val partnerId = chat?.partnerId
+                if (partnerId != null && !isGroup) {
+                    observeUserPresenceUseCase(partnerId).onEach { presence ->
+                        _uiState.update { s ->
+                            if (s is ChatUiState.Content) {
+                                s.copy(context = s.context.copy(isOnline = presence.isOnline, lastSeenAt = presence.lastSeenAt))
+                            } else s
+                        }
+                    }.launchIn(viewModelScope)
+                }
 
                 history.forEach { msg ->
                     msg.attachments.forEach { att ->

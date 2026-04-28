@@ -26,7 +26,7 @@ class BorshchevykApplication : Application(), ImageLoaderFactory {
                 
                 // Rewrite /avatars/ to /api/v1/media/avatars/
                 var newUrl = request.url
-                if (urlString.startsWith("https://dev.borshchevik.su/avatars/")) {
+                if (urlString.startsWith("https://borshchevik.su/avatars/")) {
                     newUrl = request.url.newBuilder()
                         .encodedPath(request.url.encodedPath.replace("/avatars/", "/api/v1/media/avatars/"))
                         .build()
@@ -35,7 +35,7 @@ class BorshchevykApplication : Application(), ImageLoaderFactory {
                 var newRequest = request.newBuilder().url(newUrl).build()
                 
                 // Add Authorization header for our backend
-                if (newUrl.host == "dev.borshchevik.su") {
+                if (newUrl.host == "borshchevik.su") {
                     val token = runBlocking { tokenProvider.getAccessToken() }
                     if (token != null) {
                         newRequest = newRequest.newBuilder()

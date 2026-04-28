@@ -119,6 +119,12 @@ class KrossbowWebSocketDataSource @Inject constructor(
     override fun observeReadReceipts(chatId: String): Flow<ReadReceiptEvent> = 
         observeTopic("/topic/chat/$chatId/read") { json.decodeFromString<ReadReceiptEvent>(it) }
 
+    override fun observePresence(userId: String): Flow<ru.kubsu.borshchevyk.core.model.dto.PresenceStatusResponse> = 
+        kotlinx.coroutines.flow.merge(
+            observeTopic("/app/user/$userId/presence") { json.decodeFromString<ru.kubsu.borshchevyk.core.model.dto.PresenceStatusResponse>(it) },
+            observeTopic("/topic/user/$userId/presence") { json.decodeFromString<ru.kubsu.borshchevyk.core.model.dto.PresenceStatusResponse>(it) }
+        )
+
     override suspend fun sendTypingEvent(chatId: String, isTyping: Boolean) {
         try {
             val payload = if (isTyping) "true" else "false"
