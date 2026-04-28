@@ -21,8 +21,6 @@ import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import ru.kubsu.borshchevyk.core.domain.auth.GetUserIdUseCase
-import ru.kubsu.borshchevyk.core.domain.call.usecase.CreateCallUseCase
-import ru.kubsu.borshchevyk.core.domain.chat.GetChatMembersUseCase
 import ru.kubsu.borshchevyk.core.domain.chat.GetUserChatsUseCase
 import ru.kubsu.borshchevyk.core.domain.message.ChatAttachmentUseCases
 import ru.kubsu.borshchevyk.core.domain.message.ChatHistoryUseCases
@@ -33,7 +31,6 @@ import ru.kubsu.borshchevyk.core.model.domain.ChatEvent
 import ru.kubsu.borshchevyk.core.model.domain.ChatType
 import ru.kubsu.borshchevyk.core.model.domain.ForwardPayload
 import ru.kubsu.borshchevyk.core.model.domain.Message
-import ru.kubsu.borshchevyk.core.model.domain.MessageReaction
 import ru.kubsu.borshchevyk.core.model.dto.AttachmentType
 import ru.kubsu.borshchevyk.core.network.client.NetworkMonitor
 import ru.kubsu.borshchevyk.feature.chat.handlers.CallHandler
@@ -75,7 +72,6 @@ class ChatViewModel @Inject constructor(
 
     private var typingJob: Job? = null
     
-    // Store original data for retrying failed messages
     private val failedMessagesData = mutableMapOf<String, Triple<String, List<AttachmentFile>, ForwardPayload?>>()
 
     init {
@@ -84,15 +80,19 @@ class ChatViewModel @Inject constructor(
         observeNetwork()
     }
 
+    private fun dispatch(action: ChatStateAction) {
+        _uiState.update { it.reduce(action) }
+    }
+
     fun handleIntent(intent: ChatIntent) {
         when (intent) {
             is ChatIntent.OpenSettings -> openSettings()
-            is ChatIntent.ChatDeletedLocally -> onChatDeletedLocally()
+            is ChatIntent.ChatDeletedLocally -> dispatch(ChatStateAction.ChatDeleted)
             is ChatIntent.Typing -> onTyping()
             is ChatIntent.SendMessage -> onSendMessage(intent.text, intent.attachments)
             is ChatIntent.SendVoice -> onSendVoice(intent.bytes, intent.duration)
             is ChatIntent.SendCircle -> onSendCircle(intent.bytes, intent.duration)
-            is ChatIntent.SetEditingMessage -> setEditingMessage(intent.message)
+            is ChatIntent.SetEditingMessage -> dispatch(ChatStateAction.SetEditingMessage(intent.message))
             is ChatIntent.EditMessage -> onEditMessage(intent.messageId, intent.newText)
             is ChatIntent.DeleteMessage -> onDeleteMessage(intent.messageId, intent.forAll)
             is ChatIntent.MessageVisible -> onMessageVisible(intent.messageId)
@@ -112,25 +112,20 @@ class ChatViewModel @Inject constructor(
         val state = _uiState.value as? ChatUiState.Content ?: return
         viewModelScope.launch {
             try {
-                val currentUserId = state.context.currentUserId
-                val callId = callHandler.initiateCall(chatId, currentUserId)
+                val callId = callHandler.initiateCall(chatId, state.context.currentUserId)
                 if (callId != null) {
                     _effect.send(ChatEffect.NavigateToCall(callId))
                 } else {
                     _effect.send(ChatEffect.ShowError("No participants to call"))
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to initiate call", e)
                 _effect.send(ChatEffect.ShowError("Failed to initiate call: ${e.message}"))
             }
         }
     }
 
     private fun onForwardMessage(message: Message) {
-        val state = _uiState.value as? ChatUiState.Content ?: return
-        val author = message.author
-        val authorName = author?.let { "${it.firstName} ${it.lastName ?: ""}".trim() } ?: "User"
-        
+        val authorName = message.author?.let { "${it.firstName} ${it.lastName ?: ""}".trim() } ?: "User"
         val payload = ForwardPayload(
             text = message.text,
             attachmentIds = message.attachments.map { it.id },
@@ -152,31 +147,20 @@ class ChatViewModel @Inject constructor(
         networkMonitor.isOnline
             .onEach { isOnline ->
                 if (isOnline) {
-                    retryFailedMessages()
+                    val failedIds = failedMessagesData.keys.toList()
+                    failedIds.forEach { msgId -> onResendMessage(msgId) }
                 }
             }
             .launchIn(viewModelScope)
-    }
-
-    private fun retryFailedMessages() {
-        val failedIds = failedMessagesData.keys.toList()
-        failedIds.forEach { msgId ->
-            onResendMessage(msgId)
-        }
     }
 
     private fun onResendMessage(messageId: String) {
         val data = failedMessagesData[messageId] ?: return
         failedMessagesData.remove(messageId)
         
-        _uiState.update { state ->
-            if (state is ChatUiState.Content) {
-                val updatedMessages = state.feed.messages.map {
-                    if (it.id == messageId) it.copy(status = ru.kubsu.borshchevyk.core.model.domain.MessageStatus.SENDING) else it
-                }
-                state.copy(feed = state.feed.copy(messages = updatedMessages))
-            } else state
-        }
+        val state = _uiState.value as? ChatUiState.Content ?: return
+        val msg = state.feed.messages.find { it.id == messageId } ?: return
+        dispatch(ChatStateAction.MessageSending(messageId, msg.copy(status = ru.kubsu.borshchevyk.core.model.domain.MessageStatus.SENDING)))
         
         performSendMessage(messageId, data.first, data.second, data.third)
     }
@@ -184,18 +168,14 @@ class ChatViewModel @Inject constructor(
     private fun observeWebSockets() {
         observeChatEventsUseCase(chatId)
             .onEach { event ->
-                _uiState.update { it.reduce(event) }
+                dispatch(ChatStateAction.ProcessDomainEvent(event))
                 
                 when (event) {
                     is ChatEvent.MessagePinned, is ChatEvent.MessageUnpinned -> {
                         viewModelScope.launch {
                             try {
                                 val pinned = historyUseCases.getPinnedMessages(chatId)
-                                _uiState.update { state -> 
-                                    if (state is ChatUiState.Content) {
-                                        state.copy(feed = state.feed.copy(pinnedMessages = pinned))
-                                    } else state
-                                }
+                                dispatch(ChatStateAction.SetPinnedMessages(pinned))
                             } catch (e: Exception) {
                                 Log.e(TAG, "Failed to load pinned messages", e)
                             }
@@ -205,23 +185,15 @@ class ChatViewModel @Inject constructor(
                         viewModelScope.launch {
                             try {
                                 val readers = historyUseCases.getMessageReaders(chatId, event.event.messageId)
-                                _uiState.update { state ->
-                                    if (state is ChatUiState.Content) {
-                                        val newMap = state.feed.readersByMessageId.toMutableMap()
-                                        newMap[event.event.messageId] = readers
-                                        state.copy(feed = state.feed.copy(readersByMessageId = newMap))
-                                    } else state
-                                }
+                                dispatch(ChatStateAction.SetReaders(event.event.messageId, readers))
                             } catch (e: Exception) {
                                 Log.e(TAG, "Failed to load readers", e)
                             }
                         }
                     }
                     is ChatEvent.NewMessage -> {
-                        viewModelScope.launch {
-                            getUserChatsUseCase() 
-                        }
-                        event.message.attachments?.forEach { attachment ->
+                        viewModelScope.launch { getUserChatsUseCase() }
+                        event.message.attachments.forEach { attachment ->
                             resolveAttachmentUrl(attachment.id)
                         }
                     }
@@ -233,7 +205,7 @@ class ChatViewModel @Inject constructor(
 
     private fun loadData() {
         viewModelScope.launch {
-            _uiState.value = ChatUiState.Loading
+            dispatch(ChatStateAction.LoadingStarted())
             try {
                 val userId = getUserIdUseCase().firstOrNull() ?: ""
                 val chats = getUserChatsUseCase()
@@ -243,30 +215,20 @@ class ChatViewModel @Inject constructor(
                 val history = historyUseCases.loadChatHistory(chatId).filterNot { it.isDeleted }
                 val pinned = historyUseCases.getPinnedMessages(chatId).filterNot { it.isDeleted }
 
-                _uiState.value = ChatUiState.Content(
-                    context = ChatContext(
-                        chatId = chatId,
-                        currentUserId = userId,
-                        isGroupChat = isGroup,
-                        chatName = chatTitle
-                    ),
-                    feed = MessageFeed(
-                        messages = history,
-                        pinnedMessages = pinned
-                    ),
-                    input = InputState(
-                        forwardPayload = initialForwardPayload
-                    )
-                )
+                dispatch(ChatStateAction.InitialDataLoaded(
+                    chatId = chatId,
+                    currentUserId = userId,
+                    isGroup = isGroup,
+                    chatTitle = chatTitle,
+                    history = history,
+                    pinned = pinned,
+                    forwardPayload = initialForwardPayload
+                ))
 
                 val partnerId = chat?.partnerId
                 if (partnerId != null && !isGroup) {
                     observeUserPresenceUseCase(partnerId).onEach { presence ->
-                        _uiState.update { s ->
-                            if (s is ChatUiState.Content) {
-                                s.copy(context = s.context.copy(isOnline = presence.isOnline, lastSeenAt = presence.lastSeenAt))
-                            } else s
-                        }
+                        dispatch(ChatStateAction.PresenceUpdated(presence.isOnline, presence.lastSeenAt))
                     }.launchIn(viewModelScope)
                 }
 
@@ -276,7 +238,7 @@ class ChatViewModel @Inject constructor(
                     }
                 }
             } catch (e: Exception) {
-                _uiState.value = ChatUiState.Error(e.message ?: "Failed to load chat")
+                dispatch(ChatStateAction.LoadFailed(e.message ?: "Failed to load chat"))
             }
         }
     }
@@ -284,12 +246,6 @@ class ChatViewModel @Inject constructor(
     private fun openSettings() {
         viewModelScope.launch {
             _effect.send(ChatEffect.NavigateToSettings(chatId))
-        }
-    }
-
-    private fun onChatDeletedLocally() {
-        _uiState.update { state ->
-            if (state is ChatUiState.Content) state.copy(isChatDeleted = true) else state
         }
     }
 
@@ -312,7 +268,6 @@ class ChatViewModel @Inject constructor(
             try {
                 mediaVoiceHandler.sendVoice(chatId, bytes, duration)
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to send voice message", e)
                 _effect.send(ChatEffect.ShowError("Failed to send voice message"))
             }
         }
@@ -323,7 +278,6 @@ class ChatViewModel @Inject constructor(
             try {
                 mediaVoiceHandler.sendCircle(chatId, bytes, duration)
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to send circle message", e)
                 _effect.send(ChatEffect.ShowError("Failed to send video circle"))
             }
         }
@@ -358,15 +312,7 @@ class ChatViewModel @Inject constructor(
             }
         )
 
-        _uiState.update { state ->
-            if (state is ChatUiState.Content) {
-                state.copy(
-                    feed = state.feed.copy(messages = listOf(optimisticMessage) + state.feed.messages),
-                    input = state.input.copy(forwardPayload = null, isSending = true)
-                )
-            } else state
-        }
-        
+        dispatch(ChatStateAction.MessageSending(tempId, optimisticMessage))
         savedStateHandle.remove<String>("forwardPayloadJson")
 
         performSendMessage(tempId, text, attachments, forwardPayload)
@@ -376,21 +322,7 @@ class ChatViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 val newMessage = messageSenderHandler.sendMessage(chatId, text, attachments, forwardPayload)
-                
-                _uiState.update { state ->
-                    if (state is ChatUiState.Content) {
-                        val alreadyExists = state.feed.messages.any { it.id == newMessage.id }
-                        val updatedMessages = if (alreadyExists) {
-                            state.feed.messages.map { if (it.id == newMessage.id) newMessage else it }.filterNot { it.id == tempId }
-                        } else {
-                            state.feed.messages.map { if (it.id == tempId) newMessage else it }
-                        }
-                        state.copy(
-                            feed = state.feed.copy(messages = updatedMessages),
-                            input = state.input.copy(isSending = false)
-                        )
-                    } else state
-                }
+                dispatch(ChatStateAction.MessageSent(tempId, newMessage))
                 
                 newMessage.attachments.forEach {
                     resolveAttachmentUrl(it.id)
@@ -399,20 +331,8 @@ class ChatViewModel @Inject constructor(
                 messageUseCases.sendTypingEvent(chatId, false)
                 typingJob?.cancel()
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to send message", e)
                 failedMessagesData[tempId] = Triple(text, attachments, forwardPayload)
-                
-                _uiState.update { state ->
-                    if (state is ChatUiState.Content) {
-                        val updatedMessages = state.feed.messages.map { 
-                            if (it.id == tempId) it.copy(status = ru.kubsu.borshchevyk.core.model.domain.MessageStatus.ERROR) else it 
-                        }
-                        state.copy(
-                            feed = state.feed.copy(messages = updatedMessages),
-                            input = state.input.copy(isSending = false)
-                        )
-                    } else state
-                }
+                dispatch(ChatStateAction.MessageSendFailed(tempId))
                 _effect.send(ChatEffect.ShowError("Failed to send message: ${e.message}"))
             }
         }
@@ -425,22 +345,10 @@ class ChatViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 val url = attachmentUseCases.getAttachmentUrl(attachmentId)
-                _uiState.update { s ->
-                    if (s is ChatUiState.Content) {
-                        val newMap = s.feed.attachmentUrls.toMutableMap()
-                        newMap[attachmentId] = url
-                        s.copy(feed = s.feed.copy(attachmentUrls = newMap))
-                    } else s
-                }
+                dispatch(ChatStateAction.UpdateAttachmentUrl(attachmentId, url))
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to resolve attachment URL: ${e.message}", e)
+                // Ignore silent resolution errors
             }
-        }
-    }
-
-    private fun setEditingMessage(message: Message?) {
-        _uiState.update { state -> 
-            if (state is ChatUiState.Content) state.copy(input = state.input.copy(editingMessage = message)) else state 
         }
     }
 
@@ -449,17 +357,7 @@ class ChatViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 val updatedMessage = messageUseCases.editMessage(chatId, messageId, newText)
-                _uiState.update { state ->
-                    if (state is ChatUiState.Content) {
-                        state.copy(
-                            feed = state.feed.copy(
-                                messages = state.feed.messages.map { if (it.id == messageId) updatedMessage else it },
-                                pinnedMessages = state.feed.pinnedMessages.map { if (it.id == messageId) updatedMessage else it }
-                            ),
-                            input = state.input.copy(editingMessage = null)
-                        )
-                    } else state
-                }
+                dispatch(ChatStateAction.MessageUpdated(updatedMessage))
             } catch (e: Exception) {
                 _effect.send(ChatEffect.ShowError(e.message ?: "Failed to edit message"))
             }
@@ -470,16 +368,7 @@ class ChatViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 messageUseCases.deleteMessage(chatId, messageId, forAll)
-                _uiState.update { state ->
-                    if (state is ChatUiState.Content) {
-                        state.copy(
-                            feed = state.feed.copy(
-                                messages = state.feed.messages.filterNot { it.id == messageId },
-                                pinnedMessages = state.feed.pinnedMessages.filterNot { it.id == messageId }
-                            )
-                        )
-                    } else state
-                }
+                dispatch(ChatStateAction.MessageRemoved(messageId))
             } catch (e: Exception) {
                 _effect.send(ChatEffect.ShowError(e.message ?: "Failed to delete message"))
             }
@@ -504,13 +393,7 @@ class ChatViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 val readers = historyUseCases.getMessageReaders(chatId, messageId)
-                _uiState.update { state ->
-                    if (state is ChatUiState.Content) {
-                        val newMap = state.feed.readersByMessageId.toMutableMap()
-                        newMap[messageId] = readers
-                        state.copy(feed = state.feed.copy(readersByMessageId = newMap))
-                    } else state
-                }
+                dispatch(ChatStateAction.SetReaders(messageId, readers))
             } catch (e: Exception) {
                 _effect.send(ChatEffect.ShowError(e.message ?: "Failed to load readers"))
             }
@@ -521,13 +404,7 @@ class ChatViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 val comments = historyUseCases.getMessageComments(chatId, messageId)
-                _uiState.update { state ->
-                    if (state is ChatUiState.Content) {
-                        val newMap = state.feed.commentsByMessageId.toMutableMap()
-                        newMap[messageId] = comments
-                        state.copy(feed = state.feed.copy(commentsByMessageId = newMap))
-                    } else state
-                }
+                dispatch(ChatStateAction.SetComments(messageId, comments))
             } catch (e: Exception) {
                 _effect.send(ChatEffect.ShowError(e.message ?: "Failed to load comments"))
             }
@@ -539,19 +416,7 @@ class ChatViewModel @Inject constructor(
             try {
                 messageUseCases.pinMessage(chatId, messageId)
                 val pinned = historyUseCases.getPinnedMessages(chatId)
-                _uiState.update { state ->
-                    if (state is ChatUiState.Content) {
-                        val updatedMessages = state.feed.messages.map {
-                            if (it.id == messageId) it.copy(isPinned = true) else it
-                        }
-                        state.copy(
-                            feed = state.feed.copy(
-                                messages = updatedMessages,
-                                pinnedMessages = pinned
-                            )
-                        )
-                    } else state
-                }
+                dispatch(ChatStateAction.SetPinnedMessages(pinned))
             } catch (e: Exception) {
                 _effect.send(ChatEffect.ShowError(e.message ?: "Failed to pin message"))
             }
@@ -563,19 +428,7 @@ class ChatViewModel @Inject constructor(
             try {
                 messageUseCases.unpinMessage(chatId, messageId)
                 val pinned = historyUseCases.getPinnedMessages(chatId)
-                _uiState.update { state ->
-                    if (state is ChatUiState.Content) {
-                        val updatedMessages = state.feed.messages.map {
-                            if (it.id == messageId) it.copy(isPinned = false) else it
-                        }
-                        state.copy(
-                            feed = state.feed.copy(
-                                messages = updatedMessages,
-                                pinnedMessages = pinned
-                            )
-                        )
-                    } else state
-                }
+                dispatch(ChatStateAction.SetPinnedMessages(pinned))
             } catch (e: Exception) {
                 _effect.send(ChatEffect.ShowError(e.message ?: "Failed to unpin message"))
             }
@@ -593,26 +446,10 @@ class ChatViewModel @Inject constructor(
             try {
                 if (hasReaction) {
                     messageUseCases.removeReaction(chatId, messageId, reaction)
-                    _uiState.update { s ->
-                        if (s is ChatUiState.Content) {
-                            s.copy(feed = s.feed.copy(messages = s.feed.messages.map { msg ->
-                                if (msg.id == messageId) {
-                                    msg.copy(reactions = msg.reactions.filterNot { it.reaction == reaction && it.userId == currentUserId })
-                                } else msg
-                            }))
-                        } else s
-                    }
+                    dispatch(ChatStateAction.ReactionToggled(messageId, reaction, currentUserId, isAdded = false))
                 } else {
                     messageUseCases.addReaction(chatId, messageId, reaction)
-                    _uiState.update { s ->
-                        if (s is ChatUiState.Content) {
-                            s.copy(feed = s.feed.copy(messages = s.feed.messages.map { msg ->
-                                if (msg.id == messageId) {
-                                    msg.copy(reactions = msg.reactions + MessageReaction(currentUserId, reaction))
-                                } else msg
-                            }))
-                        } else s
-                    }
+                    dispatch(ChatStateAction.ReactionToggled(messageId, reaction, currentUserId, isAdded = true))
                 }
             } catch (e: Exception) {
                 _effect.send(ChatEffect.ShowError(e.message ?: "Failed to update reaction"))
