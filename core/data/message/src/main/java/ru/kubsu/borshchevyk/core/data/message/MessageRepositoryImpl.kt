@@ -1,24 +1,23 @@
 package ru.kubsu.borshchevyk.core.data.message
 
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.withContext
+import ru.kubsu.borshchevyk.core.database.dao.MessageDao
 import ru.kubsu.borshchevyk.core.domain.message.MessageRepository
-import ru.kubsu.borshchevyk.core.model.domain.Attachment
 import ru.kubsu.borshchevyk.core.model.domain.DomainGlobalChatEvent
 import ru.kubsu.borshchevyk.core.model.domain.DomainPresenceStatus
 import ru.kubsu.borshchevyk.core.model.domain.DomainReactionEvent
 import ru.kubsu.borshchevyk.core.model.domain.DomainReadReceiptEvent
 import ru.kubsu.borshchevyk.core.model.domain.DomainTypingEvent
 import ru.kubsu.borshchevyk.core.model.domain.Message
-import ru.kubsu.borshchevyk.core.model.domain.MessageReaction
-import ru.kubsu.borshchevyk.core.model.domain.MessageSource
 import ru.kubsu.borshchevyk.core.model.domain.MessageStatus
 import ru.kubsu.borshchevyk.core.model.domain.getOrThrow
-import ru.kubsu.borshchevyk.core.model.dto.AttachmentType
 import ru.kubsu.borshchevyk.core.model.dto.EditMessageRequest
-import ru.kubsu.borshchevyk.core.model.dto.MessageResponse
-import ru.kubsu.borshchevyk.core.model.dto.NotificationDto
 import ru.kubsu.borshchevyk.core.model.dto.SendMessageRequest
+import ru.kubsu.borshchevyk.core.network.di.IoDispatcher
 import ru.kubsu.borshchevyk.core.network.message.MessageNetworkDataSource
 import ru.kubsu.borshchevyk.core.network.websocket.ChatWebSocketDataSource
 import ru.kubsu.borshchevyk.core.network.websocket.PresenceWebSocketDataSource
@@ -27,7 +26,9 @@ import javax.inject.Inject
 class MessageRepositoryImpl @Inject constructor(
     private val networkDataSource: MessageNetworkDataSource,
     private val chatWebSocketDataSource: ChatWebSocketDataSource,
-    private val presenceWebSocketDataSource: PresenceWebSocketDataSource
+    private val presenceWebSocketDataSource: PresenceWebSocketDataSource,
+    private val messageDao: MessageDao,
+    @IoDispatcher private val ioDispatcher: CoroutineDispatcher
 ) : MessageRepository {
 
     override suspend fun sendMessage(
@@ -37,7 +38,7 @@ class MessageRepositoryImpl @Inject constructor(
         forwardedFromChatId: String?, 
         forwardedFromUserId: String?
     ): Message {
-        return networkDataSource.sendMessage(
+        val messageEntity = networkDataSource.sendMessage(
             chatId, 
             SendMessageRequest(
                 text = text,
@@ -45,15 +46,33 @@ class MessageRepositoryImpl @Inject constructor(
                 forwardedFromChatId = forwardedFromChatId,
                 forwardedFromUserId = forwardedFromUserId
             )
-        ).getOrThrow().toDomain()
+        ).getOrThrow().toEntity()
+        
+        withContext(ioDispatcher) {
+            messageDao.upsertMessage(messageEntity)
+        }
+        return messageEntity.toDomain()
     }
 
     override suspend fun editMessage(chatId: String, messageId: String, newText: String): Message {
-        return networkDataSource.editMessage(chatId, messageId, EditMessageRequest(text = newText)).getOrThrow().toDomain()
+        val messageEntity = networkDataSource.editMessage(chatId, messageId, EditMessageRequest(text = newText)).getOrThrow().toEntity()
+        withContext(ioDispatcher) {
+            messageDao.upsertMessage(messageEntity)
+        }
+        return messageEntity.toDomain()
     }
 
-    override suspend fun loadChatHistory(chatId: String, page: Int, size: Int): List<Message> {
-        return networkDataSource.loadChatHistory(chatId, page, size).getOrThrow().map { it.toDomain() }
+    override fun observeChatHistory(chatId: String): Flow<List<Message>> {
+        return messageDao.observeChatMessages(chatId).map { entities -> 
+            entities.map { it.toDomain() } 
+        }
+    }
+
+    override suspend fun syncChatHistory(chatId: String, page: Int, size: Int) {
+        withContext(ioDispatcher) {
+            val messages = networkDataSource.loadChatHistory(chatId, page, size).getOrThrow().map { it.toEntity() }
+            messageDao.upsertMessages(messages)
+        }
     }
 
     override suspend fun connectWebSocket() {
@@ -65,13 +84,19 @@ class MessageRepositoryImpl @Inject constructor(
     }
 
     override fun observeNewMessages(): Flow<Message> = 
-        chatWebSocketDataSource.observeNewMessages().map { it.toDomain() }
+        chatWebSocketDataSource.observeNewMessages()
+            .map { it.toEntity() }
+            .onEach { messageDao.upsertMessage(it) }
+            .map { it.toDomain() }
 
     override fun observeChatEvents(): Flow<DomainGlobalChatEvent> = 
         chatWebSocketDataSource.observeChatEvents().map { DomainGlobalChatEvent(it.chat.id, it.action) }
 
     override fun observeDeletedMessages(): Flow<String> = 
         chatWebSocketDataSource.observeDeletedMessages()
+            .onEach { messageId -> 
+                messageDao.deleteMessage(messageId) 
+            }
 
     override fun observeTyping(chatId: String): Flow<DomainTypingEvent> = 
         chatWebSocketDataSource.observeTyping(chatId).map { DomainTypingEvent(it.user.id, it.isTyping) }
@@ -87,6 +112,12 @@ class MessageRepositoryImpl @Inject constructor(
 
     override fun observeReadReceipts(chatId: String): Flow<DomainReadReceiptEvent> = 
         chatWebSocketDataSource.observeReadReceipts(chatId).map { DomainReadReceiptEvent(it.messageId, it.user.id) }
+            .onEach { event ->
+                val msg = messageDao.getMessage(event.messageId)
+                if (msg != null && msg.status != MessageStatus.READ) {
+                    messageDao.upsertMessage(msg.copy(status = MessageStatus.READ))
+                }
+            }
 
     override fun observePresence(userId: String): Flow<DomainPresenceStatus> = 
         presenceWebSocketDataSource.observePresence(userId).map { DomainPresenceStatus(it.userId, it.isOnline, it.lastSeenAt) }
@@ -97,6 +128,9 @@ class MessageRepositoryImpl @Inject constructor(
 
     override suspend fun deleteMessage(chatId: String, messageId: String, forAll: Boolean) {
         networkDataSource.deleteMessage(chatId, messageId, forAll).getOrThrow()
+        withContext(ioDispatcher) {
+            messageDao.deleteMessage(messageId)
+        }
     }
 
     override suspend fun addReaction(chatId: String, messageId: String, reaction: String) {
@@ -116,7 +150,7 @@ class MessageRepositoryImpl @Inject constructor(
     }
 
     override suspend fun getPinnedMessages(chatId: String): List<Message> {
-        return networkDataSource.getPinnedMessages(chatId).getOrThrow().map { it.toDomain() }
+        return networkDataSource.getPinnedMessages(chatId).getOrThrow().map { it.toEntity().toDomain() }
     }
 
     override suspend fun readMessage(chatId: String, messageId: String) {
@@ -141,114 +175,6 @@ class MessageRepositoryImpl @Inject constructor(
         page: Int,
         size: Int
     ): List<Message> {
-        return networkDataSource.getMessageComments(chatId, messageId, page, size).getOrThrow().map { it.toDomain() }
-    }
-
-    private fun NotificationDto.MessageDto.toDomain(): Message = Message(
-        id = id,
-        chatId = chat.id,
-        authorId = author.id,
-        author = ru.kubsu.borshchevyk.core.model.domain.User(
-            userId = author.id,
-            firstName = author.firstName,
-            lastName = author.lastName,
-            tag = author.tag ?: "",
-            avatarUrl = author.avatarUrl
-        ),
-        text = text,
-        createdAt = createdAt,
-        status = status?.let { MessageStatus.valueOf(it) },
-        isDeleted = isDeleted,
-        source = MessageSource.ONLINE,
-        isPinned = false,
-        reactions = emptyList(),
-        commentsCount = 0,
-        parentMessageId = null,
-        forwardedFromChatId = forwardedFromChat?.id,
-        forwardedFromUserId = forwardedFromUser?.id,
-        forwardedFromUser = forwardedFromUser?.let { 
-            ru.kubsu.borshchevyk.core.model.domain.User(
-                userId = it.id,
-                firstName = it.firstName,
-                lastName = it.lastName,
-                tag = it.tag ?: "",
-                avatarUrl = it.avatarUrl
-            )
-        },
-        attachments = attachments?.map {
-            Attachment(
-                id = it.id,
-                type = it.type?.toDomain() ?: ru.kubsu.borshchevyk.core.model.domain.DomainAttachmentType.FILE,
-                originalFilename = it.originalFilename ?: "file",
-                extension = it.extension ?: "",
-                sizeBytes = it.sizeBytes ?: 0L,
-                thumbnailKey = it.thumbnailKey,
-                updatedAt = it.updatedAt,
-                width = it.width,
-                height = it.height,
-                duration = it.duration
-            )
-        } ?: attachmentIdsOld?.map { 
-            Attachment(id = it.id, type = ru.kubsu.borshchevyk.core.model.domain.DomainAttachmentType.FILE) 
-        } ?: emptyList()
-    )
-
-    private fun MessageResponse.toDomain(): Message = Message(
-        id = id,
-        chatId = chat.id,
-        authorId = author.id,
-        author = ru.kubsu.borshchevyk.core.model.domain.User(
-            userId = author.id,
-            firstName = author.firstName,
-            lastName = author.lastName,
-            tag = author.tag ?: "",
-            avatarUrl = author.avatarUrl
-        ),
-        text = text,
-        createdAt = createdAt,
-        updatedAt = updatedAt,
-        status = status,
-        isDeleted = isDeleted,
-        source = source,
-        isPinned = pinnedAt != null,
-        reactions = reactions?.map { MessageReaction(userId = it.userId, reaction = it.reaction) } ?: emptyList(),
-        commentsCount = commentsCount,
-        parentMessageId = parentMessageId,
-        forwardedFromChatId = forwardedFromChat?.id,
-        forwardedFromUserId = forwardedFromUser?.id,
-        forwardedFromUser = forwardedFromUser?.let { 
-            ru.kubsu.borshchevyk.core.model.domain.User(
-                userId = it.id,
-                firstName = it.firstName,
-                lastName = it.lastName,
-                tag = it.tag ?: "",
-                avatarUrl = it.avatarUrl
-            )
-        },
-        attachments = attachments?.map {
-            Attachment(
-                id = it.id,
-                type = it.type?.toDomain() ?: ru.kubsu.borshchevyk.core.model.domain.DomainAttachmentType.FILE,
-                originalFilename = it.originalFilename ?: "file",
-                extension = it.extension ?: "",
-                sizeBytes = it.sizeBytes ?: 0L,
-                thumbnailKey = it.thumbnailKey,
-                updatedAt = it.updatedAt,
-                width = it.width,
-                height = it.height,
-                duration = it.duration
-            )
-        } ?: attachmentIdsOld?.map { Attachment(id = it, type = ru.kubsu.borshchevyk.core.model.domain.DomainAttachmentType.FILE) 
-        } ?: emptyList()
-    )
-
-    private fun AttachmentType.toDomain(): ru.kubsu.borshchevyk.core.model.domain.DomainAttachmentType = when (this) {
-        AttachmentType.PHOTO -> ru.kubsu.borshchevyk.core.model.domain.DomainAttachmentType.PHOTO
-        AttachmentType.VIDEO -> ru.kubsu.borshchevyk.core.model.domain.DomainAttachmentType.VIDEO
-        AttachmentType.VOICE -> ru.kubsu.borshchevyk.core.model.domain.DomainAttachmentType.VOICE
-        AttachmentType.CIRCLE -> ru.kubsu.borshchevyk.core.model.domain.DomainAttachmentType.CIRCLE
-        AttachmentType.FILE -> ru.kubsu.borshchevyk.core.model.domain.DomainAttachmentType.FILE
-        AttachmentType.STICKER -> ru.kubsu.borshchevyk.core.model.domain.DomainAttachmentType.STICKER
-        AttachmentType.AVATAR -> ru.kubsu.borshchevyk.core.model.domain.DomainAttachmentType.AVATAR
+        return networkDataSource.getMessageComments(chatId, messageId, page, size).getOrThrow().map { it.toEntity().toDomain() }
     }
 }

@@ -17,8 +17,8 @@ interface MessageRepository {
         forwardedFromUserId: String?
     ): Message
     suspend fun editMessage(chatId: String, messageId: String, newText: String): Message
-    suspend fun loadChatHistory(chatId: String, page: Int = 0, size: Int = 50): List<Message>
-
+    fun observeChatHistory(chatId: String): Flow<List<Message>>
+    suspend fun syncChatHistory(chatId: String, page: Int = 0, size: Int = 50)
     suspend fun connectWebSocket()
     suspend fun disconnectWebSocket()
 

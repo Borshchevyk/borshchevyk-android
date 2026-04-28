@@ -33,6 +33,7 @@ sealed interface ChatStateAction {
     data class MessageSending(val tempId: String, val message: Message) : ChatStateAction
     data class MessageSent(val tempId: String, val message: Message) : ChatStateAction
     data class MessageSendFailed(val tempId: String) : ChatStateAction
+    data class HistoryUpdated(val history: List<Message>) : ChatStateAction
     data class SetEditingMessage(val message: Message?) : ChatStateAction
     data class UpdateAttachmentUrl(val attachmentId: String, val url: String) : ChatStateAction
     data class SetReaders(val messageId: String, val readers: List<User>) : ChatStateAction

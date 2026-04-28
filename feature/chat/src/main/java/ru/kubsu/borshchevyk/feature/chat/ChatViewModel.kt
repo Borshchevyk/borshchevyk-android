@@ -166,6 +166,17 @@ class ChatViewModel @Inject constructor(
     }
 
     private fun observeWebSockets() {
+        historyUseCases.observeChatHistory(chatId)
+            .onEach { history ->
+                dispatch(ChatStateAction.HistoryUpdated(history))
+                history.forEach { msg ->
+                    msg.attachments.forEach { att ->
+                        resolveAttachmentUrl(att.id)
+                    }
+                }
+            }
+            .launchIn(viewModelScope)
+
         observeChatEventsUseCase(chatId)
             .onEach { event ->
                 dispatch(ChatStateAction.ProcessDomainEvent(event))
@@ -212,7 +223,8 @@ class ChatViewModel @Inject constructor(
                 val chat = chats.find { it.id == chatId }
                 val isGroup = chat?.type == ChatType.GROUP
                 val chatTitle = chat?.title ?: chat?.partnerName ?: if (isGroup) "Group Chat" else "Private Chat"
-                val history = historyUseCases.loadChatHistory(chatId).filterNot { it.isDeleted }
+                
+                // Initial data load handles pinned messages and setup, history is loaded reactively
                 val pinned = historyUseCases.getPinnedMessages(chatId).filterNot { it.isDeleted }
 
                 dispatch(ChatStateAction.InitialDataLoaded(
@@ -220,7 +232,7 @@ class ChatViewModel @Inject constructor(
                     currentUserId = userId,
                     isGroup = isGroup,
                     chatTitle = chatTitle,
-                    history = history,
+                    history = emptyList(), // History is populated by observeChatHistory flow
                     pinned = pinned,
                     forwardPayload = initialForwardPayload
                 ))
@@ -232,11 +244,8 @@ class ChatViewModel @Inject constructor(
                     }.launchIn(viewModelScope)
                 }
 
-                history.forEach { msg ->
-                    msg.attachments.forEach { att ->
-                        resolveAttachmentUrl(att.id)
-                    }
-                }
+                // Trigger network sync
+                historyUseCases.syncChatHistory(chatId, 0, 50)
             } catch (e: Exception) {
                 dispatch(ChatStateAction.LoadFailed(e.message ?: "Failed to load chat"))
             }

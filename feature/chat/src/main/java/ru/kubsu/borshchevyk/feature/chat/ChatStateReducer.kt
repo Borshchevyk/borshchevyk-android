@@ -33,6 +33,11 @@ fun ChatUiState.reduce(action: ChatStateAction): ChatUiState {
         is ChatStateAction.ChatDeleted -> {
             if (this is ChatUiState.Content) this.copy(isChatDeleted = true) else this
         }
+        is ChatStateAction.HistoryUpdated -> {
+            if (this is ChatUiState.Content) {
+                this.copy(feed = this.feed.copy(messages = action.history))
+            } else this
+        }
         is ChatStateAction.SetEditingMessage -> {
             if (this is ChatUiState.Content) this.copy(input = this.input.copy(editingMessage = action.message)) else this
         }
