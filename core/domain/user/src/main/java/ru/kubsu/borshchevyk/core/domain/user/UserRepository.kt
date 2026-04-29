@@ -8,7 +8,6 @@ import ru.kubsu.borshchevyk.core.model.domain.PrivacySettings
 import ru.kubsu.borshchevyk.core.model.domain.User
 
 interface UserRepository {
-    suspend fun searchUsers(query: String): List<User>
     fun observeUserProfile(userId: String): Flow<User?>
     suspend fun syncUserProfile(userIdOrTag: String)
     suspend fun getUserProfile(userIdOrTag: String): User

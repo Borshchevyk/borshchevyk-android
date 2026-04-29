@@ -34,12 +34,6 @@ class UserRepositoryImpl @Inject constructor(
 
     private val repositoryScope = CoroutineScope(SupervisorJob() + ioDispatcher)
 
-    override suspend fun searchUsers(query: String): List<User> = withContext(ioDispatcher) {
-        val users = networkDataSource.searchUsers(query).getOrThrow().map { it.toEntity() }
-        userDao.upsertUsers(users)
-        users.map { it.toDomain() }
-    }
-
     override fun observeUserProfile(userId: String): Flow<User?> = userDao.observeUser(userId).map { it?.toDomain() }
 
     override suspend fun syncUserProfile(userIdOrTag: String) {

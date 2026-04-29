@@ -8,7 +8,6 @@ import ru.kubsu.borshchevyk.core.network.dto.UpdateProfileRequest
 import ru.kubsu.borshchevyk.core.network.dto.UserProfileResponse
 
 interface UserNetworkDataSource {
-    suspend fun searchUsers(query: String): NetworkResult<List<UserProfileResponse>>
     suspend fun getUserProfile(userIdOrTag: String): NetworkResult<UserProfileResponse>
     suspend fun updateProfile(request: UpdateProfileRequest): NetworkResult<UserProfileResponse>
     suspend fun updateAvatar(request: UpdateAvatarRequest): NetworkResult<UserProfileResponse>

@@ -23,16 +23,6 @@ class KtorUserNetworkDataSource @Inject constructor(
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher
 ) : UserNetworkDataSource {
 
-    override suspend fun searchUsers(query: String): NetworkResult<List<UserProfileResponse>> {
-        return withContext(ioDispatcher) {
-            safeRequest {
-                httpClient.get("api/v1/users/search") {
-                    url { parameters.append("query", query) }
-                }
-            }
-        }
-    }
-
     override suspend fun getUserProfile(userIdOrTag: String): NetworkResult<UserProfileResponse> {
         return withContext(ioDispatcher) {
             safeRequest {
