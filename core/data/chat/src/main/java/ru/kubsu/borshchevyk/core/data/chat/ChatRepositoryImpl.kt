@@ -44,7 +44,7 @@ class ChatRepositoryImpl @Inject constructor(
         entities.map { it.toDomain() }
     }
 
-    override suspend fun createChat(request: DomainCreateChatParam): String {
+    override suspend fun createChat(request: DomainCreateChatParam): String = withContext(ioDispatcher) {
         val chatEntity = networkDataSource.createChat(
             CreateChatRequest(
                 type = request.type,
@@ -54,15 +54,15 @@ class ChatRepositoryImpl @Inject constructor(
             )
         ).getOrThrow().toEntity()
         chatDao.upsertChat(chatEntity)
-        return chatEntity.id
+        chatEntity.id
     }
 
-    override suspend fun createPrivateChat(request: DomainTargetUserParam): String {
+    override suspend fun createPrivateChat(request: DomainTargetUserParam): String = withContext(ioDispatcher) {
         val chatEntity = networkDataSource.createPrivateChat(
             TargetUserRequest(request.targetUserId)
         ).getOrThrow().toEntity()
         chatDao.upsertChat(chatEntity)
-        return chatEntity.id
+        chatEntity.id
     }
 
     override suspend fun syncUserChats() {
@@ -72,7 +72,7 @@ class ChatRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun getUserChats(): List<Chat> {
+    override suspend fun getUserChats(): List<Chat> = withContext(ioDispatcher) {
         val cached = chatDao.observeAllChats().firstOrNull()
         if (!cached.isNullOrEmpty()) {
             repositoryScope.launch {
@@ -82,11 +82,11 @@ class ChatRepositoryImpl @Inject constructor(
                     Log.w("ChatRepository", "Failed background sync for chats, using cache", e)
                 }
             }
-            return cached.map { it.toDomain() }
+            return@withContext cached.map { it.toDomain() }
         }
         val networkChats = networkDataSource.getUserChats().getOrThrow()
         chatDao.upsertChats(networkChats.map { it.toEntity() })
-        return networkChats.map { it.toEntity().toDomain() }
+        networkChats.map { it.toEntity().toDomain() }
     }
 
     override suspend fun updatePermissions(chatId: String, targetUserId: String, request: DomainUpdatePermissionsParam) {
