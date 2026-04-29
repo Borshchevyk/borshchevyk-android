@@ -71,17 +71,13 @@ class ChatListViewModel @Inject constructor(
                 
                 observeNewMessagesUseCase()
                     .onEach { message ->
-                        Log.d(TAG, "WS: Received new message notification for chat ${message.chatId}. Syncing chats.")
-                        loadChats(showLoading = false)
+                        Log.d(TAG, "WS: Received new message notification for chat ${message.chatId}. UI will update via DB Flow.")
                     }
                     .launchIn(this)
                 
                 observeGlobalChatEventsUseCase()
                     .onEach { event ->
-                        Log.d(TAG, "WS: Received chat event ${event.action} for chat ${event.chatId}. Syncing chats.")
-                        if (event.action == "PINNED" || event.action == "UNPINNED") {
-                            loadChats(showLoading = false)
-                        }
+                        Log.d(TAG, "WS: Received chat event ${event.action} for chat ${event.chatId}. UI will update via DB Flow.")
                     }
                     .launchIn(this)
             } catch (e: Exception) {

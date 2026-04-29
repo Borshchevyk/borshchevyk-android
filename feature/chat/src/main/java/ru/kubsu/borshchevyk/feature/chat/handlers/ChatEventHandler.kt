@@ -45,30 +45,10 @@ class ChatEventHandler @Inject constructor(
             .onEach { event ->
                 dispatch(ChatStateAction.ProcessDomainEvent(event))
                 
-                when (event) {
-                    is ChatEvent.MessagePinned, is ChatEvent.MessageUnpinned -> {
-                        try {
-                            val pinned = historyUseCases.getPinnedMessages(chatId)
-                            dispatch(ChatStateAction.SetPinnedMessages(pinned))
-                        } catch (e: Exception) {
-                            Log.e(TAG, "Failed to load pinned messages", e)
-                        }
+                if (event is ChatEvent.NewMessage) {
+                    event.message.attachments.forEach { attachment ->
+                        resolveAttachment(attachment.id)
                     }
-                    is ChatEvent.ReadReceipt -> {
-                        try {
-                            val readers = historyUseCases.getMessageReaders(chatId, event.event.messageId)
-                            dispatch(ChatStateAction.SetReaders(event.event.messageId, readers))
-                        } catch (e: Exception) {
-                            Log.e(TAG, "Failed to load readers", e)
-                        }
-                    }
-                    is ChatEvent.NewMessage -> {
-                        getUserChatsUseCase() // Refresh chat list in background
-                        event.message.attachments.forEach { attachment ->
-                            resolveAttachment(attachment.id)
-                        }
-                    }
-                    else -> {}
                 }
             }
             .launchIn(scope)

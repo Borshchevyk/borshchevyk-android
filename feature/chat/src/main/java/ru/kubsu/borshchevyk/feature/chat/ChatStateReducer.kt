@@ -207,13 +207,20 @@ fun ChatUiState.reduce(action: ChatStateAction): ChatUiState {
                     val updatedMessages = this.feed.messages.map {
                         if (it.id == event.messageId) it.copy(isPinned = true) else it
                     }
-                    this.copy(feed = this.feed.copy(messages = updatedMessages))
+                    val pinnedMsg = this.feed.messages.find { it.id == event.messageId }?.copy(isPinned = true)
+                    val newPinned = if (pinnedMsg != null && !this.feed.pinnedMessages.any { it.id == event.messageId }) {
+                        listOf(pinnedMsg) + this.feed.pinnedMessages
+                    } else {
+                        this.feed.pinnedMessages
+                    }
+                    this.copy(feed = this.feed.copy(messages = updatedMessages, pinnedMessages = newPinned))
                 }
                 is ChatEvent.MessageUnpinned -> {
                     val updatedMessages = this.feed.messages.map {
                         if (it.id == event.messageId) it.copy(isPinned = false) else it
                     }
-                    this.copy(feed = this.feed.copy(messages = updatedMessages))
+                    val newPinned = this.feed.pinnedMessages.filterNot { it.id == event.messageId }
+                    this.copy(feed = this.feed.copy(messages = updatedMessages, pinnedMessages = newPinned))
                 }
                 is ChatEvent.ReadReceipt -> {
                     val updatedMessages = this.feed.messages.map {
