@@ -38,7 +38,7 @@ class MessageRepositoryImpl @Inject constructor(
         forwardedFromChatId: String?, 
         forwardedFromUserId: String?
     ) {
-        val messageEntity = networkDataSource.sendMessage(
+        val message = networkDataSource.sendMessage(
             chatId, 
             SendMessageRequest(
                 text = text,
@@ -46,17 +46,17 @@ class MessageRepositoryImpl @Inject constructor(
                 forwardedFromChatId = forwardedFromChatId,
                 forwardedFromUserId = forwardedFromUserId
             )
-        ).getOrThrow().toEntity()
+        ).getOrThrow().toDomain()
         
         withContext(ioDispatcher) {
-            messageDao.upsertMessage(messageEntity)
+            message.saveToDb()
         }
     }
 
     override suspend fun editMessage(chatId: String, messageId: String, newText: String) {
-        val messageEntity = networkDataSource.editMessage(chatId, messageId, EditMessageRequest(text = newText)).getOrThrow().toEntity()
+        val message = networkDataSource.editMessage(chatId, messageId, EditMessageRequest(text = newText)).getOrThrow().toDomain()
         withContext(ioDispatcher) {
-            messageDao.upsertMessage(messageEntity)
+            message.saveToDb()
         }
     }
 
@@ -68,8 +68,10 @@ class MessageRepositoryImpl @Inject constructor(
 
     override suspend fun syncChatHistory(chatId: String, page: Int, size: Int) {
         withContext(ioDispatcher) {
-            val messages = networkDataSource.loadChatHistory(chatId, page, size).getOrThrow().map { it.toEntity() }
-            messageDao.upsertMessages(messages)
+            val messages = networkDataSource.loadChatHistory(chatId, page, size).getOrThrow().map { it.toDomain() }
+            // Run bulk inserts safely inside a coroutine transaction is generally faster, 
+            // but we can just iterate the upsert for now to reuse our complex insert logic
+            messages.forEach { it.saveToDb() }
         }
     }
 
@@ -83,9 +85,12 @@ class MessageRepositoryImpl @Inject constructor(
 
     override fun observeNewMessages(): Flow<Message> = 
         chatWebSocketDataSource.observeNewMessages()
-            .map { it.toEntity() }
-            .onEach { messageDao.upsertMessage(it) }
             .map { it.toDomain() }
+            .onEach { domainMsg -> 
+                withContext(ioDispatcher) {
+                    domainMsg.saveToDb() 
+                }
+            }
 
     override fun observeChatEvents(): Flow<DomainGlobalChatEvent> = 
         chatWebSocketDataSource.observeChatEvents().map { DomainGlobalChatEvent(it.chat.id, it.action) }
@@ -93,7 +98,9 @@ class MessageRepositoryImpl @Inject constructor(
     override fun observeDeletedMessages(): Flow<String> = 
         chatWebSocketDataSource.observeDeletedMessages()
             .onEach { messageId -> 
-                messageDao.deleteMessage(messageId) 
+                withContext(ioDispatcher) {
+                    messageDao.deleteMessage(messageId) 
+                }
             }
 
     override fun observeTyping(chatId: String): Flow<DomainTypingEvent> = 
@@ -112,9 +119,10 @@ class MessageRepositoryImpl @Inject constructor(
         chatWebSocketDataSource.observeReadReceipts(chatId).map { DomainReadReceiptEvent(it.messageId, it.user.id) }
             .onEach { event ->
                 withContext(ioDispatcher) {
-                    val msg = messageDao.getMessage(event.messageId)
-                    if (msg != null && msg.status != MessageStatus.READ) {
-                        messageDao.upsertMessage(msg.copy(status = MessageStatus.READ))
+                    val msgWithDetails = messageDao.getMessage(event.messageId)
+                    if (msgWithDetails != null && msgWithDetails.message.status != MessageStatus.READ) {
+                        val updatedMsg = msgWithDetails.message.copy(status = MessageStatus.READ)
+                        messageDao.insertMessageEntity(updatedMsg)
                     }
                 }
             }
@@ -150,7 +158,7 @@ class MessageRepositoryImpl @Inject constructor(
     }
 
     override suspend fun getPinnedMessages(chatId: String): List<Message> {
-        return networkDataSource.getPinnedMessages(chatId).getOrThrow().map { it.toEntity().toDomain() }
+        return networkDataSource.getPinnedMessages(chatId).getOrThrow().map { it.toDomain() }
     }
 
     override suspend fun readMessage(chatId: String, messageId: String) {
@@ -175,6 +183,16 @@ class MessageRepositoryImpl @Inject constructor(
         page: Int,
         size: Int
     ): List<Message> {
-        return networkDataSource.getMessageComments(chatId, messageId, page, size).getOrThrow().map { it.toEntity().toDomain() }
+        return networkDataSource.getMessageComments(chatId, messageId, page, size).getOrThrow().map { it.toDomain() }
+    }
+
+    private fun Message.saveToDb() {
+        messageDao.upsertMessageWithDetails(
+            message = toMessageEntity(),
+            author = toAuthorEntity(),
+            forwardedFromUser = toForwardedUserEntity(),
+            attachments = toAttachmentEntities(),
+            reactions = toReactionEntities()
+        )
     }
 }

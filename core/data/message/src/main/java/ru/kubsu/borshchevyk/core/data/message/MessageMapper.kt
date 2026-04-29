@@ -1,6 +1,11 @@
 package ru.kubsu.borshchevyk.core.data.message
 
+import ru.kubsu.borshchevyk.core.database.dao.MessageDao
+import ru.kubsu.borshchevyk.core.database.entity.AttachmentEntity
 import ru.kubsu.borshchevyk.core.database.entity.MessageEntity
+import ru.kubsu.borshchevyk.core.database.entity.MessageWithDetails
+import ru.kubsu.borshchevyk.core.database.entity.ReactionEntity
+import ru.kubsu.borshchevyk.core.database.entity.UserEntity
 import ru.kubsu.borshchevyk.core.model.domain.Attachment
 import ru.kubsu.borshchevyk.core.model.domain.DomainAttachmentType
 import ru.kubsu.borshchevyk.core.model.domain.Message
@@ -12,7 +17,7 @@ import ru.kubsu.borshchevyk.core.model.dto.AttachmentType
 import ru.kubsu.borshchevyk.core.model.dto.MessageResponse
 import ru.kubsu.borshchevyk.core.model.dto.NotificationDto
 
-fun MessageResponse.toEntity(): MessageEntity = MessageEntity(
+fun MessageResponse.toDomain(): Message = Message(
     id = id,
     chatId = chat.id,
     authorId = author.id,
@@ -61,7 +66,7 @@ fun MessageResponse.toEntity(): MessageEntity = MessageEntity(
     } ?: emptyList()
 )
 
-fun NotificationDto.MessageDto.toEntity(): MessageEntity = MessageEntity(
+fun NotificationDto.MessageDto.toDomain(): Message = Message(
     id = id,
     chatId = chat.id,
     authorId = author.id,
@@ -111,32 +116,66 @@ fun NotificationDto.MessageDto.toEntity(): MessageEntity = MessageEntity(
     } ?: emptyList()
 )
 
-fun MessageEntity.toDomain(): Message = Message(
-    id = id,
-    chatId = chatId,
-    authorId = authorId,
-    author = author,
-    text = text,
-    createdAt = createdAt,
-    updatedAt = updatedAt,
-    status = status,
-    isDeleted = isDeleted,
-    source = source,
-    isPinned = isPinned,
-    reactions = reactions,
-    commentsCount = commentsCount,
-    parentMessageId = parentMessageId,
-    forwardedFromChatId = forwardedFromChatId,
-    forwardedFromUserId = forwardedFromUserId,
-    forwardedFromUser = forwardedFromUser,
-    attachments = attachments
+fun MessageWithDetails.toDomain(): Message = Message(
+    id = message.id,
+    chatId = message.chatId,
+    authorId = message.authorId,
+    author = author?.let { 
+        User(
+            userId = it.userId, 
+            email = it.email, 
+            tag = it.tag, 
+            firstName = it.firstName, 
+            lastName = it.lastName, 
+            bio = it.bio, 
+            avatarUrl = it.avatarUrl, 
+            avatars = it.avatars
+        ) 
+    },
+    text = message.text,
+    createdAt = message.createdAt,
+    updatedAt = message.updatedAt,
+    status = message.status,
+    isDeleted = message.isDeleted,
+    source = message.source,
+    isPinned = message.isPinned,
+    reactions = reactions.map { MessageReaction(userId = it.userId, reaction = it.reaction) },
+    commentsCount = message.commentsCount,
+    parentMessageId = message.parentMessageId,
+    forwardedFromChatId = message.forwardedFromChatId,
+    forwardedFromUserId = message.forwardedFromUserId,
+    forwardedFromUser = forwardedFromUser?.let {
+        User(
+            userId = it.userId, 
+            email = it.email, 
+            tag = it.tag, 
+            firstName = it.firstName, 
+            lastName = it.lastName, 
+            bio = it.bio, 
+            avatarUrl = it.avatarUrl, 
+            avatars = it.avatars
+        )
+    },
+    attachments = attachments.map {
+        Attachment(
+            id = it.id,
+            type = it.type,
+            originalFilename = it.originalFilename,
+            extension = it.extension,
+            sizeBytes = it.sizeBytes,
+            thumbnailKey = it.thumbnailKey,
+            updatedAt = it.updatedAt,
+            width = it.width,
+            height = it.height,
+            duration = it.duration?.toDouble()
+        )
+    }
 )
 
-fun Message.toEntity(): MessageEntity = MessageEntity(
+fun Message.toMessageEntity(): MessageEntity = MessageEntity(
     id = id,
     chatId = chatId,
     authorId = authorId,
-    author = author,
     text = text,
     createdAt = createdAt,
     updatedAt = updatedAt,
@@ -144,14 +183,61 @@ fun Message.toEntity(): MessageEntity = MessageEntity(
     isDeleted = isDeleted,
     source = source,
     isPinned = isPinned,
-    reactions = reactions,
     commentsCount = commentsCount,
     parentMessageId = parentMessageId,
     forwardedFromChatId = forwardedFromChatId,
-    forwardedFromUserId = forwardedFromUserId,
-    forwardedFromUser = forwardedFromUser,
-    attachments = attachments
+    forwardedFromUserId = forwardedFromUserId
 )
+
+fun Message.toAuthorEntity(): UserEntity? = author?.let {
+    UserEntity(
+        userId = it.userId,
+        email = it.email,
+        tag = it.tag,
+        firstName = it.firstName,
+        lastName = it.lastName,
+        bio = it.bio,
+        avatarUrl = it.avatarUrl,
+        avatars = it.avatars
+    )
+}
+
+fun Message.toForwardedUserEntity(): UserEntity? = forwardedFromUser?.let {
+    UserEntity(
+        userId = it.userId,
+        email = it.email,
+        tag = it.tag,
+        firstName = it.firstName,
+        lastName = it.lastName,
+        bio = it.bio,
+        avatarUrl = it.avatarUrl,
+        avatars = it.avatars
+    )
+}
+
+fun Message.toAttachmentEntities(): List<AttachmentEntity> = attachments.map {
+    AttachmentEntity(
+        id = it.id,
+        messageId = id,
+        type = it.type,
+        originalFilename = it.originalFilename,
+        extension = it.extension,
+        sizeBytes = it.sizeBytes,
+        thumbnailKey = it.thumbnailKey,
+        updatedAt = it.updatedAt,
+        width = it.width,
+        height = it.height,
+        duration = it.duration?.toInt()
+    )
+}
+
+fun Message.toReactionEntities(): List<ReactionEntity> = reactions.map {
+    ReactionEntity(
+        messageId = id,
+        userId = it.userId,
+        reaction = it.reaction
+    )
+}
 
 private fun AttachmentType.toDomain(): DomainAttachmentType = when (this) {
     AttachmentType.PHOTO -> DomainAttachmentType.PHOTO

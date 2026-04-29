@@ -7,15 +7,19 @@ import ru.kubsu.borshchevyk.core.database.converter.DatabaseConverters
 import ru.kubsu.borshchevyk.core.database.dao.ChatDao
 import ru.kubsu.borshchevyk.core.database.dao.MessageDao
 import ru.kubsu.borshchevyk.core.database.dao.UserDao
+import ru.kubsu.borshchevyk.core.database.entity.AttachmentEntity
 import ru.kubsu.borshchevyk.core.database.entity.ChatEntity
 import ru.kubsu.borshchevyk.core.database.entity.MessageEntity
+import ru.kubsu.borshchevyk.core.database.entity.ReactionEntity
 import ru.kubsu.borshchevyk.core.database.entity.UserEntity
 
 @Database(
     entities = [
         ChatEntity::class,
         MessageEntity::class,
-        UserEntity::class
+        UserEntity::class,
+        AttachmentEntity::class,
+        ReactionEntity::class
     ],
     version = 1,
     exportSchema = false
