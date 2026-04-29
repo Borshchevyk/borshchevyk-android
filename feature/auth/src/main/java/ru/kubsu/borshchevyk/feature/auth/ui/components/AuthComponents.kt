@@ -1,9 +1,14 @@
 package ru.kubsu.borshchevyk.feature.auth.ui.components
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
@@ -34,7 +39,10 @@ fun TabButton(
         elevation = if (isSelected) ButtonDefaults.buttonElevation(defaultElevation = 2.dp) else null,
         contentPadding = PaddingValues(vertical = 8.dp)
     ) {
-        Text(text = text, style = BorshchevykTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold))
+        Text(
+            text = text, 
+            style = BorshchevykTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold)
+        )
     }
 }
 
@@ -43,24 +51,40 @@ fun AuthTextField(
     value: String,
     onValueChange: (String) -> Unit,
     label: String,
+    modifier: Modifier = Modifier,
+    error: String? = null,
     isPassword: Boolean = false,
-    modifier: Modifier = Modifier
 ) {
-    OutlinedTextField(
-        value = value,
-        onValueChange = onValueChange,
-        label = { Text(label) },
-        visualTransformation = if (isPassword) PasswordVisualTransformation() else VisualTransformation.None,
-        modifier = modifier,
-        shape = RoundedCornerShape(16.dp),
-        colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = BorshchevykTheme.colors.primary,
-            unfocusedBorderColor = BorshchevykTheme.colors.outline,
-            focusedTextColor = BorshchevykTheme.colors.onSurface,
-            unfocusedTextColor = BorshchevykTheme.colors.onSurface,
-            cursorColor = BorshchevykTheme.colors.primary,
-            focusedLabelColor = BorshchevykTheme.colors.primary
-        ),
-        singleLine = true
-    )
+    Column(modifier = modifier) {
+        OutlinedTextField(
+            value = value,
+            onValueChange = onValueChange,
+            label = { Text(label) },
+            visualTransformation = if (isPassword) PasswordVisualTransformation() else VisualTransformation.None,
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            isError = error != null,
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = BorshchevykTheme.colors.primary,
+                unfocusedBorderColor = BorshchevykTheme.colors.outline,
+                errorBorderColor = MaterialTheme.colorScheme.error,
+                focusedTextColor = BorshchevykTheme.colors.onSurface,
+                unfocusedTextColor = BorshchevykTheme.colors.onSurface,
+                cursorColor = BorshchevykTheme.colors.primary,
+                focusedLabelColor = BorshchevykTheme.colors.primary,
+                errorLabelColor = MaterialTheme.colorScheme.error
+            ),
+            singleLine = true
+        )
+        AnimatedVisibility(visible = error != null) {
+            error?.let {
+                Text(
+                    text = it,
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(start = 16.dp, top = 4.dp)
+                )
+            }
+        }
+    }
 }

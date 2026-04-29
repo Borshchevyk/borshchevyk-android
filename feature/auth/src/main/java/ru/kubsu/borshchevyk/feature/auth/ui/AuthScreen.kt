@@ -1,5 +1,10 @@
 package ru.kubsu.borshchevyk.feature.auth.ui
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -8,7 +13,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -16,10 +23,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -27,32 +30,26 @@ import androidx.compose.ui.unit.sp
 import ru.kubsu.borshchevyk.core.model.domain.AuthMode
 import ru.kubsu.borshchevyk.core.ui.theme.BorshchevykTheme
 import ru.kubsu.borshchevyk.feature.auth.AuthIntent
+import ru.kubsu.borshchevyk.feature.auth.AuthUiState
 import ru.kubsu.borshchevyk.feature.auth.ui.components.AuthTextField
 import ru.kubsu.borshchevyk.feature.auth.ui.components.TabButton
 
 @Composable
 internal fun AuthScreen(
-    isLoading: Boolean,
+    uiState: AuthUiState,
     onIntent: (AuthIntent) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var mode by rememberSaveable { mutableStateOf(AuthMode.ONLINE) }
-    var email by rememberSaveable { mutableStateOf("") }
-    var password by rememberSaveable { mutableStateOf("") }
-    var firstName by rememberSaveable { mutableStateOf("") }
-    var lastName by rememberSaveable { mutableStateOf("") }
-    var tag by rememberSaveable { mutableStateOf("") }
-    var isLogin by rememberSaveable { mutableStateOf(true) }
-
     Column(
         modifier = modifier
             .fillMaxSize()
+            .verticalScroll(rememberScrollState())
             .padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
         Text(
-            text = "Borshchevyk", 
+            text = "Borshchevyk",
             style = BorshchevykTheme.typography.titleLarge.copy(fontSize = 32.sp),
             color = BorshchevykTheme.colors.primary
         )
@@ -62,7 +59,7 @@ internal fun AuthScreen(
             style = BorshchevykTheme.typography.bodyLarge,
             color = BorshchevykTheme.colors.onSurfaceVariant
         )
-        
+
         Spacer(modifier = Modifier.height(48.dp))
 
         Surface(
@@ -73,119 +70,151 @@ internal fun AuthScreen(
             Row(modifier = Modifier.padding(4.dp)) {
                 TabButton(
                     text = "Online",
-                    isSelected = mode == AuthMode.ONLINE,
-                    onClick = { mode = AuthMode.ONLINE },
+                    isSelected = uiState.mode == AuthMode.ONLINE,
+                    onClick = { onIntent(AuthIntent.ToggleAuthMode) },
                     modifier = Modifier.weight(1f)
                 )
                 TabButton(
                     text = "Mesh",
-                    isSelected = mode == AuthMode.OFFLINE,
-                    onClick = { mode = AuthMode.OFFLINE },
+                    isSelected = uiState.mode == AuthMode.OFFLINE,
+                    onClick = { onIntent(AuthIntent.ToggleAuthMode) },
                     modifier = Modifier.weight(1f)
                 )
             }
         }
-        
+
         Spacer(modifier = Modifier.height(32.dp))
 
-        if (mode == AuthMode.ONLINE) {
-            AuthTextField(
-                value = email,
-                onValueChange = { email = it },
-                label = "Email",
-                modifier = Modifier.fillMaxWidth()
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-            AuthTextField(
-                value = password,
-                onValueChange = { password = it },
-                label = "Password",
-                isPassword = true,
-                modifier = Modifier.fillMaxWidth()
-            )
-            if (!isLogin) {
-                Spacer(modifier = Modifier.height(16.dp))
-                AuthTextField(
-                    value = firstName,
-                    onValueChange = { firstName = it },
-                    label = "First Name",
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Spacer(modifier = Modifier.height(16.dp))
-                AuthTextField(
-                    value = lastName,
-                    onValueChange = { lastName = it },
-                    label = "Last Name (Optional)",
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Spacer(modifier = Modifier.height(16.dp))
-                AuthTextField(
-                    value = tag,
-                    onValueChange = { tag = it },
-                    label = "Tag",
-                    modifier = Modifier.fillMaxWidth()
-                )
+        AnimatedContent(
+            targetState = uiState.mode,
+            transitionSpec = {
+                fadeIn(animationSpec = tween(220, delayMillis = 90)) togetherWith
+                fadeOut(animationSpec = tween(90))
+            },
+            label = "AuthModeTransition"
+        ) { mode ->
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                if (mode == AuthMode.ONLINE) {
+                    OnlineAuthFields(uiState, onIntent)
+                } else {
+                    OfflineAuthFields(uiState, onIntent)
+                }
             }
-            Spacer(modifier = Modifier.height(32.dp))
+        }
+    }
+}
 
-            if (isLoading) {
-                CircularProgressIndicator(color = BorshchevykTheme.colors.primary)
-            } else {
-                Button(
-                    onClick = {
-                        if (isLogin) {
-                            onIntent(AuthIntent.LoginOnline(email, password))
-                        } else {
-                            onIntent(AuthIntent.RegisterOnline(email, password, tag, firstName, lastName.takeIf { it.isNotBlank() }))
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth().height(56.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = BorshchevykTheme.colors.primary,
-                        contentColor = BorshchevykTheme.colors.onPrimary
-                    ),
-                    shape = RoundedCornerShape(16.dp)
-                ) {
-                    Text(
-                        text = if (isLogin) "Login" else "Register",
-                        style = BorshchevykTheme.typography.titleMedium
-                    )
-                }
-                Spacer(modifier = Modifier.height(8.dp))
-                TextButton(onClick = { isLogin = !isLogin }) {
-                    Text(
-                        text = if (isLogin) "Need an account? Register" else "Have an account? Login",
-                        color = BorshchevykTheme.colors.primary
-                    )
-                }
-            }
-        } else {
-            AuthTextField(
-                value = tag,
-                onValueChange = { tag = it },
-                label = "Unique Tag",
-                modifier = Modifier.fillMaxWidth()
-            )
-            Spacer(modifier = Modifier.height(32.dp))
+@Composable
+private fun OnlineAuthFields(
+    uiState: AuthUiState,
+    onIntent: (AuthIntent) -> Unit
+) {
+    AuthTextField(
+        value = uiState.email,
+        onValueChange = { onIntent(AuthIntent.EmailChanged(it)) },
+        label = "Email",
+        error = uiState.emailError,
+        modifier = Modifier.fillMaxWidth()
+    )
+    Spacer(modifier = Modifier.height(16.dp))
+    AuthTextField(
+        value = uiState.password,
+        onValueChange = { onIntent(AuthIntent.PasswordChanged(it)) },
+        label = "Password",
+        isPassword = true,
+        error = uiState.passwordError,
+        modifier = Modifier.fillMaxWidth()
+    )
 
-            if (isLoading) {
-                CircularProgressIndicator(color = BorshchevykTheme.colors.primary)
-            } else {
-                Button(
-                    onClick = { onIntent(AuthIntent.RegisterOffline(tag)) },
-                    modifier = Modifier.fillMaxWidth().height(56.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = BorshchevykTheme.colors.primary,
-                        contentColor = BorshchevykTheme.colors.onPrimary
-                    ),
-                    shape = RoundedCornerShape(16.dp)
-                ) {
-                    Text(
-                        text = "Enter Mesh Network",
-                        style = BorshchevykTheme.typography.titleMedium
-                    )
-                }
-            }
+    if (!uiState.isLogin) {
+        Spacer(modifier = Modifier.height(16.dp))
+        AuthTextField(
+            value = uiState.firstName,
+            onValueChange = { onIntent(AuthIntent.FirstNameChanged(it)) },
+            label = "First Name",
+            error = uiState.firstNameError,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+        AuthTextField(
+            value = uiState.lastName,
+            onValueChange = { onIntent(AuthIntent.LastNameChanged(it)) },
+            label = "Last Name (Optional)",
+            modifier = Modifier.fillMaxWidth()
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+        AuthTextField(
+            value = uiState.tag,
+            onValueChange = { onIntent(AuthIntent.TagChanged(it)) },
+            label = "Tag",
+            error = uiState.tagError,
+            modifier = Modifier.fillMaxWidth()
+        )
+    }
+
+    Spacer(modifier = Modifier.height(32.dp))
+
+    if (uiState.isLoading) {
+        CircularProgressIndicator(color = BorshchevykTheme.colors.primary)
+    } else {
+        Button(
+            onClick = { onIntent(AuthIntent.Submit) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = BorshchevykTheme.colors.primary,
+                contentColor = BorshchevykTheme.colors.onPrimary
+            ),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Text(
+                text = if (uiState.isLogin) "Login" else "Register",
+                style = BorshchevykTheme.typography.titleMedium
+            )
+        }
+        Spacer(modifier = Modifier.height(8.dp))
+        TextButton(onClick = { onIntent(AuthIntent.ToggleLoginRegister) }) {
+            Text(
+                text = if (uiState.isLogin) "Need an account? Register" else "Have an account? Login",
+                color = BorshchevykTheme.colors.primary
+            )
+        }
+    }
+}
+
+@Composable
+private fun OfflineAuthFields(
+    uiState: AuthUiState,
+    onIntent: (AuthIntent) -> Unit
+) {
+    AuthTextField(
+        value = uiState.tag,
+        onValueChange = { onIntent(AuthIntent.TagChanged(it)) },
+        label = "Unique Tag",
+        error = uiState.tagError,
+        modifier = Modifier.fillMaxWidth()
+    )
+    Spacer(modifier = Modifier.height(32.dp))
+
+    if (uiState.isLoading) {
+        CircularProgressIndicator(color = BorshchevykTheme.colors.primary)
+    } else {
+        Button(
+            onClick = { onIntent(AuthIntent.Submit) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = BorshchevykTheme.colors.primary,
+                contentColor = BorshchevykTheme.colors.onPrimary
+            ),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Text(
+                text = "Enter Mesh Network",
+                style = BorshchevykTheme.typography.titleMedium
+            )
         }
     }
 }

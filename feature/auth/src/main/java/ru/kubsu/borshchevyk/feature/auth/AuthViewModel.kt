@@ -14,6 +14,7 @@ import ru.kubsu.borshchevyk.core.domain.auth.CheckAuthStatusUseCase
 import ru.kubsu.borshchevyk.core.domain.auth.LoginOnlineUseCase
 import ru.kubsu.borshchevyk.core.domain.auth.RegisterOfflineUseCase
 import ru.kubsu.borshchevyk.core.domain.auth.RegisterOnlineUseCase
+import ru.kubsu.borshchevyk.core.model.domain.AuthMode
 import javax.inject.Inject
 
 @HiltViewModel
@@ -33,9 +34,15 @@ class AuthViewModel @Inject constructor(
     fun handleIntent(intent: AuthIntent) {
         when (intent) {
             is AuthIntent.CheckAuth -> checkAuth()
-            is AuthIntent.RegisterOffline -> onRegisterOffline(intent.tag)
-            is AuthIntent.RegisterOnline -> onRegisterOnline(intent.email, intent.password, intent.tag, intent.firstName, intent.lastName)
-            is AuthIntent.LoginOnline -> onLoginOnline(intent.email, intent.password)
+            is AuthIntent.ToggleAuthMode -> toggleAuthMode()
+            is AuthIntent.ToggleLoginRegister -> toggleLoginRegister()
+            is AuthIntent.EmailChanged -> _uiState.update { it.copy(email = intent.value, emailError = null) }
+            is AuthIntent.PasswordChanged -> _uiState.update { it.copy(password = intent.value, passwordError = null) }
+            is AuthIntent.FirstNameChanged -> _uiState.update { it.copy(firstName = intent.value, firstNameError = null) }
+            is AuthIntent.LastNameChanged -> _uiState.update { it.copy(lastName = intent.value) }
+            is AuthIntent.TagChanged -> _uiState.update { it.copy(tag = intent.value, tagError = null) }
+            is AuthIntent.Submit -> submit()
+            is AuthIntent.ClearError -> _uiState.update { it.copy(generalError = null) }
         }
     }
 
@@ -47,11 +54,62 @@ class AuthViewModel @Inject constructor(
         }
     }
 
-    private fun onRegisterOffline(tag: String) {
-        if (tag.isBlank()) {
-            sendError("Tag cannot be empty")
-            return
+    private fun toggleAuthMode() {
+        _uiState.update { state ->
+            val nextMode = if (state.mode == AuthMode.ONLINE) AuthMode.OFFLINE else AuthMode.ONLINE
+            state.copy(mode = nextMode, generalError = null)
         }
+    }
+
+    private fun toggleLoginRegister() {
+        _uiState.update { it.copy(isLogin = !it.isLogin, generalError = null) }
+    }
+
+    private fun submit() {
+        if (!validate()) return
+
+        val state = _uiState.value
+        when {
+            state.mode == AuthMode.OFFLINE -> onRegisterOffline(state.tag)
+            state.isLogin -> onLoginOnline(state.email, state.password)
+            else -> onRegisterOnline(state.email, state.password, state.tag, state.firstName, state.lastName)
+        }
+    }
+
+    private fun validate(): Boolean {
+        var isValid = true
+        val state = _uiState.value
+
+        if (state.mode == AuthMode.ONLINE) {
+            if (state.email.isBlank() || !state.email.contains("@")) {
+                _uiState.update { it.copy(emailError = "Invalid email address") }
+                isValid = false
+            }
+            if (state.password.length < 6) {
+                _uiState.update { it.copy(passwordError = "Password must be at least 6 characters") }
+                isValid = false
+            }
+            if (!state.isLogin) {
+                if (state.firstName.isBlank()) {
+                    _uiState.update { it.copy(firstNameError = "First name is required") }
+                    isValid = false
+                }
+                if (state.tag.isBlank()) {
+                    _uiState.update { it.copy(tagError = "Unique tag is required") }
+                    isValid = false
+                }
+            }
+        } else {
+            if (state.tag.isBlank()) {
+                _uiState.update { it.copy(tagError = "Unique tag is required") }
+                isValid = false
+            }
+        }
+
+        return isValid
+    }
+
+    private fun onRegisterOffline(tag: String) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
             registerOffline(tag)
@@ -60,35 +118,27 @@ class AuthViewModel @Inject constructor(
                     _effect.send(AuthEffect.AuthSuccess)
                 }
                 .onFailure { err ->
-                    _uiState.update { state -> state.copy(isLoading = false) }
-                    sendError(err.message ?: "Failed to register offline")
+                    _uiState.update { state -> state.copy(isLoading = false, generalError = err.message) }
+                    _effect.send(AuthEffect.ShowError(err.message ?: "Failed to register offline"))
                 }
         }
     }
 
     private fun onRegisterOnline(email: String, password: String, tag: String, firstName: String, lastName: String?) {
-        if (email.isBlank() || password.isBlank() || tag.isBlank() || firstName.isBlank()) {
-            sendError("Mandatory fields cannot be empty")
-            return
-        }
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
-            registerOnline(email, password, tag, firstName, lastName)
+            registerOnline(email, password, tag, firstName, lastName.takeIf { it?.isNotBlank() == true })
                 .onSuccess {
                     onLoginOnline(email, password)
                 }
                 .onFailure { err ->
-                    _uiState.update { state -> state.copy(isLoading = false) }
-                    sendError(err.message ?: "Failed to register online")
+                    _uiState.update { state -> state.copy(isLoading = false, generalError = err.message) }
+                    _effect.send(AuthEffect.ShowError(err.message ?: "Failed to register online"))
                 }
         }
     }
 
     private fun onLoginOnline(email: String, password: String) {
-        if (email.isBlank() || password.isBlank()) {
-            sendError("Fields cannot be empty")
-            return
-        }
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
             loginOnline(email, password)
@@ -97,15 +147,9 @@ class AuthViewModel @Inject constructor(
                     _effect.send(AuthEffect.AuthSuccess)
                 }
                 .onFailure { err ->
-                    _uiState.update { state -> state.copy(isLoading = false) }
-                    sendError(err.message ?: "Failed to login online")
+                    _uiState.update { state -> state.copy(isLoading = false, generalError = err.message) }
+                    _effect.send(AuthEffect.ShowError(err.message ?: "Failed to login online"))
                 }
-        }
-    }
-    
-    private fun sendError(message: String) {
-        viewModelScope.launch {
-            _effect.send(AuthEffect.ShowError(message))
         }
     }
 }

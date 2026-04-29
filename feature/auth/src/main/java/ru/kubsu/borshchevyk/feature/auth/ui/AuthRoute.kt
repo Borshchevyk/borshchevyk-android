@@ -46,7 +46,7 @@ fun AuthRoute(
         modifier = modifier
     ) { padding ->
         AuthScreen(
-            isLoading = uiState.isLoading,
+            uiState = uiState,
             onIntent = { intent -> viewModel.handleIntent(intent) },
             modifier = Modifier.padding(padding)
         )
