@@ -85,7 +85,7 @@ fun ProfileRoute(
     ) { padding ->
         ProfileScreen(
             uiState = uiState,
-            onIntent = { viewModel.handleIntent(it) },
+            onIntent = viewModel::handleIntent,
             modifier = Modifier.padding(padding)
         )
     }

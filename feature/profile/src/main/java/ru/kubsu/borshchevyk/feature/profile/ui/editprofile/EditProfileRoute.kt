@@ -74,8 +74,7 @@ fun EditProfileRoute(
     ) { padding ->
         EditProfileScreen(
             uiState = uiState,
-            onSave = { f, l, b -> viewModel.handleIntent(ProfileIntent.UpdateProfile(f, l, b)) },
-            onUpdateAvatar = { bytes, filename, type -> viewModel.handleIntent(ProfileIntent.UpdateAvatar(bytes, filename, type)) },
+            onIntent = viewModel::handleIntent,
             modifier = Modifier.padding(padding)
         )
     }

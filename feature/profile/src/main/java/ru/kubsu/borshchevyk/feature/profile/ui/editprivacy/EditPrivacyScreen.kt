@@ -1,5 +1,6 @@
 package ru.kubsu.borshchevyk.feature.profile.ui.editprivacy
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -7,20 +8,30 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import ru.kubsu.borshchevyk.core.model.domain.Visibility
+import ru.kubsu.borshchevyk.core.ui.theme.BorshchevykTheme
+import ru.kubsu.borshchevyk.feature.profile.ProfileIntent
 import ru.kubsu.borshchevyk.feature.profile.ProfileUiState
 import ru.kubsu.borshchevyk.feature.profile.ui.components.PrivacyOption
 
 @Composable
 internal fun EditPrivacyScreen(
     uiState: ProfileUiState,
-    onUpdate: (Visibility?, Visibility?, Visibility?, Visibility?) -> Unit,
+    onIntent: (ProfileIntent) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val settings = uiState.privacySettings ?: return
+    if (uiState.isLoading || uiState.privacySettings == null) {
+        Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator(color = BorshchevykTheme.colors.primary)
+        }
+        return
+    }
+
+    val settings = uiState.privacySettings
 
     Column(
         modifier = modifier
@@ -31,25 +42,25 @@ internal fun EditPrivacyScreen(
         PrivacyOption(
             title = "Who can see my email",
             currentValue = settings.emailVisibility,
-            onValueChange = { onUpdate(it, null, null, null) }
+            onValueChange = { onIntent(ProfileIntent.UpdatePrivacy(emailVisibility = it)) }
         )
         Spacer(modifier = Modifier.height(24.dp))
         PrivacyOption(
             title = "Who can search me by email",
             currentValue = settings.searchByEmailVisibility,
-            onValueChange = { onUpdate(null, it, null, null) }
+            onValueChange = { onIntent(ProfileIntent.UpdatePrivacy(searchByEmailVisibility = it)) }
         )
         Spacer(modifier = Modifier.height(24.dp))
         PrivacyOption(
             title = "Who can see my profile photo",
             currentValue = settings.profilePhotoVisibility,
-            onValueChange = { onUpdate(null, null, it, null) }
+            onValueChange = { onIntent(ProfileIntent.UpdatePrivacy(profilePhotoVisibility = it)) }
         )
         Spacer(modifier = Modifier.height(24.dp))
         PrivacyOption(
             title = "Who can invite me to chats",
             currentValue = settings.inviteToChatVisibility,
-            onValueChange = { onUpdate(null, null, null, it) }
+            onValueChange = { onIntent(ProfileIntent.UpdatePrivacy(inviteToChatVisibility = it)) }
         )
     }
 }
