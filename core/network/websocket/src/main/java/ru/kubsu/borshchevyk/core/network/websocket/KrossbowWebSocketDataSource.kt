@@ -90,11 +90,23 @@ class KrossbowWebSocketDataSource @Inject constructor(
                             Log.e(TAG, "Received STOMP error from server: $it")
                         }
                     } catch (e: Exception) {
-                        Log.w(TAG, "STOMP Session ended/failed", e)
+                        if (e is kotlinx.coroutines.CancellationException) throw e
+                        val msg = e.message ?: ""
+                        if (e is java.net.SocketException || e.cause is java.net.SocketException || msg.contains("Connection abort")) {
+                            Log.d(TAG, "STOMP Session ended normally or connection aborted: $msg")
+                        } else {
+                            Log.w(TAG, "STOMP Session ended/failed", e)
+                        }
                     }
 
                 } catch (e: Exception) {
-                    Log.e(TAG, "Failed to connect to STOMP WebSocket", e)
+                    if (e is kotlinx.coroutines.CancellationException) throw e
+                    val msg = e.message ?: ""
+                    if (e is java.net.SocketException || e.cause is java.net.SocketException || msg.contains("Connection abort") || msg.contains("Connection refused")) {
+                        Log.d(TAG, "Failed to connect to STOMP WebSocket (Network error): $msg")
+                    } else {
+                        Log.w(TAG, "Failed to connect to STOMP WebSocket", e)
+                    }
                 }
 
                 _session.value = null
@@ -136,7 +148,12 @@ class KrossbowWebSocketDataSource @Inject constructor(
                     Log.d(TAG, "Subscribing to $destination")
                     s.subscribeText(destination)
                         .catch { e ->
-                            Log.e(TAG, "WS Subscription error on $destination", e)
+                            val msg = e.message ?: ""
+                            if (e is java.net.SocketException || e.cause is java.net.SocketException || msg.contains("Connection abort")) {
+                                Log.d(TAG, "WS Subscription ended/aborted on $destination: $msg")
+                            } else {
+                                Log.w(TAG, "WS Subscription error on $destination", e)
+                            }
                         }
                 }
                 .shareIn(
@@ -154,7 +171,7 @@ class KrossbowWebSocketDataSource @Inject constructor(
                 json.decodeFromString<T>(msg)
             }
             .catch { e ->
-                Log.e(TAG, "WS Mapping error on $destination", e)
+                Log.w(TAG, "WS Mapping error on $destination", e)
             }
     }
 
@@ -165,7 +182,7 @@ class KrossbowWebSocketDataSource @Inject constructor(
                 msg.replace("\"", "").trim()
             }
             .catch { e ->
-                Log.e(TAG, "WS Mapping error on $destination", e)
+                Log.w(TAG, "WS Mapping error on $destination", e)
             }
     }
 
@@ -190,7 +207,8 @@ class KrossbowWebSocketDataSource @Inject constructor(
             val payload = if (isTyping) "true" else "false"
             _session.value?.sendText("/app/chat/$chatId/typing", payload)
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to send typing event", e)
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            Log.w(TAG, "Failed to send typing event", e)
         }
     }
 }
