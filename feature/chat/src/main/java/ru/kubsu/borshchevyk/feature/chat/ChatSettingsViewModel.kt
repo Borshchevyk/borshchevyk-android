@@ -11,21 +11,12 @@ import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import ru.kubsu.borshchevyk.core.domain.auth.GetUserIdUseCase
-import ru.kubsu.borshchevyk.core.domain.chat.ClearChatHistoryUseCase
-import ru.kubsu.borshchevyk.core.domain.chat.DeleteChatUseCase
-import ru.kubsu.borshchevyk.core.domain.chat.GenerateInviteLinkUseCase
 import ru.kubsu.borshchevyk.core.domain.chat.GetChatMembersUseCase
 import ru.kubsu.borshchevyk.core.domain.chat.GetUserChatsUseCase
-import ru.kubsu.borshchevyk.core.domain.chat.InviteUserUseCase
-import ru.kubsu.borshchevyk.core.domain.chat.KickUserUseCase
-import ru.kubsu.borshchevyk.core.domain.chat.LeaveChatUseCase
-import ru.kubsu.borshchevyk.core.domain.chat.UpdateChatInfoUseCase
-import ru.kubsu.borshchevyk.core.domain.chat.UpdateMemberPermissionsUseCase
-import ru.kubsu.borshchevyk.core.domain.user.AddContactUseCase
-import ru.kubsu.borshchevyk.core.domain.user.GetContactsUseCase
-import ru.kubsu.borshchevyk.core.domain.user.RemoveContactUseCase
 import ru.kubsu.borshchevyk.core.model.domain.ChatMember
 import ru.kubsu.borshchevyk.core.model.domain.ChatType
+import ru.kubsu.borshchevyk.feature.chat.handlers.ChatSettingsHandler
+import ru.kubsu.borshchevyk.feature.chat.handlers.ContactHandler
 import javax.inject.Inject
 
 data class ChatSettingsUiState(
@@ -47,19 +38,10 @@ data class ChatSettingsUiState(
 class ChatSettingsViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val getChatMembersUseCase: GetChatMembersUseCase,
-    private val inviteUserUseCase: InviteUserUseCase,
-    private val generateInviteLinkUseCase: GenerateInviteLinkUseCase,
     private val getUserChatsUseCase: GetUserChatsUseCase,
-    private val updateMemberPermissionsUseCase: UpdateMemberPermissionsUseCase,
-    private val clearChatHistoryUseCase: ClearChatHistoryUseCase,
-    private val deleteChatUseCase: DeleteChatUseCase,
-    private val kickUserUseCase: KickUserUseCase,
-    private val leaveChatUseCase: LeaveChatUseCase,
-    private val updateChatInfoUseCase: UpdateChatInfoUseCase,
     private val getUserIdUseCase: GetUserIdUseCase,
-    private val getContactsUseCase: GetContactsUseCase,
-    private val addContactUseCase: AddContactUseCase,
-    private val removeContactUseCase: RemoveContactUseCase
+    private val settingsHandler: ChatSettingsHandler,
+    private val contactHandler: ContactHandler
 ) : ViewModel() {
 
     private val chatId: String = checkNotNull(savedStateHandle["chatId"])
@@ -76,22 +58,18 @@ class ChatSettingsViewModel @Inject constructor(
             _uiState.update { it.copy(isLoading = true, error = null) }
             try {
                 val userId = getUserIdUseCase().firstOrNull() ?: ""
-                val chats = getUserChatsUseCase()
-                val chat = chats.find { it.id == chatId }
-                val isGroup = chat?.type == ChatType.GROUP
-                val isPrivate = chat?.type == ChatType.PRIVATE
+                val chat = getUserChatsUseCase().find { it.id == chatId }
                 val membersPage = getChatMembersUseCase(chatId, 0, 100)
                 
-                var isContact = false
-                if (isPrivate && chat?.partnerId != null) {
-                    val contacts = getContactsUseCase()
-                    isContact = contacts.any { it.contactUserId == chat.partnerId }
-                }
+                val isPrivate = chat?.type == ChatType.PRIVATE
+                val isContact = if (isPrivate && chat?.partnerId != null) {
+                    contactHandler.isContact(chat.partnerId!!)
+                } else false
 
                 _uiState.update { 
                     it.copy(
                         currentUserId = userId,
-                        isGroupChat = isGroup,
+                        isGroupChat = chat?.type == ChatType.GROUP,
                         members = membersPage.content,
                         isContact = isContact,
                         partnerId = chat?.partnerId,
@@ -111,11 +89,7 @@ class ChatSettingsViewModel @Inject constructor(
         val partnerId = _uiState.value.partnerId ?: return
         viewModelScope.launch {
             try {
-                addContactUseCase(
-                    targetUserId = partnerId,
-                    firstName = firstName,
-                    lastName = lastName?.ifBlank { null }
-                )
+                contactHandler.addContact(partnerId, firstName, lastName)
                 _uiState.update { it.copy(isContact = true) }
             } catch (e: Exception) {
                 _uiState.update { it.copy(error = e.message ?: "Failed to add contact") }
@@ -127,7 +101,7 @@ class ChatSettingsViewModel @Inject constructor(
         val partnerId = _uiState.value.partnerId ?: return
         viewModelScope.launch {
             try {
-                removeContactUseCase(partnerId)
+                contactHandler.removeContact(partnerId)
                 _uiState.update { it.copy(isContact = false) }
             } catch (e: Exception) {
                 _uiState.update { it.copy(error = e.message ?: "Failed to remove contact") }
@@ -135,25 +109,21 @@ class ChatSettingsViewModel @Inject constructor(
         }
     }
 
-    fun onInviteUser(userId: String) {
-        viewModelScope.launch {
-            try {
-                inviteUserUseCase(chatId, userId)
-                loadData()
-            } catch (e: Exception) {
-                _uiState.update { it.copy(error = e.message) }
-            }
+    fun onInviteUser(userId: String) = viewModelScope.launch {
+        try {
+            settingsHandler.inviteUser(chatId, userId)
+            loadData()
+        } catch (e: Exception) {
+            _uiState.update { it.copy(error = e.message) }
         }
     }
 
-    fun onGenerateInviteLink() {
-        viewModelScope.launch {
-            try {
-                val link = generateInviteLinkUseCase(chatId)
-                _uiState.update { it.copy(inviteLink = link) }
-            } catch (e: Exception) {
-                _uiState.update { it.copy(error = e.message) }
-            }
+    fun onGenerateInviteLink() = viewModelScope.launch {
+        try {
+            val link = settingsHandler.generateInviteLink(chatId)
+            _uiState.update { it.copy(inviteLink = link) }
+        } catch (e: Exception) {
+            _uiState.update { it.copy(error = e.message) }
         }
     }
 
@@ -163,77 +133,54 @@ class ChatSettingsViewModel @Inject constructor(
         canDeleteMessages: Boolean,
         canInviteUsers: Boolean,
         canChangeInfo: Boolean
-    ) {
-        viewModelScope.launch {
-            try {
-                updateMemberPermissionsUseCase(
-                    chatId = chatId,
-                    targetUserId = targetUserId,
-                    canSendMessages = canSendMessages,
-                    canDeleteMessages = canDeleteMessages,
-                    canInviteUsers = canInviteUsers,
-                    canChangeInfo = canChangeInfo
-                )
-                val membersPage = getChatMembersUseCase(chatId, 0, 100)
-                _uiState.update { it.copy(members = membersPage.content) }
-            } catch (e: Exception) {
-                _uiState.update { it.copy(error = e.message) }
-            }
+    ) = viewModelScope.launch {
+        try {
+            settingsHandler.updatePermissions(chatId, targetUserId, canSendMessages, canDeleteMessages, canInviteUsers, canChangeInfo)
+            val membersPage = getChatMembersUseCase(chatId, 0, 100)
+            _uiState.update { it.copy(members = membersPage.content) }
+        } catch (e: Exception) {
+            _uiState.update { it.copy(error = e.message) }
         }
     }
 
-    fun onClearHistory(forAll: Boolean) {
-        viewModelScope.launch {
-            try {
-                clearChatHistoryUseCase(chatId, forAll)
-            } catch (e: Exception) {
-                _uiState.update { it.copy(error = e.message) }
-            }
+    fun onClearHistory(forAll: Boolean) = viewModelScope.launch {
+        try { settingsHandler.clearHistory(chatId, forAll) } catch (e: Exception) { _uiState.update { it.copy(error = e.message) } }
+    }
+
+    fun onDeleteChat() = viewModelScope.launch {
+        try {
+            settingsHandler.deleteChat(chatId)
+            _uiState.update { it.copy(isChatDeleted = true) }
+        } catch (e: Exception) {
+            _uiState.update { it.copy(error = e.message) }
         }
     }
 
-    fun onDeleteChat() {
-        viewModelScope.launch {
-            try {
-                deleteChatUseCase(chatId)
-                _uiState.update { it.copy(isChatDeleted = true) }
-            } catch (e: Exception) {
-                _uiState.update { it.copy(error = e.message) }
-            }
+    fun onKickUser(targetUserId: String) = viewModelScope.launch {
+        try {
+            settingsHandler.kickUser(chatId, targetUserId)
+            val membersPage = getChatMembersUseCase(chatId, 0, 100)
+            _uiState.update { it.copy(members = membersPage.content) }
+        } catch (e: Exception) {
+            _uiState.update { it.copy(error = e.message) }
         }
     }
 
-    fun onKickUser(targetUserId: String) {
-        viewModelScope.launch {
-            try {
-                kickUserUseCase(chatId, targetUserId)
-                val membersPage = getChatMembersUseCase(chatId, 0, 100)
-                _uiState.update { it.copy(members = membersPage.content) }
-            } catch (e: Exception) {
-                _uiState.update { it.copy(error = e.message) }
-            }
+    fun onLeaveChat() = viewModelScope.launch {
+        try {
+            settingsHandler.leaveChat(chatId)
+            _uiState.update { it.copy(isChatDeleted = true) }
+        } catch (e: Exception) {
+            _uiState.update { it.copy(error = e.message) }
         }
     }
 
-    fun onLeaveChat() {
-        viewModelScope.launch {
-            try {
-                leaveChatUseCase(chatId)
-                _uiState.update { it.copy(isChatDeleted = true) }
-            } catch (e: Exception) {
-                _uiState.update { it.copy(error = e.message) }
-            }
-        }
-    }
-
-    fun onUpdateChatInfo(title: String?, description: String?) {
-        viewModelScope.launch {
-            try {
-                updateChatInfoUseCase(chatId, title, description)
-                loadData() // Refresh info
-            } catch (e: Exception) {
-                _uiState.update { it.copy(error = e.message) }
-            }
+    fun onUpdateChatInfo(title: String?, description: String?) = viewModelScope.launch {
+        try {
+            settingsHandler.updateChatInfo(chatId, title, description)
+            loadData()
+        } catch (e: Exception) {
+            _uiState.update { it.copy(error = e.message) }
         }
     }
 }

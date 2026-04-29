@@ -30,6 +30,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -38,20 +39,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import ru.kubsu.borshchevyk.core.model.domain.DomainAttachmentType
 import ru.kubsu.borshchevyk.core.model.domain.Message
+import ru.kubsu.borshchevyk.core.model.domain.MessageStatus
 import ru.kubsu.borshchevyk.core.ui.theme.BorshchevykTheme
-
-private fun formatMessageTime(timeStr: String): String {
-    return try {
-        val cleanStr = timeStr.removeSuffix("Z")
-        val ldt = java.time.LocalDateTime.parse(cleanStr)
-        val instant = ldt.toInstant(java.time.ZoneOffset.UTC)
-        val localTime = java.time.LocalDateTime.ofInstant(instant, java.time.ZoneId.systemDefault())
-        localTime.format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"))
-    } catch (e: Exception) {
-        timeStr.substringAfter("T").substringBeforeLast(":")
-    }
-}
+import ru.kubsu.borshchevyk.feature.chat.util.MessageTimeFormatter
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -72,28 +64,31 @@ internal fun MessageBubble(
     onForward: () -> Unit
 ) {
     var showMenu by rememberSaveable { mutableStateOf(false) }
-    val author = message.author
-    val authorName = author?.let { "${it.firstName} ${it.lastName ?: ""}".trim() } ?: "User"
-
+    
     LaunchedEffect(message.id) {
-        if (!isFromMe) {
-            onMessageVisible()
-        }
+        if (!isFromMe) onMessageVisible()
     }
     
-    val bubbleShape = if (isFromMe) {
-        RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp, bottomStart = 20.dp, bottomEnd = 4.dp)
-    } else {
-        RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp, bottomStart = 4.dp, bottomEnd = 20.dp)
+    val bubbleShape = remember(isFromMe) {
+        if (isFromMe) {
+            RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp, bottomStart = 20.dp, bottomEnd = 4.dp)
+        } else {
+            RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp, bottomStart = 4.dp, bottomEnd = 20.dp)
+        }
     }
 
-    val isOnlyCircle = message.text.isBlank() && message.attachments.size == 1 && message.attachments.first().type == ru.kubsu.borshchevyk.core.model.domain.DomainAttachmentType.CIRCLE
+    val isOnlyCircle = remember(message.text, message.attachments) {
+        message.text.isBlank() && message.attachments.size == 1 && message.attachments.first().type == DomainAttachmentType.CIRCLE
+    }
 
     Column(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
         horizontalAlignment = if (isFromMe) Alignment.End else Alignment.Start
     ) {
         if (!isFromMe) {
+            val authorName = remember(message.author) {
+                message.author?.let { "${it.firstName} ${it.lastName ?: ""}".trim() } ?: "User"
+            }
             Text(
                 text = authorName,
                 style = BorshchevykTheme.typography.labelSmall,
@@ -112,226 +107,219 @@ internal fun MessageBubble(
                     onLongClick = { showMenu = true }
                 )
             ) {
-                Column(
-                    modifier = Modifier.padding(horizontal = if (isOnlyCircle) 0.dp else 16.dp, vertical = if (isOnlyCircle) 0.dp else 10.dp)
-                ) {
-                    if (message.forwardedFromUser != null) {
-                        val forwardedAuthor = message.forwardedFromUser
-                        val forwardedName = forwardedAuthor?.let { "${it.firstName} ${it.lastName ?: ""}".trim() }?.ifBlank { "User" } ?: "User"
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Default.Info,
-                                contentDescription = "Forwarded",
-                                modifier = Modifier.size(12.dp),
-                                tint = if (isOnlyCircle) Color.White.copy(alpha = 0.7f) else if (isFromMe) BorshchevykTheme.colors.onPrimary.copy(alpha = 0.7f) else BorshchevykTheme.colors.primary.copy(alpha = 0.7f)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = "Forwarded from $forwardedName",
-                                style = BorshchevykTheme.typography.labelSmall.copy(fontStyle = FontStyle.Italic),
-                                color = if (isOnlyCircle) Color.White.copy(alpha = 0.7f) else if (isFromMe) BorshchevykTheme.colors.onPrimary.copy(alpha = 0.7f) else BorshchevykTheme.colors.primary.copy(alpha = 0.7f)
-                            )
-                        }
-                        Spacer(modifier = Modifier.height(4.dp))
-                    }
-
-                    if (message.attachments.isNotEmpty()) {
-                        AttachmentGallery(
-                            attachments = message.attachments,
-                            attachmentUrls = attachmentUrls,
-                            onResolveAttachmentUrl = onResolveAttachmentUrl,
-                            isFromMe = isFromMe
-                        )
-                        Spacer(modifier = Modifier.height(if (isOnlyCircle) 0.dp else 8.dp))
-                    }
-
-                    if (message.text.isNotBlank()) {
-                        Text(
-                            text = message.text,
-                            style = BorshchevykTheme.typography.bodyLarge,
-                            color = if (isFromMe) BorshchevykTheme.colors.onPrimary else BorshchevykTheme.colors.onSurface
-                        )
-                    }
-
-                    val timeRowModifier = if (isOnlyCircle) {
-                        Modifier
-                            .padding(top = 4.dp)
-                            .align(Alignment.End)
-                            .background(Color.Black.copy(alpha = 0.4f), RoundedCornerShape(12.dp))
-                            .padding(horizontal = 6.dp, vertical = 2.dp)
-                    } else {
-                        Modifier.padding(top = 4.dp).align(Alignment.End)
-                    }
-
-                    val tickColor = if (isOnlyCircle) Color.White.copy(alpha = 0.8f) else if (isFromMe) BorshchevykTheme.colors.onPrimary.copy(alpha = 0.7f) else BorshchevykTheme.colors.onSurfaceVariant.copy(alpha = 0.7f)
-
-                    Row(
-                        modifier = timeRowModifier,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        val isEdited = message.updatedAt != null && message.updatedAt != message.createdAt
-                        if (isEdited) {
-                            Text(
-                                text = "edited",
-                                style = BorshchevykTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                                color = tickColor
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                        }
-                        
-                        Text(
-                            text = formatMessageTime(message.createdAt),
-                            style = BorshchevykTheme.typography.labelSmall.copy(fontSize = 10.sp),
-                            color = tickColor
-                        )
-
-                        if (isFromMe) {
-                            Spacer(modifier = Modifier.width(4.dp))
-                            when (message.status) {
-                                ru.kubsu.borshchevyk.core.model.domain.MessageStatus.SENDING -> {
-                                    androidx.compose.material3.CircularProgressIndicator(
-                                        modifier = Modifier.size(12.dp),
-                                        strokeWidth = 1.dp,
-                                        color = tickColor
-                                    )
-                                }
-                                ru.kubsu.borshchevyk.core.model.domain.MessageStatus.READ -> {
-                                    Icon(
-                                        imageVector = Icons.Default.DoneAll,
-                                        contentDescription = "Read",
-                                        modifier = Modifier.size(14.dp),
-                                        tint = tickColor
-                                    )
-                                }
-                                ru.kubsu.borshchevyk.core.model.domain.MessageStatus.ERROR -> {
-                                    Icon(
-                                        imageVector = Icons.Default.ErrorOutline,
-                                        contentDescription = "Error, tap to retry",
-                                        modifier = Modifier.size(14.dp).clickable { onResend() },
-                                        tint = BorshchevykTheme.colors.error
-                                    )
-                                }
-                                else -> {
-                                    Icon(
-                                        imageVector = Icons.Default.Done,
-                                        contentDescription = "Sent",
-                                        modifier = Modifier.size(14.dp),
-                                        tint = tickColor
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
+                MessageContent(
+                    message = message,
+                    isFromMe = isFromMe,
+                    isOnlyCircle = isOnlyCircle,
+                    attachmentUrls = attachmentUrls,
+                    onResolveAttachmentUrl = onResolveAttachmentUrl,
+                    onResend = onResend
+                )
             }
             
-            DropdownMenu(
-                expanded = showMenu,
-                onDismissRequest = { showMenu = false },
-                containerColor = BorshchevykTheme.colors.surface
-            ) {
-                DropdownMenuItem(
-                    text = { Text("Forward Message") },
-                    onClick = {
-                        showMenu = false
-                        onForward()
-                    }
-                )
-                DropdownMenuItem(
-                    text = { Text(if (message.isPinned) "Unpin Message" else "Pin Message") },
-                    onClick = {
-                        showMenu = false
-                        onPinToggle()
-                    }
-                )
-                if (isFromMe) {
-                    DropdownMenuItem(
-                        text = { Text("Edit Message") },
-                        onClick = {
-                            showMenu = false
-                            onEdit()
-                        }
-                    )
-                    DropdownMenuItem(
-                        text = { Text("Delete for Everyone") },
-                        onClick = {
-                            showMenu = false
-                            onDelete(true)
-                        }
-                    )
-                }
-                DropdownMenuItem(
-                    text = { Text("Delete for Me") },
-                    onClick = {
-                        showMenu = false
-                        onDelete(false)
-                    }
-                )
-                if (isFromMe) {
-                    DropdownMenuItem(
-                        text = { Text("View Readers") },
-                        onClick = {
-                            showMenu = false
-                            onViewReaders()
-                        }
-                    )
-                }
-                DropdownMenuItem(
-                    text = { Text("View Comments (${message.commentsCount})") },
-                    onClick = {
-                        showMenu = false
-                        onViewComments()
-                    }
-                )
-
-                HorizontalDivider(color = BorshchevykTheme.colors.outline.copy(alpha = 0.5f))
-                val reactions = listOf("👍", "❤️", "😂", "😢", "🔥")
-                Row(modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)) {
-                    reactions.forEach { emoji ->
-                        Text(
-                            text = emoji,
-                            modifier = Modifier
-                                .clickable {
-                                    showMenu = false
-                                    onReactionToggle(emoji)
-                                }
-                                .padding(8.dp),
-                            fontSize = 20.sp
-                        )
-                    }
-                }
-            }
+            MessageDropdownMenu(
+                showMenu = showMenu,
+                onDismiss = { showMenu = false },
+                message = message,
+                isFromMe = isFromMe,
+                onForward = onForward,
+                onPinToggle = onPinToggle,
+                onEdit = onEdit,
+                onDelete = onDelete,
+                onViewReaders = onViewReaders,
+                onViewComments = onViewComments,
+                onReactionToggle = onReactionToggle
+            )
         }
 
         if (message.reactions.isNotEmpty()) {
-            val reactionCounts = message.reactions.groupBy { it.reaction }.mapValues { it.value.size }
-            Row(
-                modifier = Modifier.padding(top = 4.dp, start = if (isFromMe) 0.dp else 8.dp, end = if (isFromMe) 8.dp else 0.dp),
-                horizontalArrangement = if (isFromMe) Arrangement.End else Arrangement.Start
+            ReactionList(
+                reactions = message.reactions,
+                currentUserId = currentUserId,
+                isFromMe = isFromMe,
+                onReactionToggle = onReactionToggle
+            )
+        }
+    }
+}
+
+@Composable
+private fun MessageContent(
+    message: Message,
+    isFromMe: Boolean,
+    isOnlyCircle: Boolean,
+    attachmentUrls: Map<String, String>,
+    onResolveAttachmentUrl: (String) -> Unit,
+    onResend: () -> Unit
+) {
+    Column(
+        modifier = Modifier.padding(
+            horizontal = if (isOnlyCircle) 0.dp else 16.dp, 
+            vertical = if (isOnlyCircle) 0.dp else 10.dp
+        )
+    ) {
+        if (message.forwardedFromUser != null) {
+            ForwardedInfo(message, isFromMe, isOnlyCircle)
+        }
+
+        if (message.attachments.isNotEmpty()) {
+            AttachmentGallery(
+                attachments = message.attachments,
+                attachmentUrls = attachmentUrls,
+                onResolveAttachmentUrl = onResolveAttachmentUrl,
+                isFromMe = isFromMe
+            )
+            if (!isOnlyCircle) Spacer(modifier = Modifier.height(8.dp))
+        }
+
+        if (message.text.isNotBlank()) {
+            Text(
+                text = message.text,
+                style = BorshchevykTheme.typography.bodyLarge,
+                color = if (isFromMe) BorshchevykTheme.colors.onPrimary else BorshchevykTheme.colors.onSurface
+            )
+        }
+
+        MessageTimeAndStatus(message, isFromMe, isOnlyCircle, onResend)
+    }
+}
+
+@Composable
+private fun ForwardedInfo(message: Message, isFromMe: Boolean, isOnlyCircle: Boolean) {
+    val forwardedName = remember(message.forwardedFromUser) {
+        message.forwardedFromUser?.let { "${it.firstName} ${it.lastName ?: ""}".trim() }?.ifBlank { "User" } ?: "User"
+    }
+    val color = if (isOnlyCircle) Color.White.copy(alpha = 0.7f) 
+                else if (isFromMe) BorshchevykTheme.colors.onPrimary.copy(alpha = 0.7f) 
+                else BorshchevykTheme.colors.primary.copy(alpha = 0.7f)
+
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Icon(Icons.Default.Info, contentDescription = null, modifier = Modifier.size(12.dp), tint = color)
+        Spacer(modifier = Modifier.width(4.dp))
+        Text(
+            text = "Forwarded from $forwardedName",
+            style = BorshchevykTheme.typography.labelSmall.copy(fontStyle = FontStyle.Italic),
+            color = color
+        )
+    }
+    Spacer(modifier = Modifier.height(4.dp))
+}
+
+@Composable
+private fun MessageTimeAndStatus(
+    message: Message,
+    isFromMe: Boolean,
+    isOnlyCircle: Boolean,
+    onResend: () -> Unit
+) {
+    val color = if (isOnlyCircle) Color.White.copy(alpha = 0.8f) 
+                else if (isFromMe) BorshchevykTheme.colors.onPrimary.copy(alpha = 0.7f) 
+                else BorshchevykTheme.colors.onSurfaceVariant.copy(alpha = 0.7f)
+
+    val rowModifier = if (isOnlyCircle) {
+        Modifier
+            .padding(top = 4.dp)
+            .background(Color.Black.copy(alpha = 0.4f), RoundedCornerShape(12.dp))
+            .padding(horizontal = 6.dp, vertical = 2.dp)
+    } else {
+        Modifier.padding(top = 4.dp)
+    }
+
+    Row(modifier = rowModifier.padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        if (message.updatedAt != null && message.updatedAt != message.createdAt) {
+            Text("edited", style = BorshchevykTheme.typography.labelSmall.copy(fontSize = 10.sp), color = color)
+            Spacer(modifier = Modifier.width(4.dp))
+        }
+        
+        Text(
+            text = MessageTimeFormatter.format(message.createdAt),
+            style = BorshchevykTheme.typography.labelSmall.copy(fontSize = 10.sp),
+            color = color
+        )
+
+        if (isFromMe) {
+            Spacer(modifier = Modifier.width(4.dp))
+            StatusIcon(message.status, color, onResend)
+        }
+    }
+}
+
+@Composable
+private fun StatusIcon(status: MessageStatus?, color: Color, onResend: () -> Unit) {
+    when (status) {
+        MessageStatus.SENDING -> androidx.compose.material3.CircularProgressIndicator(modifier = Modifier.size(12.dp), strokeWidth = 1.dp, color = color)
+        MessageStatus.READ -> Icon(Icons.Default.DoneAll, contentDescription = "Read", modifier = Modifier.size(14.dp), tint = color)
+        MessageStatus.ERROR -> Icon(Icons.Default.ErrorOutline, contentDescription = "Retry", modifier = Modifier.size(14.dp).clickable { onResend() }, tint = BorshchevykTheme.colors.error)
+        else -> Icon(Icons.Default.Done, contentDescription = "Sent", modifier = Modifier.size(14.dp), tint = color)
+    }
+}
+
+@Composable
+private fun MessageDropdownMenu(
+    showMenu: Boolean,
+    onDismiss: () -> Unit,
+    message: Message,
+    isFromMe: Boolean,
+    onForward: () -> Unit,
+    onPinToggle: () -> Unit,
+    onEdit: () -> Unit,
+    onDelete: (Boolean) -> Unit,
+    onViewReaders: () -> Unit,
+    onViewComments: () -> Unit,
+    onReactionToggle: (String) -> Unit
+) {
+    DropdownMenu(
+        expanded = showMenu,
+        onDismissRequest = onDismiss,
+        containerColor = BorshchevykTheme.colors.surface
+    ) {
+        DropdownMenuItem(text = { Text("Forward") }, onClick = { onDismiss(); onForward() })
+        DropdownMenuItem(text = { Text(if (message.isPinned) "Unpin" else "Pin") }, onClick = { onDismiss(); onPinToggle() })
+        if (isFromMe) {
+            DropdownMenuItem(text = { Text("Edit") }, onClick = { onDismiss(); onEdit() })
+            DropdownMenuItem(text = { Text("Delete for Everyone") }, onClick = { onDismiss(); onDelete(true) })
+        }
+        DropdownMenuItem(text = { Text("Delete for Me") }, onClick = { onDismiss(); onDelete(false) })
+        if (isFromMe) DropdownMenuItem(text = { Text("View Readers") }, onClick = { onDismiss(); onViewReaders() })
+        DropdownMenuItem(text = { Text("Comments (${message.commentsCount})") }, onClick = { onDismiss(); onViewComments() })
+
+        HorizontalDivider(color = BorshchevykTheme.colors.outline.copy(alpha = 0.5f))
+        Row(modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)) {
+            listOf("👍", "❤️", "😂", "😢", "🔥").forEach { emoji ->
+                Text(
+                    text = emoji,
+                    modifier = Modifier.clickable { onDismiss(); onReactionToggle(emoji) }.padding(8.dp),
+                    fontSize = 20.sp
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ReactionList(
+    reactions: List<ru.kubsu.borshchevyk.core.model.domain.MessageReaction>,
+    currentUserId: String,
+    isFromMe: Boolean,
+    onReactionToggle: (String) -> Unit
+) {
+    val reactionCounts = remember(reactions) { reactions.groupBy { it.reaction }.mapValues { it.value.size } }
+    Row(
+        modifier = Modifier.padding(top = 4.dp, start = if (isFromMe) 0.dp else 8.dp, end = if (isFromMe) 8.dp else 0.dp),
+        horizontalArrangement = if (isFromMe) Arrangement.End else Arrangement.Start
+    ) {
+        reactionCounts.forEach { (emoji, count) ->
+            val iReacted = reactions.any { it.reaction == emoji && it.userId == currentUserId }
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = if (iReacted) BorshchevykTheme.colors.primaryContainer else BorshchevykTheme.colors.surfaceVariant,
+                border = if (iReacted) androidx.compose.foundation.BorderStroke(1.dp, BorshchevykTheme.colors.primary) else null,
+                modifier = Modifier.padding(end = 4.dp).clickable { onReactionToggle(emoji) }
             ) {
-                reactionCounts.forEach { (emoji, count) ->
-                    val iReacted = message.reactions.any { it.reaction == emoji && it.userId == currentUserId }
-                    Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = if (iReacted) BorshchevykTheme.colors.primaryContainer else BorshchevykTheme.colors.surfaceVariant,
-                        border = if (iReacted) androidx.compose.foundation.BorderStroke(1.dp, BorshchevykTheme.colors.primary) else null,
-                        modifier = Modifier
-                            .padding(end = 4.dp)
-                            .clickable { onReactionToggle(emoji) }
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(text = emoji, fontSize = 12.sp)
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = count.toString(),
-                                style = BorshchevykTheme.typography.labelSmall,
-                                color = if (iReacted) BorshchevykTheme.colors.primary else BorshchevykTheme.colors.onSurfaceVariant
-                            )
-                        }
-                    }
+                Row(modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(text = emoji, fontSize = 12.sp)
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(text = count.toString(), style = BorshchevykTheme.typography.labelSmall, color = if (iReacted) BorshchevykTheme.colors.primary else BorshchevykTheme.colors.onSurfaceVariant)
                 }
             }
         }
