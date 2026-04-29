@@ -82,4 +82,37 @@ interface MessageDao {
 
     @Query("DELETE FROM messages")
     fun deleteAll()
+
+    @Query("DELETE FROM attachments WHERE messageId IN (:messageIds)")
+    fun deleteAttachmentsForMessages(messageIds: List<String>)
+
+    @Query("DELETE FROM reactions WHERE messageId IN (:messageIds)")
+    fun deleteReactionsForMessages(messageIds: List<String>)
+
+    @Transaction
+    fun upsertMessagesWithDetails(
+        messages: List<MessageEntity>,
+        users: List<UserEntity>,
+        attachments: List<AttachmentEntity>,
+        reactions: List<ReactionEntity>
+    ) {
+        if (users.isNotEmpty()) {
+            insertUsers(users)
+        }
+        
+        insertMessageEntities(messages)
+        
+        val messageIds = messages.map { it.id }
+        messageIds.chunked(900).forEach { chunk ->
+            deleteAttachmentsForMessages(chunk)
+            deleteReactionsForMessages(chunk)
+        }
+        
+        if (attachments.isNotEmpty()) {
+            insertAttachments(attachments)
+        }
+        if (reactions.isNotEmpty()) {
+            insertReactions(reactions)
+        }
+    }
 }

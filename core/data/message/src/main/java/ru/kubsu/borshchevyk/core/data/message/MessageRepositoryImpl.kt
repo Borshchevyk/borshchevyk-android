@@ -69,9 +69,12 @@ class MessageRepositoryImpl @Inject constructor(
     override suspend fun syncChatHistory(chatId: String, page: Int, size: Int) {
         withContext(ioDispatcher) {
             val messages = networkDataSource.loadChatHistory(chatId, page, size).getOrThrow().map { it.toDomain() }
-            // Run bulk inserts safely inside a coroutine transaction is generally faster, 
-            // but we can just iterate the upsert for now to reuse our complex insert logic
-            messages.forEach { it.saveToDb() }
+            val messageEntities = messages.map { it.toMessageEntity() }
+            val users = messages.flatMap { listOfNotNull(it.toAuthorEntity(), it.toForwardedUserEntity()) }.distinctBy { it.userId }
+            val attachments = messages.flatMap { it.toAttachmentEntities() }
+            val reactions = messages.flatMap { it.toReactionEntities() }
+            
+            messageDao.upsertMessagesWithDetails(messageEntities, users, attachments, reactions)
         }
     }
 

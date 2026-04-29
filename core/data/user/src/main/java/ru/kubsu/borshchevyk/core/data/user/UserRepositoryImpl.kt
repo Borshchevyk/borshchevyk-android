@@ -21,11 +21,18 @@ import ru.kubsu.borshchevyk.core.network.di.IoDispatcher
 import ru.kubsu.borshchevyk.core.network.user.UserNetworkDataSource
 import javax.inject.Inject
 
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
+import android.util.Log
+
 class UserRepositoryImpl @Inject constructor(
     private val networkDataSource: UserNetworkDataSource,
     private val userDao: UserDao,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher
 ) : UserRepository {
+
+    private val repositoryScope = CoroutineScope(SupervisorJob() + ioDispatcher)
 
     override suspend fun searchUsers(query: String): List<User> {
         val users = networkDataSource.searchUsers(query).getOrThrow().map { it.toEntity() }
@@ -45,7 +52,13 @@ class UserRepositoryImpl @Inject constructor(
     override suspend fun getUserProfile(userIdOrTag: String): User {
         val cached = userDao.getUser(userIdOrTag)?.toDomain()
         if (cached != null) {
-            syncUserProfile(userIdOrTag)
+            repositoryScope.launch {
+                try {
+                    syncUserProfile(userIdOrTag)
+                } catch (e: Exception) {
+                    Log.w("UserRepository", "Failed background sync for user $userIdOrTag, using cache", e)
+                }
+            }
             return cached
         }
         val userEntity = networkDataSource.getUserProfile(userIdOrTag).getOrThrow().toEntity()

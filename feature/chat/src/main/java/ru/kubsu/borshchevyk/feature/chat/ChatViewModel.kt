@@ -245,7 +245,11 @@ class ChatViewModel @Inject constructor(
                 }
 
                 // Trigger network sync
-                historyUseCases.syncChatHistory(chatId, 0, 50)
+                try {
+                    historyUseCases.syncChatHistory(chatId, 0, 50)
+                } catch (e: Exception) {
+                    Log.w(TAG, "Failed to sync chat history, relying on cache", e)
+                }
             } catch (e: Exception) {
                 dispatch(ChatStateAction.LoadFailed(e.message ?: "Failed to load chat"))
             }
