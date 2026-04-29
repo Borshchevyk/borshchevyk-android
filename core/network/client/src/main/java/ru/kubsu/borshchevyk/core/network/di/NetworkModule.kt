@@ -9,6 +9,7 @@ import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.engine.okhttp.OkHttp
 import io.ktor.client.plugins.HttpTimeout
+import io.ktor.client.plugins.HttpRequestRetry
 import io.ktor.client.plugins.auth.Auth
 import io.ktor.client.plugins.auth.providers.BearerTokens
 import io.ktor.client.plugins.auth.providers.bearer
@@ -23,8 +24,8 @@ import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.serialization.json.Json
-import ru.kubsu.borshchevyk.core.model.dto.RefreshRequest
-import ru.kubsu.borshchevyk.core.model.dto.VerifyResponse
+import ru.kubsu.borshchevyk.core.network.dto.RefreshRequest
+import ru.kubsu.borshchevyk.core.network.dto.VerifyResponse
 import ru.kubsu.borshchevyk.core.network.client.BuildConfig
 import ru.kubsu.borshchevyk.core.network.client.TokenProvider
 import javax.inject.Singleton
@@ -53,6 +54,14 @@ object NetworkModule {
                 requestTimeoutMillis = BuildConfig.TIMEOUT_MILLIS
                 connectTimeoutMillis = BuildConfig.TIMEOUT_MILLIS
                 socketTimeoutMillis = BuildConfig.TIMEOUT_MILLIS
+            }
+
+            install(HttpRequestRetry) {
+                retryOnServerErrors(maxRetries = 3)
+                exponentialDelay()
+                modifyRequest { request ->
+                    request.headers.append("X-Retry-Count", retryCount.toString())
+                }
             }
             
             install(Logging) {
@@ -97,7 +106,11 @@ object NetworkModule {
                         val host = request.url.host
                         val isS3Request = host.contains("s3.cloud.ru") || host.contains("amazonaws.com")
                         val isAuthRequest = request.url.pathSegments.contains("auth")
-                        isS3Request || isAuthRequest
+                        val isRefreshRequest = request.url.pathSegments.contains("refresh")
+                        
+                        // DO NOT send tokens for S3 or general Auth requests (login/register)
+                        // But DO send them for refresh requests or anything else
+                        !isS3Request && (!isAuthRequest || isRefreshRequest)
                     }
                 }
             }

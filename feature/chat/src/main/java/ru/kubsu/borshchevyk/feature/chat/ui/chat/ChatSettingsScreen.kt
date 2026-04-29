@@ -43,7 +43,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import ru.kubsu.borshchevyk.core.model.domain.ChatMember
 import ru.kubsu.borshchevyk.core.model.domain.ChatMemberRole
-import ru.kubsu.borshchevyk.core.model.dto.UpdatePermissionsRequest
+import ru.kubsu.borshchevyk.core.network.dto.UpdatePermissionsRequest
 import ru.kubsu.borshchevyk.core.ui.theme.BorshchevykTheme
 import ru.kubsu.borshchevyk.feature.chat.ChatSettingsUiState
 import ru.kubsu.borshchevyk.feature.chat.ui.chat.components.AddContactDialog

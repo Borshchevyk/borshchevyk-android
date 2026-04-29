@@ -1,4 +1,4 @@
-package ru.kubsu.borshchevyk.core.model.domain
+package ru.kubsu.borshchevyk.core.network.client
 
 sealed interface NetworkResult<out T> {
     data class Success<out T>(val data: T) : NetworkResult<T>

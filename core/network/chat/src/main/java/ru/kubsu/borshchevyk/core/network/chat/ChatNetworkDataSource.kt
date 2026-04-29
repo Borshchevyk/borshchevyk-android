@@ -1,14 +1,14 @@
 package ru.kubsu.borshchevyk.core.network.chat
 
-import ru.kubsu.borshchevyk.core.model.domain.NetworkResult
-import ru.kubsu.borshchevyk.core.model.dto.ChatMemberResponse
-import ru.kubsu.borshchevyk.core.model.dto.ChatResponse
-import ru.kubsu.borshchevyk.core.model.dto.CreateChatRequest
-import ru.kubsu.borshchevyk.core.model.dto.GlobalSearchResponse
-import ru.kubsu.borshchevyk.core.model.dto.PageResponse
-import ru.kubsu.borshchevyk.core.model.dto.TargetUserRequest
-import ru.kubsu.borshchevyk.core.model.dto.UpdateChatInfoRequest
-import ru.kubsu.borshchevyk.core.model.dto.UpdatePermissionsRequest
+import ru.kubsu.borshchevyk.core.network.client.NetworkResult
+import ru.kubsu.borshchevyk.core.network.dto.ChatMemberResponse
+import ru.kubsu.borshchevyk.core.network.dto.ChatResponse
+import ru.kubsu.borshchevyk.core.network.dto.CreateChatRequest
+import ru.kubsu.borshchevyk.core.network.dto.GlobalSearchResponse
+import ru.kubsu.borshchevyk.core.network.dto.PageResponse
+import ru.kubsu.borshchevyk.core.network.dto.TargetUserRequest
+import ru.kubsu.borshchevyk.core.network.dto.UpdateChatInfoRequest
+import ru.kubsu.borshchevyk.core.network.dto.UpdatePermissionsRequest
 
 interface ChatNetworkDataSource {
     suspend fun createChat(request: CreateChatRequest): NetworkResult<ChatResponse>

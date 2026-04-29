@@ -3,8 +3,8 @@ package ru.kubsu.borshchevyk.core.data.call
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import ru.kubsu.borshchevyk.core.domain.call.CallRepository
-import ru.kubsu.borshchevyk.core.model.domain.getOrThrow
-import ru.kubsu.borshchevyk.core.model.dto.CreateCallRequest
+import ru.kubsu.borshchevyk.core.network.client.getOrThrow
+import ru.kubsu.borshchevyk.core.network.dto.CreateCallRequest
 import ru.kubsu.borshchevyk.core.network.call.CallNetworkDataSource
 import ru.kubsu.borshchevyk.core.network.websocket.CallWebSocketDataSource
 import javax.inject.Inject

@@ -14,9 +14,9 @@ import ru.kubsu.borshchevyk.core.model.domain.DomainReadReceiptEvent
 import ru.kubsu.borshchevyk.core.model.domain.DomainTypingEvent
 import ru.kubsu.borshchevyk.core.model.domain.Message
 import ru.kubsu.borshchevyk.core.model.domain.MessageStatus
-import ru.kubsu.borshchevyk.core.model.domain.getOrThrow
-import ru.kubsu.borshchevyk.core.model.dto.EditMessageRequest
-import ru.kubsu.borshchevyk.core.model.dto.SendMessageRequest
+import ru.kubsu.borshchevyk.core.network.client.getOrThrow
+import ru.kubsu.borshchevyk.core.network.dto.EditMessageRequest
+import ru.kubsu.borshchevyk.core.network.dto.SendMessageRequest
 import ru.kubsu.borshchevyk.core.network.di.IoDispatcher
 import ru.kubsu.borshchevyk.core.network.message.MessageNetworkDataSource
 import ru.kubsu.borshchevyk.core.network.websocket.ChatWebSocketDataSource

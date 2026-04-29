@@ -18,11 +18,11 @@ import ru.kubsu.borshchevyk.core.model.domain.DomainTargetUserParam
 import ru.kubsu.borshchevyk.core.model.domain.DomainUpdateChatInfoParam
 import ru.kubsu.borshchevyk.core.model.domain.DomainUpdatePermissionsParam
 import ru.kubsu.borshchevyk.core.model.domain.GlobalSearchResults
-import ru.kubsu.borshchevyk.core.model.domain.getOrThrow
-import ru.kubsu.borshchevyk.core.model.dto.CreateChatRequest
-import ru.kubsu.borshchevyk.core.model.dto.TargetUserRequest
-import ru.kubsu.borshchevyk.core.model.dto.UpdateChatInfoRequest
-import ru.kubsu.borshchevyk.core.model.dto.UpdatePermissionsRequest
+import ru.kubsu.borshchevyk.core.network.client.getOrThrow
+import ru.kubsu.borshchevyk.core.network.dto.CreateChatRequest
+import ru.kubsu.borshchevyk.core.network.dto.TargetUserRequest
+import ru.kubsu.borshchevyk.core.network.dto.UpdateChatInfoRequest
+import ru.kubsu.borshchevyk.core.network.dto.UpdatePermissionsRequest
 import ru.kubsu.borshchevyk.core.network.chat.ChatNetworkDataSource
 import ru.kubsu.borshchevyk.core.network.di.IoDispatcher
 import javax.inject.Inject

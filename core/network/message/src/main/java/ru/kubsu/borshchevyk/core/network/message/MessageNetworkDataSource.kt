@@ -1,10 +1,10 @@
 package ru.kubsu.borshchevyk.core.network.message
 
-import ru.kubsu.borshchevyk.core.model.domain.NetworkResult
-import ru.kubsu.borshchevyk.core.model.dto.EditMessageRequest
-import ru.kubsu.borshchevyk.core.model.dto.EnrichedUserResponse
-import ru.kubsu.borshchevyk.core.model.dto.MessageResponse
-import ru.kubsu.borshchevyk.core.model.dto.SendMessageRequest
+import ru.kubsu.borshchevyk.core.network.client.NetworkResult
+import ru.kubsu.borshchevyk.core.network.dto.EditMessageRequest
+import ru.kubsu.borshchevyk.core.network.dto.EnrichedUserResponse
+import ru.kubsu.borshchevyk.core.network.dto.MessageResponse
+import ru.kubsu.borshchevyk.core.network.dto.SendMessageRequest
 
 interface MessageNetworkDataSource {
     suspend fun sendMessage(chatId: String, request: SendMessageRequest): NetworkResult<MessageResponse>

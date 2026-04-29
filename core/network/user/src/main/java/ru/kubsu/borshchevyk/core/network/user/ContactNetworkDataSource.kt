@@ -1,8 +1,8 @@
 package ru.kubsu.borshchevyk.core.network.user
 
-import ru.kubsu.borshchevyk.core.model.domain.NetworkResult
-import ru.kubsu.borshchevyk.core.model.dto.AddContactRequest
-import ru.kubsu.borshchevyk.core.model.dto.ContactResponse
+import ru.kubsu.borshchevyk.core.network.client.NetworkResult
+import ru.kubsu.borshchevyk.core.network.dto.AddContactRequest
+import ru.kubsu.borshchevyk.core.network.dto.ContactResponse
 
 interface ContactNetworkDataSource {
     suspend fun getContacts(): NetworkResult<List<ContactResponse>>

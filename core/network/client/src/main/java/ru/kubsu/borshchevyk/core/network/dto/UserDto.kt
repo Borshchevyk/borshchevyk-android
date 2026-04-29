@@ -1,4 +1,4 @@
-package ru.kubsu.borshchevyk.core.model.dto
+package ru.kubsu.borshchevyk.core.network.dto
 
 import kotlinx.serialization.Serializable
 import ru.kubsu.borshchevyk.core.model.domain.Visibility

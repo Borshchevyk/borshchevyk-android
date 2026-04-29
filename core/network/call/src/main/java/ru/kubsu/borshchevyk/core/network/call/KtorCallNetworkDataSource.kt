@@ -5,10 +5,10 @@ import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
-import ru.kubsu.borshchevyk.core.model.domain.NetworkResult
-import ru.kubsu.borshchevyk.core.model.dto.CallResponse
-import ru.kubsu.borshchevyk.core.model.dto.CreateCallRequest
-import ru.kubsu.borshchevyk.core.model.dto.JoinCallResponse
+import ru.kubsu.borshchevyk.core.network.client.NetworkResult
+import ru.kubsu.borshchevyk.core.network.dto.CallResponse
+import ru.kubsu.borshchevyk.core.network.dto.CreateCallRequest
+import ru.kubsu.borshchevyk.core.network.dto.JoinCallResponse
 import ru.kubsu.borshchevyk.core.network.client.safeRequest
 import ru.kubsu.borshchevyk.core.network.di.IoDispatcher
 import javax.inject.Inject

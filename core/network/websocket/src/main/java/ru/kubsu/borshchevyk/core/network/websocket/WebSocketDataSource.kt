@@ -1,11 +1,11 @@
 package ru.kubsu.borshchevyk.core.network.websocket
 
 import kotlinx.coroutines.flow.Flow
-import ru.kubsu.borshchevyk.core.model.dto.NotificationDto
-import ru.kubsu.borshchevyk.core.model.dto.PresenceStatusResponse
-import ru.kubsu.borshchevyk.core.model.dto.ReactionEvent
-import ru.kubsu.borshchevyk.core.model.dto.ReadReceiptEvent
-import ru.kubsu.borshchevyk.core.model.dto.TypingEvent
+import ru.kubsu.borshchevyk.core.network.dto.NotificationDto
+import ru.kubsu.borshchevyk.core.network.dto.PresenceStatusResponse
+import ru.kubsu.borshchevyk.core.network.dto.ReactionEvent
+import ru.kubsu.borshchevyk.core.network.dto.ReadReceiptEvent
+import ru.kubsu.borshchevyk.core.network.dto.TypingEvent
 
 interface WebSocketConnectionManager {
     suspend fun connect()

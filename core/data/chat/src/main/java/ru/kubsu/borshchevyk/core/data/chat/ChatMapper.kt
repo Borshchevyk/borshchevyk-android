@@ -2,8 +2,8 @@ package ru.kubsu.borshchevyk.core.data.chat
 
 import ru.kubsu.borshchevyk.core.database.entity.ChatEntity
 import ru.kubsu.borshchevyk.core.model.domain.Chat
-import ru.kubsu.borshchevyk.core.model.dto.ChatResponse
-import ru.kubsu.borshchevyk.core.model.dto.ChatMemberResponse
+import ru.kubsu.borshchevyk.core.network.dto.ChatResponse
+import ru.kubsu.borshchevyk.core.network.dto.ChatMemberResponse
 import ru.kubsu.borshchevyk.core.model.domain.ChatMember
 import ru.kubsu.borshchevyk.core.model.domain.ChatMemberRole
 

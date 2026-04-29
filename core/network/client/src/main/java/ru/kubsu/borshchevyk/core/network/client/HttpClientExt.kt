@@ -6,7 +6,6 @@ import io.ktor.client.plugins.RedirectResponseException
 import io.ktor.client.plugins.ServerResponseException
 import io.ktor.client.statement.HttpResponse
 import io.ktor.utils.io.errors.IOException
-import ru.kubsu.borshchevyk.core.model.domain.NetworkResult
 
 suspend inline fun <reified T> safeRequest(
     block: () -> HttpResponse

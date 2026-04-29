@@ -3,11 +3,11 @@ package ru.kubsu.borshchevyk.core.data.message
 import ru.kubsu.borshchevyk.core.domain.message.MediaRepository
 import ru.kubsu.borshchevyk.core.model.domain.DomainAttachmentResponse
 import ru.kubsu.borshchevyk.core.model.domain.DomainAttachmentType
-import ru.kubsu.borshchevyk.core.model.domain.getOrThrow
-import ru.kubsu.borshchevyk.core.model.dto.AttachmentResponse
-import ru.kubsu.borshchevyk.core.model.dto.AttachmentType
-import ru.kubsu.borshchevyk.core.model.dto.RequestUploadUrlRequest
-import ru.kubsu.borshchevyk.core.model.dto.ValidateAttachmentsRequest
+import ru.kubsu.borshchevyk.core.network.client.getOrThrow
+import ru.kubsu.borshchevyk.core.network.dto.AttachmentResponse
+import ru.kubsu.borshchevyk.core.network.dto.AttachmentType
+import ru.kubsu.borshchevyk.core.network.dto.RequestUploadUrlRequest
+import ru.kubsu.borshchevyk.core.network.dto.ValidateAttachmentsRequest
 import ru.kubsu.borshchevyk.core.network.client.NetworkConstants
 import ru.kubsu.borshchevyk.core.network.media.MediaNetworkDataSource
 import javax.inject.Inject

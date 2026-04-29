@@ -12,11 +12,11 @@ import ru.kubsu.borshchevyk.core.model.domain.DomainUpdatePrivacySettingsParam
 import ru.kubsu.borshchevyk.core.model.domain.DomainUpdateProfileParam
 import ru.kubsu.borshchevyk.core.model.domain.PrivacySettings
 import ru.kubsu.borshchevyk.core.model.domain.User
-import ru.kubsu.borshchevyk.core.model.domain.getOrThrow
-import ru.kubsu.borshchevyk.core.model.dto.PrivacySettingsResponse
-import ru.kubsu.borshchevyk.core.model.dto.UpdateAvatarRequest
-import ru.kubsu.borshchevyk.core.model.dto.UpdatePrivacySettingsRequest
-import ru.kubsu.borshchevyk.core.model.dto.UpdateProfileRequest
+import ru.kubsu.borshchevyk.core.network.client.getOrThrow
+import ru.kubsu.borshchevyk.core.network.dto.PrivacySettingsResponse
+import ru.kubsu.borshchevyk.core.network.dto.UpdateAvatarRequest
+import ru.kubsu.borshchevyk.core.network.dto.UpdatePrivacySettingsRequest
+import ru.kubsu.borshchevyk.core.network.dto.UpdateProfileRequest
 import ru.kubsu.borshchevyk.core.network.di.IoDispatcher
 import ru.kubsu.borshchevyk.core.network.user.UserNetworkDataSource
 import javax.inject.Inject

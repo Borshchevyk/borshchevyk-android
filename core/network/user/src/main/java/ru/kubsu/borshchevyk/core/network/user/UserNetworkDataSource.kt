@@ -1,11 +1,11 @@
 package ru.kubsu.borshchevyk.core.network.user
 
-import ru.kubsu.borshchevyk.core.model.domain.NetworkResult
-import ru.kubsu.borshchevyk.core.model.dto.PrivacySettingsResponse
-import ru.kubsu.borshchevyk.core.model.dto.UpdateAvatarRequest
-import ru.kubsu.borshchevyk.core.model.dto.UpdatePrivacySettingsRequest
-import ru.kubsu.borshchevyk.core.model.dto.UpdateProfileRequest
-import ru.kubsu.borshchevyk.core.model.dto.UserProfileResponse
+import ru.kubsu.borshchevyk.core.network.client.NetworkResult
+import ru.kubsu.borshchevyk.core.network.dto.PrivacySettingsResponse
+import ru.kubsu.borshchevyk.core.network.dto.UpdateAvatarRequest
+import ru.kubsu.borshchevyk.core.network.dto.UpdatePrivacySettingsRequest
+import ru.kubsu.borshchevyk.core.network.dto.UpdateProfileRequest
+import ru.kubsu.borshchevyk.core.network.dto.UserProfileResponse
 
 interface UserNetworkDataSource {
     suspend fun searchUsers(query: String): NetworkResult<List<UserProfileResponse>>

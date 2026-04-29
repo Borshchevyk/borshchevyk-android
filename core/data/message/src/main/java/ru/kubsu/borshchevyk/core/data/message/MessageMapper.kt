@@ -13,9 +13,9 @@ import ru.kubsu.borshchevyk.core.model.domain.MessageReaction
 import ru.kubsu.borshchevyk.core.model.domain.MessageSource
 import ru.kubsu.borshchevyk.core.model.domain.MessageStatus
 import ru.kubsu.borshchevyk.core.model.domain.User
-import ru.kubsu.borshchevyk.core.model.dto.AttachmentType
-import ru.kubsu.borshchevyk.core.model.dto.MessageResponse
-import ru.kubsu.borshchevyk.core.model.dto.NotificationDto
+import ru.kubsu.borshchevyk.core.network.dto.AttachmentType
+import ru.kubsu.borshchevyk.core.network.dto.MessageResponse
+import ru.kubsu.borshchevyk.core.network.dto.NotificationDto
 
 fun MessageResponse.toDomain(): Message = Message(
     id = id,

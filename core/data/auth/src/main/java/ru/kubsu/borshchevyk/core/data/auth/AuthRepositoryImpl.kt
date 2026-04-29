@@ -4,11 +4,11 @@ import android.util.Base64
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.firstOrNull
 import ru.kubsu.borshchevyk.core.domain.auth.AuthRepository
-import ru.kubsu.borshchevyk.core.model.domain.getOrThrow
-import ru.kubsu.borshchevyk.core.model.dto.ChallengeRequest
-import ru.kubsu.borshchevyk.core.model.dto.LoginRequest
-import ru.kubsu.borshchevyk.core.model.dto.RegisterRequest
-import ru.kubsu.borshchevyk.core.model.dto.VerifyRequest
+import ru.kubsu.borshchevyk.core.network.client.getOrThrow
+import ru.kubsu.borshchevyk.core.network.dto.ChallengeRequest
+import ru.kubsu.borshchevyk.core.network.dto.LoginRequest
+import ru.kubsu.borshchevyk.core.network.dto.RegisterRequest
+import ru.kubsu.borshchevyk.core.network.dto.VerifyRequest
 import ru.kubsu.borshchevyk.core.network.auth.AuthNetworkDataSource
 import ru.kubsu.borshchevyk.core.network.websocket.WebSocketConnectionManager
 import ru.kubsu.borshchevyk.core.security.KeyManager

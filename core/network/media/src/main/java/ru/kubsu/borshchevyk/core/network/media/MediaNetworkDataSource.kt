@@ -1,12 +1,12 @@
 package ru.kubsu.borshchevyk.core.network.media
 
-import ru.kubsu.borshchevyk.core.model.domain.NetworkResult
-import ru.kubsu.borshchevyk.core.model.dto.AttachmentResponse
-import ru.kubsu.borshchevyk.core.model.dto.AttachmentUrlResult
-import ru.kubsu.borshchevyk.core.model.dto.RequestUploadUrlRequest
-import ru.kubsu.borshchevyk.core.model.dto.UploadUrlResult
-import ru.kubsu.borshchevyk.core.model.dto.ValidateAttachmentsRequest
-import ru.kubsu.borshchevyk.core.model.dto.ValidateAttachmentsResponse
+import ru.kubsu.borshchevyk.core.network.client.NetworkResult
+import ru.kubsu.borshchevyk.core.network.dto.AttachmentResponse
+import ru.kubsu.borshchevyk.core.network.dto.AttachmentUrlResult
+import ru.kubsu.borshchevyk.core.network.dto.RequestUploadUrlRequest
+import ru.kubsu.borshchevyk.core.network.dto.UploadUrlResult
+import ru.kubsu.borshchevyk.core.network.dto.ValidateAttachmentsRequest
+import ru.kubsu.borshchevyk.core.network.dto.ValidateAttachmentsResponse
 
 interface MediaNetworkDataSource {
     suspend fun requestUploadUrl(request: RequestUploadUrlRequest): NetworkResult<UploadUrlResult>

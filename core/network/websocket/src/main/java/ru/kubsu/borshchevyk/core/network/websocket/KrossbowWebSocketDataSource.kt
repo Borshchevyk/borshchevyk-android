@@ -24,11 +24,11 @@ import org.hildan.krossbow.stomp.StompSession
 import org.hildan.krossbow.stomp.sendText
 import org.hildan.krossbow.stomp.subscribeText
 import org.hildan.krossbow.websocket.ktor.KtorWebSocketClient
-import ru.kubsu.borshchevyk.core.model.dto.NotificationDto
-import ru.kubsu.borshchevyk.core.model.dto.PresenceStatusResponse
-import ru.kubsu.borshchevyk.core.model.dto.ReactionEvent
-import ru.kubsu.borshchevyk.core.model.dto.ReadReceiptEvent
-import ru.kubsu.borshchevyk.core.model.dto.TypingEvent
+import ru.kubsu.borshchevyk.core.network.dto.NotificationDto
+import ru.kubsu.borshchevyk.core.network.dto.PresenceStatusResponse
+import ru.kubsu.borshchevyk.core.network.dto.ReactionEvent
+import ru.kubsu.borshchevyk.core.network.dto.ReadReceiptEvent
+import ru.kubsu.borshchevyk.core.network.dto.TypingEvent
 import ru.kubsu.borshchevyk.core.network.client.NetworkConstants
 import ru.kubsu.borshchevyk.core.network.client.TokenProvider
 import java.util.concurrent.ConcurrentHashMap

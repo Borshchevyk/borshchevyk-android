@@ -33,10 +33,20 @@ import javax.inject.Singleton
 class KeyManagerImpl @Inject constructor() : KeyManager {
 
     private val keyStore = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
+    private val secureRandom = SecureRandom()
+
+    companion object {
+        private const val PBKDF2_ITERATIONS = 100_000
+        private const val AES_KEY_SIZE = 256
+        private const val GCM_IV_SIZE = 12
+        private const val GCM_TAG_SIZE = 128
+        private const val SALT_SIZE = 16
+        private const val RSA_KEY_SIZE = 2048
+    }
 
     override fun generateInMemoryRsaKeyPair(): KeyPair {
         val kpg = KeyPairGenerator.getInstance(KeyProperties.KEY_ALGORITHM_RSA)
-        kpg.initialize(2048)
+        kpg.initialize(RSA_KEY_SIZE)
         return kpg.generateKeyPair()
     }
 
@@ -61,17 +71,17 @@ class KeyManagerImpl @Inject constructor() : KeyManager {
     }
 
     override fun encryptWithPassword(data: ByteArray, password: String): ByteArray {
-        val salt = ByteArray(16)
-        SecureRandom().nextBytes(salt)
+        val salt = ByteArray(SALT_SIZE)
+        secureRandom.nextBytes(salt)
 
         val factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256")
-        val spec = PBEKeySpec(password.toCharArray(), salt, 10000, 256)
+        val spec = PBEKeySpec(password.toCharArray(), salt, PBKDF2_ITERATIONS, AES_KEY_SIZE)
         val tmp = factory.generateSecret(spec)
         val secretKey = SecretKeySpec(tmp.encoded, "AES")
 
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
         cipher.init(Cipher.ENCRYPT_MODE, secretKey)
-        val iv = cipher.iv
+        val iv = cipher.iv ?: throw IllegalStateException("Cipher failed to generate IV")
         val encrypted = cipher.doFinal(data)
 
         val buffer = ByteBuffer.allocate(salt.size + iv.size + encrypted.size)
@@ -82,21 +92,25 @@ class KeyManagerImpl @Inject constructor() : KeyManager {
     }
 
     override fun decryptWithPassword(encryptedData: ByteArray, password: String): ByteArray {
+        if (encryptedData.size < SALT_SIZE + GCM_IV_SIZE) {
+            throw IllegalArgumentException("Encrypted data is too short")
+        }
+        
         val buffer = ByteBuffer.wrap(encryptedData)
-        val salt = ByteArray(16)
+        val salt = ByteArray(SALT_SIZE)
         buffer.get(salt)
-        val iv = ByteArray(12)
+        val iv = ByteArray(GCM_IV_SIZE)
         buffer.get(iv)
         val encrypted = ByteArray(buffer.remaining())
         buffer.get(encrypted)
 
         val factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256")
-        val spec = PBEKeySpec(password.toCharArray(), salt, 10000, 256)
+        val spec = PBEKeySpec(password.toCharArray(), salt, PBKDF2_ITERATIONS, AES_KEY_SIZE)
         val tmp = factory.generateSecret(spec)
         val secretKey = SecretKeySpec(tmp.encoded, "AES")
 
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-        val gcmSpec = GCMParameterSpec(128, iv)
+        val gcmSpec = GCMParameterSpec(GCM_TAG_SIZE, iv)
         cipher.init(Cipher.DECRYPT_MODE, secretKey, gcmSpec)
         return cipher.doFinal(encrypted)
     }
@@ -113,6 +127,7 @@ class KeyManagerImpl @Inject constructor() : KeyManager {
         )
             .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
             .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+            .setKeySize(AES_KEY_SIZE)
             .build()
         
         keyGenerator.init(spec)
@@ -123,7 +138,7 @@ class KeyManagerImpl @Inject constructor() : KeyManager {
         val secretKey = getOrCreateLocalSymmetricKey(alias)
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
         cipher.init(Cipher.ENCRYPT_MODE, secretKey)
-        val iv = cipher.iv
+        val iv = cipher.iv ?: throw IllegalStateException("Cipher failed to generate IV")
         val encrypted = cipher.doFinal(keyBytes)
 
         val buffer = ByteBuffer.allocate(iv.size + encrypted.size)
@@ -133,15 +148,19 @@ class KeyManagerImpl @Inject constructor() : KeyManager {
     }
 
     override fun unwrapKeyWithLocalKeystore(alias: String, wrappedKeyBytes: ByteArray): ByteArray {
+        if (wrappedKeyBytes.size < GCM_IV_SIZE) {
+            throw IllegalArgumentException("Wrapped key data is too short")
+        }
+
         val secretKey = getOrCreateLocalSymmetricKey(alias)
         val buffer = ByteBuffer.wrap(wrappedKeyBytes)
-        val iv = ByteArray(12)
+        val iv = ByteArray(GCM_IV_SIZE)
         buffer.get(iv)
         val encrypted = ByteArray(buffer.remaining())
         buffer.get(encrypted)
 
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-        val gcmSpec = GCMParameterSpec(128, iv)
+        val gcmSpec = GCMParameterSpec(GCM_TAG_SIZE, iv)
         cipher.init(Cipher.DECRYPT_MODE, secretKey, gcmSpec)
         return cipher.doFinal(encrypted)
     }

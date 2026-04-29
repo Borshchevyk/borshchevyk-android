@@ -2,7 +2,7 @@ package ru.kubsu.borshchevyk.core.data.user
 
 import ru.kubsu.borshchevyk.core.database.entity.UserEntity
 import ru.kubsu.borshchevyk.core.model.domain.User
-import ru.kubsu.borshchevyk.core.model.dto.UserProfileResponse
+import ru.kubsu.borshchevyk.core.network.dto.UserProfileResponse
 
 fun UserProfileResponse.toEntity(): UserEntity = UserEntity(
     userId = userId,

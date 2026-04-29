@@ -5,17 +5,17 @@ import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
-import ru.kubsu.borshchevyk.core.model.domain.NetworkResult
-import ru.kubsu.borshchevyk.core.model.dto.ChallengeRequest
-import ru.kubsu.borshchevyk.core.model.dto.ChallengeResponse
-import ru.kubsu.borshchevyk.core.model.dto.LoginRequest
-import ru.kubsu.borshchevyk.core.model.dto.LoginResponse
-import ru.kubsu.borshchevyk.core.model.dto.RefreshRequest
-import ru.kubsu.borshchevyk.core.model.dto.RegisterRequest
-import ru.kubsu.borshchevyk.core.model.dto.RegisterResponse
-import ru.kubsu.borshchevyk.core.model.dto.VerifyRequest
-import ru.kubsu.borshchevyk.core.model.dto.VerifyResponse
+import ru.kubsu.borshchevyk.core.network.client.NetworkResult
 import ru.kubsu.borshchevyk.core.network.client.safeRequest
+import ru.kubsu.borshchevyk.core.network.dto.ChallengeRequest
+import ru.kubsu.borshchevyk.core.network.dto.ChallengeResponse
+import ru.kubsu.borshchevyk.core.network.dto.LoginRequest
+import ru.kubsu.borshchevyk.core.network.dto.LoginResponse
+import ru.kubsu.borshchevyk.core.network.dto.RefreshRequest
+import ru.kubsu.borshchevyk.core.network.dto.RegisterRequest
+import ru.kubsu.borshchevyk.core.network.dto.RegisterResponse
+import ru.kubsu.borshchevyk.core.network.dto.VerifyRequest
+import ru.kubsu.borshchevyk.core.network.dto.VerifyResponse
 import ru.kubsu.borshchevyk.core.network.di.IoDispatcher
 import javax.inject.Inject
 
