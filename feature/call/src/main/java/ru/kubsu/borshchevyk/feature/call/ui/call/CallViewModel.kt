@@ -1,13 +1,11 @@
 package ru.kubsu.borshchevyk.feature.call.ui.call
 
-import android.app.Application
 import android.util.Log
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
-import io.livekit.android.LiveKit
-import io.livekit.android.room.Room
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -19,13 +17,12 @@ import ru.kubsu.borshchevyk.core.domain.call.usecase.EndCallUseCase
 import ru.kubsu.borshchevyk.core.domain.call.usecase.JoinCallUseCase
 import ru.kubsu.borshchevyk.core.domain.call.usecase.LeaveCallUseCase
 import ru.kubsu.borshchevyk.core.domain.call.usecase.ObserveCallEventsUseCase
-import ru.kubsu.borshchevyk.core.network.client.NetworkConstants
 import javax.inject.Inject
 
 @HiltViewModel
 class CallViewModel @Inject constructor(
     private val savedStateHandle: SavedStateHandle,
-    private val application: Application,
+    private val callHandler: CallHandler,
     private val joinCallUseCase: JoinCallUseCase,
     private val endCallUseCase: EndCallUseCase,
     private val leaveCallUseCase: LeaveCallUseCase,
@@ -42,19 +39,63 @@ class CallViewModel @Inject constructor(
     private val _effect = Channel<CallEffect>(Channel.BUFFERED)
     val effect = _effect.receiveAsFlow()
 
-    private var room: Room? = null
+    private var connectJob: Job? = null
 
     init {
+        observeCallEvents()
+        observeSessionState()
+    }
+
+    private fun observeCallEvents() {
         viewModelScope.launch {
             observeCallEventsUseCase().collect { event ->
                 if (event.callId == callId) {
-                    if (event.type == "REJECTED") {
-                        val message = "Call rejected"
-                        _uiState.value = CallUiState.Error(message)
-                        _effect.send(CallEffect.ShowError(message))
-                        _effect.send(CallEffect.CallEnded)
-                    } else if (event.type == "ENDED") {
-                        _effect.send(CallEffect.CallEnded)
+                    when (event.type) {
+                        "REJECTED" -> {
+                            handleCallEnded("Call rejected")
+                        }
+                        "ENDED" -> {
+                            handleCallEnded()
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private fun observeSessionState() {
+        viewModelScope.launch {
+            callHandler.state.collect { sessionState ->
+                when (sessionState) {
+                    is CallSessionState.Idle -> {
+                        if (_uiState.value is CallUiState.Active) {
+                            handleCallEnded()
+                        }
+                    }
+                    is CallSessionState.Active -> {
+                        _uiState.update { currentState ->
+                            if (currentState is CallUiState.Active) {
+                                currentState.copy(
+                                    room = sessionState.room,
+                                    localVideoTrack = sessionState.localVideoTrack,
+                                    remoteVideoTrack = sessionState.remoteVideoTrack,
+                                    remoteParticipantName = sessionState.remoteParticipantName,
+                                    isMicEnabled = sessionState.isMicEnabled,
+                                    isCameraEnabled = sessionState.isCameraEnabled,
+                                    isRemoteMicMuted = sessionState.isRemoteMicMuted
+                                )
+                            } else {
+                                CallUiState.Active(
+                                    room = sessionState.room,
+                                    localVideoTrack = sessionState.localVideoTrack,
+                                    remoteVideoTrack = sessionState.remoteVideoTrack,
+                                    remoteParticipantName = sessionState.remoteParticipantName,
+                                    isMicEnabled = sessionState.isMicEnabled,
+                                    isCameraEnabled = sessionState.isCameraEnabled,
+                                    isRemoteMicMuted = sessionState.isRemoteMicMuted
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -72,18 +113,12 @@ class CallViewModel @Inject constructor(
     }
 
     private fun connectToCall() {
-        viewModelScope.launch {
+        if (connectJob?.isActive == true || _uiState.value is CallUiState.Active) return
+
+        connectJob = viewModelScope.launch {
             try {
                 val token = joinCallUseCase(callId)
-                room = LiveKit.create(application)
-                
-                room?.let { r ->
-                    r.connect(NetworkConstants.LIVEKIT_URL, token)
-                    r.localParticipant.setMicrophoneEnabled(true)
-                    r.localParticipant.setCameraEnabled(true)
-                    
-                    _uiState.value = CallUiState.Active(room = r)
-                }
+                callHandler.connect(token)
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to connect to call", e)
                 _uiState.value = CallUiState.Error(e.message ?: "Failed to connect")
@@ -95,25 +130,21 @@ class CallViewModel @Inject constructor(
     private fun toggleMic() {
         val state = _uiState.value as? CallUiState.Active ?: return
         viewModelScope.launch {
-            val newState = !state.isMicEnabled
-            room?.localParticipant?.setMicrophoneEnabled(newState)
-            _uiState.update { (it as CallUiState.Active).copy(isMicEnabled = newState) }
+            callHandler.toggleMic(!state.isMicEnabled)
         }
     }
 
     private fun toggleCamera() {
         val state = _uiState.value as? CallUiState.Active ?: return
         viewModelScope.launch {
-            val newState = !state.isCameraEnabled
-            room?.localParticipant?.setCameraEnabled(newState)
-            _uiState.update { (it as CallUiState.Active).copy(isCameraEnabled = newState) }
+            callHandler.toggleCamera(!state.isCameraEnabled)
         }
     }
 
     private fun endCall() {
         viewModelScope.launch {
             try {
-                room?.disconnect()
+                callHandler.disconnect()
                 if (isInitiator) {
                     endCallUseCase(callId)
                 } else {
@@ -122,7 +153,19 @@ class CallViewModel @Inject constructor(
                 _effect.send(CallEffect.CallEnded)
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to end call", e)
+                _effect.send(CallEffect.CallEnded) // Still end UI even if signaling fails
             }
+        }
+    }
+
+    private fun handleCallEnded(message: String? = null) {
+        viewModelScope.launch {
+            message?.let {
+                _uiState.value = CallUiState.Error(it)
+                _effect.send(CallEffect.ShowError(it))
+            }
+            callHandler.disconnect()
+            _effect.send(CallEffect.CallEnded)
         }
     }
 
@@ -135,8 +178,7 @@ class CallViewModel @Inject constructor(
     }
 
     override fun onCleared() {
-        room?.disconnect()
-        room?.release()
+        callHandler.disconnect()
         super.onCleared()
     }
 }
