@@ -2,7 +2,9 @@ package ru.kubsu.borshchevyk.core.network.user
 
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
+import io.ktor.client.request.patch
 import io.ktor.client.request.post
+import io.ktor.client.request.put
 import io.ktor.client.request.setBody
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
@@ -42,7 +44,7 @@ class KtorUserNetworkDataSource @Inject constructor(
     override suspend fun updateProfile(request: UpdateProfileRequest): NetworkResult<UserProfileResponse> {
         return withContext(ioDispatcher) {
             safeRequest {
-                httpClient.post("api/v1/users/me/profile") {
+                httpClient.patch("api/v1/users/me/profile") {
                     setBody(request)
                 }
             }
@@ -52,7 +54,7 @@ class KtorUserNetworkDataSource @Inject constructor(
     override suspend fun updateAvatar(request: UpdateAvatarRequest): NetworkResult<UserProfileResponse> {
         return withContext(ioDispatcher) {
             safeRequest {
-                httpClient.post("api/v1/users/me/avatar") {
+                httpClient.put("api/v1/users/me/avatar") {
                     setBody(request)
                 }
             }
@@ -70,7 +72,7 @@ class KtorUserNetworkDataSource @Inject constructor(
     override suspend fun updatePrivacySettings(request: UpdatePrivacySettingsRequest): NetworkResult<PrivacySettingsResponse> {
         return withContext(ioDispatcher) {
             safeRequest {
-                httpClient.post("api/v1/users/me/privacy") {
+                httpClient.patch("api/v1/users/me/privacy") {
                     setBody(request)
                 }
             }
