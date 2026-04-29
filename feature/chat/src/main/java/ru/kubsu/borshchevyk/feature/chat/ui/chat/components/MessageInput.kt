@@ -141,6 +141,26 @@ internal fun MessageInput(
         }
     }
 
+    val circlePermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val cameraGranted = permissions[android.Manifest.permission.CAMERA] ?: false
+        val audioGranted = permissions[android.Manifest.permission.RECORD_AUDIO] ?: false
+        if (cameraGranted && audioGranted) {
+            val values = android.content.ContentValues().apply {
+                put(android.provider.MediaStore.Video.Media.DISPLAY_NAME, "circle_${System.currentTimeMillis()}.mp4")
+                put(android.provider.MediaStore.Video.Media.MIME_TYPE, "video/mp4")
+            }
+            val uri = context.contentResolver.insert(android.provider.MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values)
+            circleUri.value = uri
+            if (uri != null) {
+                circleCaptureLauncher.launch(uri)
+            }
+        } else {
+            android.widget.Toast.makeText(context, "Permissions required for video recording", android.widget.Toast.LENGTH_SHORT).show()
+        }
+    }
+
     val filePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetMultipleContents()
     ) { uris ->
@@ -206,15 +226,12 @@ internal fun MessageInput(
                         Icon(Icons.Default.AttachFile, contentDescription = "Attach file", tint = BorshchevykTheme.colors.primary)
                     }
                     IconButton(onClick = { 
-                        val values = android.content.ContentValues().apply {
-                            put(android.provider.MediaStore.Video.Media.DISPLAY_NAME, "circle_${System.currentTimeMillis()}.mp4")
-                            put(android.provider.MediaStore.Video.Media.MIME_TYPE, "video/mp4")
-                        }
-                        val uri = context.contentResolver.insert(android.provider.MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values)
-                        circleUri.value = uri
-                        if (uri != null) {
-                            circleCaptureLauncher.launch(uri)
-                        }
+                        circlePermissionLauncher.launch(
+                            arrayOf(
+                                android.Manifest.permission.CAMERA,
+                                android.Manifest.permission.RECORD_AUDIO
+                            )
+                        )
                     }, modifier = Modifier.padding(bottom = 4.dp, end = 4.dp)) {
                         Icon(Icons.Default.Videocam, contentDescription = "Record Circle", tint = BorshchevykTheme.colors.primary)
                     }
