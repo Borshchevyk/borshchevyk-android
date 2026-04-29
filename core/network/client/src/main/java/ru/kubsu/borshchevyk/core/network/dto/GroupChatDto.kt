@@ -1,5 +1,6 @@
 package ru.kubsu.borshchevyk.core.network.dto
 
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -22,6 +23,7 @@ data class ChatMemberResponse(
     val canDeleteMessages: Boolean,
     val canInviteUsers: Boolean,
     val canChangeInfo: Boolean,
+    @SerialName("pinned")
     val isPinned: Boolean = false,
     val historyClearedAt: String? = null
 )

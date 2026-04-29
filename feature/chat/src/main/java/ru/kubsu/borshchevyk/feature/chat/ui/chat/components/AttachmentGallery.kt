@@ -51,17 +51,23 @@ internal fun AttachmentItem(
     isFromMe: Boolean
 ) {
     val url = attachmentUrls[attachment.id]
+    val thumbnailUrl = attachment.thumbnailKey?.let { attachmentUrls[it] }
     var loadError by remember { mutableStateOf(false) }
 
-    LaunchedEffect(attachment.id) {
+    LaunchedEffect(attachment.id, attachment.thumbnailKey) {
         if (url == null) {
             onResolveAttachmentUrl(attachment.id)
+        }
+        val key = attachment.thumbnailKey
+        if (thumbnailUrl == null && key != null) {
+            onResolveAttachmentUrl(key)
         }
     }
 
     val context = LocalContext.current
-    val imageRequest = remember(url) {
-        url?.let {
+    val imageRequest = remember(url, thumbnailUrl) {
+        val targetUrl = thumbnailUrl ?: url
+        targetUrl?.let {
             ImageRequest.Builder(context)
                 .data(it)
                 .crossfade(true)

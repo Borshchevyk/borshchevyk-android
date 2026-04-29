@@ -17,7 +17,7 @@ data class MessageAttachmentResponse(
     val originalFilename: String? = null,
     val extension: String? = null,
     val sizeBytes: Long? = null,
-    val thumbnailKey: String? = null,
+    @SerialName("thumbnailId") val thumbnailKey: String? = null,
     val updatedAt: String? = null,
     val width: Int? = null,
     val height: Int? = null,

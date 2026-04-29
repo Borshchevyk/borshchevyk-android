@@ -44,7 +44,7 @@ data class NotificationDto(
 @Serializable
 data class TypingEvent(
     val user: ShortUserDto,
-    val isTyping: Boolean
+    @SerialName("typing") val isTyping: Boolean
 )
 
 @Serializable
@@ -52,7 +52,7 @@ data class ReactionEvent(
     val messageId: String,
     val user: ShortUserDto,
     val reaction: String,
-    val isAdded: Boolean
+    @SerialName("added") val isAdded: Boolean
 )
 
 @Serializable
