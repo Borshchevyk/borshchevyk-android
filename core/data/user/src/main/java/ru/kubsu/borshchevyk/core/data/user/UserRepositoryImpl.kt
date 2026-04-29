@@ -34,10 +34,10 @@ class UserRepositoryImpl @Inject constructor(
 
     private val repositoryScope = CoroutineScope(SupervisorJob() + ioDispatcher)
 
-    override suspend fun searchUsers(query: String): List<User> {
+    override suspend fun searchUsers(query: String): List<User> = withContext(ioDispatcher) {
         val users = networkDataSource.searchUsers(query).getOrThrow().map { it.toEntity() }
         userDao.upsertUsers(users)
-        return users.map { it.toDomain() }
+        users.map { it.toDomain() }
     }
 
     override fun observeUserProfile(userId: String): Flow<User?> = userDao.observeUser(userId).map { it?.toDomain() }
@@ -49,7 +49,7 @@ class UserRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun getUserProfile(userIdOrTag: String): User {
+    override suspend fun getUserProfile(userIdOrTag: String): User = withContext(ioDispatcher) {
         val cached = userDao.getUser(userIdOrTag)?.toDomain()
         if (cached != null) {
             repositoryScope.launch {
@@ -59,14 +59,14 @@ class UserRepositoryImpl @Inject constructor(
                     Log.w("UserRepository", "Failed background sync for user $userIdOrTag, using cache", e)
                 }
             }
-            return cached
+            return@withContext cached
         }
         val userEntity = networkDataSource.getUserProfile(userIdOrTag).getOrThrow().toEntity()
         userDao.upsertUser(userEntity)
-        return userEntity.toDomain()
+        userEntity.toDomain()
     }
 
-    override suspend fun updateProfile(request: DomainUpdateProfileParam): User {
+    override suspend fun updateProfile(request: DomainUpdateProfileParam): User = withContext(ioDispatcher) {
         val userEntity = networkDataSource.updateProfile(
             UpdateProfileRequest(
                 firstName = request.firstName,
@@ -76,15 +76,15 @@ class UserRepositoryImpl @Inject constructor(
             )
         ).getOrThrow().toEntity()
         userDao.upsertUser(userEntity)
-        return userEntity.toDomain()
+        userEntity.toDomain()
     }
 
-    override suspend fun updateAvatar(request: DomainUpdateAvatarParam): User {
+    override suspend fun updateAvatar(request: DomainUpdateAvatarParam): User = withContext(ioDispatcher) {
         val userEntity = networkDataSource.updateAvatar(
             UpdateAvatarRequest(avatarUrl = request.avatarUrl)
         ).getOrThrow().toEntity()
         userDao.upsertUser(userEntity)
-        return userEntity.toDomain()
+        userEntity.toDomain()
     }
 
     override suspend fun getPrivacySettings(): PrivacySettings {
