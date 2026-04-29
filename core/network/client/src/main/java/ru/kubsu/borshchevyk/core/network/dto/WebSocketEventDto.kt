@@ -44,7 +44,7 @@ data class NotificationDto(
 @Serializable
 data class TypingEvent(
     val user: ShortUserDto,
-    @SerialName("typing") val isTyping: Boolean
+    @SerialName("isTyping") val isTyping: Boolean = false
 )
 
 @Serializable
@@ -52,7 +52,7 @@ data class ReactionEvent(
     val messageId: String,
     val user: ShortUserDto,
     val reaction: String,
-    @SerialName("added") val isAdded: Boolean
+    @SerialName("isAdded") val isAdded: Boolean = true
 )
 
 @Serializable
@@ -64,6 +64,6 @@ data class ReadReceiptEvent(
 @Serializable
 data class PresenceStatusResponse(
     val userId: String,
-    @SerialName("online") val isOnline: Boolean,
+    @SerialName("online") val isOnline: Boolean = false,
     val lastSeenAt: Long? = null
 )
