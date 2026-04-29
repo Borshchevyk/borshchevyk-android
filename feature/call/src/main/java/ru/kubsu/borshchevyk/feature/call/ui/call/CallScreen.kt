@@ -31,6 +31,7 @@ fun CallScreen(
     onNavigateBack: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
     
     val permissionsLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
@@ -57,44 +58,53 @@ fun CallScreen(
             when (effect) {
                 is CallEffect.CallEnded -> onNavigateBack()
                 is CallEffect.ShowError -> {
-                    // In a real app, show a Snackbar or Toast
+                    snackbarHostState.showSnackbar(
+                        message = effect.message,
+                        duration = SnackbarDuration.Long
+                    )
                 }
             }
         }
     }
 
-    when (val state = uiState) {
-        is CallUiState.Loading -> {
-            Box(modifier = Modifier.fillMaxSize().background(Color.Black), contentAlignment = Alignment.Center) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    CircularProgressIndicator()
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text("Connecting...", color = Color.White)
-                }
-            }
-        }
-        is CallUiState.Error -> {
-            Box(modifier = Modifier.fillMaxSize().background(Color.Black), contentAlignment = Alignment.Center) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(24.dp)) {
-                    Text(state.message, color = Color.Red, style = MaterialTheme.typography.bodyLarge)
-                    Spacer(modifier = Modifier.height(24.dp))
-                    Button(onClick = onNavigateBack) {
-                        Text("Go Back")
+    Scaffold(
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
+    ) { padding ->
+        Box(modifier = Modifier.padding(padding)) {
+            when (val state = uiState) {
+                is CallUiState.Loading -> {
+                    Box(modifier = Modifier.fillMaxSize().background(Color.Black), contentAlignment = Alignment.Center) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            CircularProgressIndicator()
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text("Connecting...", color = Color.White)
+                        }
                     }
                 }
-            }
-        }
-        is CallUiState.Active -> {
-            if (state.isMinimized) {
-                MinimizedCallBanner(
-                    state = state,
-                    onIntent = viewModel::handleIntent
-                )
-            } else {
-                ActiveCallContent(
-                    state = state,
-                    onIntent = viewModel::handleIntent
-                )
+                is CallUiState.Error -> {
+                    Box(modifier = Modifier.fillMaxSize().background(Color.Black), contentAlignment = Alignment.Center) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(24.dp)) {
+                            Text(state.message, color = Color.Red, style = MaterialTheme.typography.bodyLarge)
+                            Spacer(modifier = Modifier.height(24.dp))
+                            Button(onClick = onNavigateBack) {
+                                Text("Go Back")
+                            }
+                        }
+                    }
+                }
+                is CallUiState.Active -> {
+                    if (state.isMinimized) {
+                        MinimizedCallBanner(
+                            state = state,
+                            onIntent = viewModel::handleIntent
+                        )
+                    } else {
+                        ActiveCallContent(
+                            state = state,
+                            onIntent = viewModel::handleIntent
+                        )
+                    }
+                }
             }
         }
     }
