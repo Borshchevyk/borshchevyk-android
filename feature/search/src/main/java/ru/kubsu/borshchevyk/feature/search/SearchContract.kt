@@ -18,5 +18,6 @@ data class SearchUiState(
     val query: String = "",
     val userResults: List<User> = emptyList(),
     val chatResults: List<Chat> = emptyList(),
-    val isLoading: Boolean = false
+    val isLoading: Boolean = false,
+    val error: String? = null
 )

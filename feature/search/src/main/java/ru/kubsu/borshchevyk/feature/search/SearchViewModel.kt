@@ -10,7 +10,11 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
@@ -23,8 +27,10 @@ import ru.kubsu.borshchevyk.core.model.domain.ChatType
 import ru.kubsu.borshchevyk.core.model.domain.User
 import javax.inject.Inject
 
+import ru.kubsu.borshchevyk.core.model.domain.GlobalSearchResults
+
 @HiltViewModel
-@OptIn(FlowPreview::class)
+@OptIn(FlowPreview::class, kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class SearchViewModel @Inject constructor(
     private val globalSearchUseCase: GlobalSearchUseCase,
     private val createPrivateChatUseCase: CreatePrivateChatUseCase,
@@ -38,7 +44,6 @@ class SearchViewModel @Inject constructor(
     private val _effect = Channel<SearchEffect>(Channel.BUFFERED)
     val effect = _effect.receiveAsFlow()
 
-    private val searchQueryFlow = MutableStateFlow("")
     private var defaultUserResults: List<User> = emptyList()
 
     init {
@@ -52,19 +57,16 @@ class SearchViewModel @Inject constructor(
                 val chats = getUserChatsUseCase()
                 defaultUserResults = chats
                     .filter { it.type == ChatType.PRIVATE && it.partnerId != null }
-                    .map { chat ->
-                        User(
-                            userId = chat.partnerId!!,
-                            tag = chat.partnerName ?: "",
-                            firstName = chat.partnerName,
-                            lastName = null,
-                            avatarUrl = chat.partnerAvatarUrl
-                        )
+                    .map { it.toSearchUser() }
+                
+                if (_uiState.value.query.length < MIN_QUERY_LENGTH) {
+                    _uiState.update { 
+                        it.copy(userResults = defaultUserResults, chatResults = emptyList()) 
                     }
-                if (_uiState.value.query.length < 3) {
-                    _uiState.update { it.copy(userResults = defaultUserResults, chatResults = emptyList()) }
                 }
-            } catch (e: Exception) { }
+            } catch (e: Exception) {
+                // Silently ignore or log - default results are non-critical
+            }
         }
     }
 
@@ -77,19 +79,51 @@ class SearchViewModel @Inject constructor(
     }
 
     private fun onQueryChange(newQuery: String) {
-        _uiState.update { it.copy(query = newQuery) }
-        searchQueryFlow.value = newQuery
+        _uiState.update { it.copy(query = newQuery, error = null) }
     }
 
     private fun observeSearchQuery() {
-        searchQueryFlow
-            .debounce(500L)
+        uiState
+            .map { it.query }
             .distinctUntilChanged()
+            .debounce(DEBOUNCE_MS)
             .onEach { query ->
-                if (query.length >= 3) {
-                    search(query)
-                } else {
-                    _uiState.update { it.copy(userResults = defaultUserResults, chatResults = emptyList(), isLoading = false) }
+                if (query.length < MIN_QUERY_LENGTH) {
+                    _uiState.update { 
+                        it.copy(
+                            userResults = defaultUserResults, 
+                            chatResults = emptyList(), 
+                            isLoading = false,
+                            error = null
+                        ) 
+                    }
+                }
+            }
+            .filter { it.length >= MIN_QUERY_LENGTH }
+            .flatMapLatest { query ->
+                flow {
+                    emit(Result.Loading)
+                    try {
+                        val results = globalSearchUseCase(query)
+                        emit(Result.Success(results))
+                    } catch (e: Exception) {
+                        emit(Result.Error(e.message ?: "Search failed"))
+                    }
+                }
+            }
+            .onEach { result ->
+                when (result) {
+                    is Result.Loading -> _uiState.update { it.copy(isLoading = true, error = null) }
+                    is Result.Success -> _uiState.update { 
+                        it.copy(
+                            userResults = result.data.users, 
+                            chatResults = result.data.chats, 
+                            isLoading = false 
+                        ) 
+                    }
+                    is Result.Error -> _uiState.update { 
+                        it.copy(isLoading = false, error = result.message) 
+                    }
                 }
             }
             .launchIn(viewModelScope)
@@ -110,25 +144,27 @@ class SearchViewModel @Inject constructor(
     }
 
     private fun onJoinChat(chatId: String) {
-        // Technically, for global search, clicking a public chat might just open it if we're already a member, 
-        // or join it if we're not. For simplicity, we can call JoinChatUseCase which usually takes an invite link,
-        // but maybe the backend allows joining by chatId for public chats?
-        // If not, we just navigate to it. Let's just navigate to it. The server will add us if public.
         viewModelScope.launch {
-             _effect.send(SearchEffect.NavigateToChat(chatId))
+            _effect.send(SearchEffect.NavigateToChat(chatId))
         }
     }
 
-    private fun search(query: String) {
-        viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true) }
-            try {
-                val results = globalSearchUseCase(query)
-                _uiState.update { it.copy(userResults = results.users, chatResults = results.chats, isLoading = false) }
-            } catch (e: Exception) {
-                _uiState.update { it.copy(isLoading = false) }
-                _effect.send(SearchEffect.ShowError(e.message ?: "Search failed"))
-            }
-        }
+    private fun ru.kubsu.borshchevyk.core.model.domain.Chat.toSearchUser() = User(
+        userId = partnerId!!,
+        tag = partnerName ?: "",
+        firstName = partnerName,
+        lastName = null,
+        avatarUrl = partnerAvatarUrl
+    )
+
+    private sealed interface Result {
+        data object Loading : Result
+        data class Success(val data: GlobalSearchResults) : Result
+        data class Error(val message: String) : Result
+    }
+
+    companion object {
+        private const val DEBOUNCE_MS = 500L
+        private const val MIN_QUERY_LENGTH = 3
     }
 }

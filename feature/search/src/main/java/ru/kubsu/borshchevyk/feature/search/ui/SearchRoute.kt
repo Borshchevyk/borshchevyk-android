@@ -100,6 +100,7 @@ fun SearchRoute(
             isLoading = uiState.isLoading,
             userResults = uiState.userResults,
             chatResults = uiState.chatResults,
+            error = uiState.error,
             onUserClick = { userId ->
                 if (onUserSelected != null) {
                     onUserSelected(userId)
