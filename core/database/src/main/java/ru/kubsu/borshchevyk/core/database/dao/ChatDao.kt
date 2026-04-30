@@ -7,26 +7,64 @@ import androidx.room.Query
 import kotlinx.coroutines.flow.Flow
 import ru.kubsu.borshchevyk.core.database.entity.ChatEntity
 
+/**
+ * Data Access Object for handling [ChatEntity] operations.
+ */
 @Dao
 interface ChatDao {
+    /**
+     * Observes a list of all chats, ordered by creation time descending.
+     *
+     * @return A [Flow] emitting the list of [ChatEntity]s.
+     */
     @Query("SELECT * FROM chats ORDER BY createdAt DESC")
     fun observeAllChats(): Flow<List<ChatEntity>>
 
+    /**
+     * Observes a specific chat by its ID.
+     *
+     * @param chatId The unique ID of the chat.
+     * @return A [Flow] emitting the [ChatEntity] or null if not found.
+     */
     @Query("SELECT * FROM chats WHERE id = :chatId")
     fun observeChat(chatId: String): Flow<ChatEntity?>
 
+    /**
+     * Retrieves a specific chat by its ID synchronously.
+     *
+     * @param chatId The unique ID of the chat.
+     * @return The [ChatEntity] if found, otherwise null.
+     */
     @Query("SELECT * FROM chats WHERE id = :chatId")
     fun getChat(chatId: String): ChatEntity?
 
+    /**
+     * Inserts or updates a list of chats.
+     *
+     * @param chats The list of [ChatEntity] to upsert.
+     */
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     fun upsertChats(chats: List<ChatEntity>)
 
+    /**
+     * Inserts or updates a single chat.
+     *
+     * @param chat The [ChatEntity] to upsert.
+     */
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     fun upsertChat(chat: ChatEntity)
 
+    /**
+     * Deletes a chat by its ID.
+     *
+     * @param chatId The unique ID of the chat to delete.
+     */
     @Query("DELETE FROM chats WHERE id = :chatId")
     fun deleteChat(chatId: String)
 
+    /**
+     * Clears all chats from the database.
+     */
     @Query("DELETE FROM chats")
     fun deleteAll()
 }

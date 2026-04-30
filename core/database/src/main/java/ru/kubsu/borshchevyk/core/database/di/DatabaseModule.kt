@@ -13,10 +13,19 @@ import ru.kubsu.borshchevyk.core.database.dao.MessageDao
 import ru.kubsu.borshchevyk.core.database.dao.UserDao
 import javax.inject.Singleton
 
+/**
+ * Dagger Hilt module for providing database and DAO dependencies.
+ */
 @Module
 @InstallIn(SingletonComponent::class)
 object DatabaseModule {
 
+    /**
+     * Provides the [AppDatabase] instance as a singleton.
+     *
+     * @param context The application context.
+     * @return A configured [AppDatabase] instance.
+     */
     @Provides
     @Singleton
     fun provideAppDatabase(
@@ -29,14 +38,32 @@ object DatabaseModule {
         ).build()
     }
 
+    /**
+     * Provides the [ChatDao] implementation.
+     *
+     * @param database The [AppDatabase] instance.
+     * @return The [ChatDao] implementation.
+     */
     @Provides
     @Singleton
     fun provideChatDao(database: AppDatabase): ChatDao = database.chatDao()
 
+    /**
+     * Provides the [MessageDao] implementation.
+     *
+     * @param database The [AppDatabase] instance.
+     * @return The [MessageDao] implementation.
+     */
     @Provides
     @Singleton
     fun provideMessageDao(database: AppDatabase): MessageDao = database.messageDao()
 
+    /**
+     * Provides the [UserDao] implementation.
+     *
+     * @param database The [AppDatabase] instance.
+     * @return The [UserDao] implementation.
+     */
     @Provides
     @Singleton
     fun provideUserDao(database: AppDatabase): UserDao = database.userDao()

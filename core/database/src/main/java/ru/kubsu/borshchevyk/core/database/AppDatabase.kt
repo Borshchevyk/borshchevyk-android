@@ -13,6 +13,16 @@ import ru.kubsu.borshchevyk.core.database.entity.MessageEntity
 import ru.kubsu.borshchevyk.core.database.entity.ReactionEntity
 import ru.kubsu.borshchevyk.core.database.entity.UserEntity
 
+/**
+ * Main database definition for the Borshchevyk Android client.
+ *
+ * This database manages all persistent data using the Room persistence library.
+ * It currently includes entities for chats, messages, users, attachments, and reactions.
+ *
+ * @property chatDao Data Access Object for chat-related operations.
+ * @property messageDao Data Access Object for message, attachment, and reaction operations.
+ * @property userDao Data Access Object for user-related operations.
+ */
 @Database(
     entities = [
         ChatEntity::class,

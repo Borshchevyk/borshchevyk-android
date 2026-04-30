@@ -7,23 +7,56 @@ import androidx.room.Query
 import kotlinx.coroutines.flow.Flow
 import ru.kubsu.borshchevyk.core.database.entity.UserEntity
 
+/**
+ * Data Access Object for handling [UserEntity] operations.
+ */
 @Dao
 interface UserDao {
+    /**
+     * Observes a user by their unique ID.
+     *
+     * @param userId The unique identifier of the user.
+     * @return A [Flow] emitting the user entity, or null if not found.
+     */
     @Query("SELECT * FROM users WHERE userId = :userId")
     fun observeUser(userId: String): Flow<UserEntity?>
 
+    /**
+     * Retrieves a user by their unique ID.
+     *
+     * @param userId The unique identifier of the user.
+     * @return The [UserEntity] if found, otherwise null.
+     */
     @Query("SELECT * FROM users WHERE userId = :userId")
     fun getUser(userId: String): UserEntity?
 
+    /**
+     * Inserts or updates a list of users in the database.
+     *
+     * @param users The list of [UserEntity] to upsert.
+     */
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     fun upsertUsers(users: List<UserEntity>)
 
+    /**
+     * Inserts or updates a single user in the database.
+     *
+     * @param user The [UserEntity] to upsert.
+     */
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     fun upsertUser(user: UserEntity)
 
+    /**
+     * Deletes a user from the database by their unique ID.
+     *
+     * @param userId The unique identifier of the user to delete.
+     */
     @Query("DELETE FROM users WHERE userId = :userId")
     fun deleteUser(userId: String)
 
+    /**
+     * Deletes all users from the database.
+     */
     @Query("DELETE FROM users")
     fun deleteAll()
 }
