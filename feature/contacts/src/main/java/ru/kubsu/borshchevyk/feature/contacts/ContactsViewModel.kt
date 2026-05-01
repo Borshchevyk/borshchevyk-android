@@ -15,6 +15,14 @@ import ru.kubsu.borshchevyk.core.domain.user.GetContactsUseCase
 import ru.kubsu.borshchevyk.core.domain.user.RemoveContactUseCase
 import javax.inject.Inject
 
+/**
+ * ViewModel managing the contacts list screen.
+ * Handles loading contacts, removing contacts, and starting chats with contacts.
+ *
+ * @property getContactsUseCase Use case for fetching the current user's contacts.
+ * @property removeContactUseCase Use case for removing a user from the contact list.
+ * @property createPrivateChatUseCase Use case for creating a new private chat with a user.
+ */
 @HiltViewModel
 class ContactsViewModel @Inject constructor(
     private val getContactsUseCase: GetContactsUseCase,
@@ -22,16 +30,25 @@ class ContactsViewModel @Inject constructor(
     private val createPrivateChatUseCase: CreatePrivateChatUseCase
 ) : ViewModel() {
 
+    /** Internal mutable state flow for the UI state. */
     private val _uiState = MutableStateFlow(ContactsUiState())
+    /** StateFlow emitting the current [ContactsUiState]. */
     val uiState: StateFlow<ContactsUiState> = _uiState.asStateFlow()
 
+    /** Internal channel for side-effects (navigation, error messages, etc.). */
     private val _effect = Channel<ContactsEffect>(Channel.BUFFERED)
+    /** Flow of one-time [ContactsEffect]s. */
     val effect = _effect.receiveAsFlow()
 
     init {
         loadContacts()
     }
 
+    /**
+     * Handles incoming intents from the UI.
+     *
+     * @param intent The intent to handle.
+     */
     fun handleIntent(intent: ContactsIntent) {
         when (intent) {
             is ContactsIntent.LoadContacts -> loadContacts()
@@ -55,6 +72,11 @@ class ContactsViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Removes a user from the contact list.
+     *
+     * @param contactUserId The ID of the contact to remove.
+     */
     private fun removeContact(contactUserId: String) {
         viewModelScope.launch {
             try {
@@ -67,6 +89,11 @@ class ContactsViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Handles a click on a contact by attempting to create or open a private chat.
+     *
+     * @param userId The ID of the user that was clicked.
+     */
     private fun onContactClicked(userId: String) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }

@@ -26,10 +26,23 @@ import ru.kubsu.borshchevyk.core.domain.user.GetUserProfileUseCase
 import ru.kubsu.borshchevyk.core.domain.user.UpdateAvatarUseCase
 import ru.kubsu.borshchevyk.core.domain.user.UpdatePrivacySettingsUseCase
 import ru.kubsu.borshchevyk.core.domain.user.UpdateProfileUseCase
-import ru.kubsu.borshchevyk.core.model.domain.User
 import javax.inject.Inject
 import kotlinx.coroutines.FlowPreview
 
+/**
+ * ViewModel for managing the user's profile screen.
+ * Handles loading user data, privacy settings, updating profile info, avatar, and logout.
+ *
+ * @property getUserIdUseCase Use case to retrieve the current user's ID.
+ * @property getTagUseCase Use case to retrieve the current user's tag.
+ * @property getUserProfileUseCase Use case to fetch the user's profile data.
+ * @property updateProfileUseCase Use case to update the user's profile information.
+ * @property uploadAvatarUseCase Use case to upload a new avatar image.
+ * @property updateAvatarUseCase Use case to update the avatar URL in the user's profile.
+ * @property getPrivacySettingsUseCase Use case to fetch current privacy settings.
+ * @property updatePrivacySettingsUseCase Use case to update privacy settings on the server.
+ * @property logoutUseCase Use case to log the user out of the application.
+ */
 @HiltViewModel
 @OptIn(FlowPreview::class)
 class ProfileViewModel @Inject constructor(
@@ -45,9 +58,17 @@ class ProfileViewModel @Inject constructor(
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ProfileUiState(isLoading = true))
+    
+    /**
+     * The single source of truth for the profile screen's UI state.
+     */
     val uiState: StateFlow<ProfileUiState> = _uiState.asStateFlow()
 
     private val _effect = Channel<ProfileEffect>(Channel.BUFFERED)
+    
+    /**
+     * A flow of one-time events (effects) such as navigation or showing error messages.
+     */
     val effect = _effect.receiveAsFlow()
 
     private val privacyUpdateFlow = MutableSharedFlow<PrivacySettings>(replay = 1)
@@ -123,6 +144,13 @@ class ProfileViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Updates the user's avatar by uploading the file and updating the profile.
+     *
+     * @param fileBytes The byte array of the image file.
+     * @param filename The name of the file being uploaded.
+     * @param contentType The MIME type of the file (e.g., "image/jpeg").
+     */
     private fun onUpdateAvatar(fileBytes: ByteArray, filename: String, contentType: String) {
         viewModelScope.launch {
             _uiState.update { it.copy(isUpdatingAvatar = true) }
@@ -137,6 +165,13 @@ class ProfileViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Updates the user's profile information.
+     *
+     * @param firstName The user's new first name.
+     * @param lastName The user's new last name.
+     * @param bio The user's new biography or description.
+     */
     private fun onUpdateProfile(firstName: String, lastName: String, bio: String) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
@@ -156,6 +191,14 @@ class ProfileViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Updates the user's privacy settings optimistically and emits to the update flow.
+     *
+     * @param emailVisibility The new visibility setting for the user's email.
+     * @param searchByEmailVisibility The new visibility setting for searching the user by email.
+     * @param profilePhotoVisibility The new visibility setting for the user's profile photo.
+     * @param inviteToChatVisibility The new visibility setting for who can invite the user to a chat.
+     */
     private fun onUpdatePrivacy(
         emailVisibility: Visibility?,
         searchByEmailVisibility: Visibility?,
@@ -181,7 +224,7 @@ class ProfileViewModel @Inject constructor(
     /**
      * Performs the network request to update privacy settings.
      *
-     * @param settings The new privacy settings.
+     * @param settings The new privacy settings to synchronize.
      */
     private suspend fun performUpdatePrivacy(settings: PrivacySettings) {
         try {
@@ -198,6 +241,9 @@ class ProfileViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Logs the user out of the application and clears local data.
+     */
     private fun onLogout() {
         viewModelScope.launch {
             try {
@@ -209,6 +255,11 @@ class ProfileViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Sends a one-time effect to the UI.
+     *
+     * @param effect The effect to be sent and handled by the UI.
+     */
     private fun sendEffect(effect: ProfileEffect) {
         viewModelScope.launch {
             _effect.send(effect)

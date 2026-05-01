@@ -22,28 +22,39 @@ import kotlinx.coroutines.launch
 import ru.kubsu.borshchevyk.core.domain.chat.CreatePrivateChatUseCase
 import ru.kubsu.borshchevyk.core.domain.chat.GetUserChatsUseCase
 import ru.kubsu.borshchevyk.core.domain.chat.GlobalSearchUseCase
-import ru.kubsu.borshchevyk.core.domain.chat.JoinChatUseCase
+import ru.kubsu.borshchevyk.core.model.domain.Chat
 import ru.kubsu.borshchevyk.core.model.domain.ChatType
 import ru.kubsu.borshchevyk.core.model.domain.User
 import javax.inject.Inject
-
 import ru.kubsu.borshchevyk.core.model.domain.GlobalSearchResults
 
+/**
+ * ViewModel responsible for the global search functionality.
+ * Handles searching for users and creating or joining chats from the results.
+ *
+ * @property globalSearchUseCase Use case for performing a global search across users and groups.
+ * @property createPrivateChatUseCase Use case for creating a new private chat with a selected user.
+ * @property getUserChatsUseCase Use case for fetching the user's existing chats to use as default search results.
+ */
 @HiltViewModel
 @OptIn(FlowPreview::class, kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class SearchViewModel @Inject constructor(
     private val globalSearchUseCase: GlobalSearchUseCase,
     private val createPrivateChatUseCase: CreatePrivateChatUseCase,
-    private val joinChatUseCase: JoinChatUseCase,
     private val getUserChatsUseCase: GetUserChatsUseCase
 ) : ViewModel() {
 
+    /** Internal mutable state flow for the UI state. */
     private val _uiState = MutableStateFlow(SearchUiState())
+    /** StateFlow emitting the current [SearchUiState]. */
     val uiState: StateFlow<SearchUiState> = _uiState.asStateFlow()
 
+    /** Internal channel for side-effects (navigation, error messages, etc.). */
     private val _effect = Channel<SearchEffect>(Channel.BUFFERED)
+    /** Flow of one-time [SearchEffect]s. */
     val effect = _effect.receiveAsFlow()
 
+    /** Cached list of default users to display when the search query is empty or too short. */
     private var defaultUserResults: List<User> = emptyList()
 
     init {
@@ -73,6 +84,11 @@ class SearchViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Handles incoming intents from the UI.
+     *
+     * @param intent The intent to handle.
+     */
     fun handleIntent(intent: SearchIntent) {
         when (intent) {
             is SearchIntent.UpdateQuery -> onQueryChange(intent.query)
@@ -140,6 +156,11 @@ class SearchViewModel @Inject constructor(
             .launchIn(viewModelScope)
     }
 
+    /**
+     * Initiates the creation of a private chat with a user.
+     *
+     * @param userId The ID of the user to chat with.
+     */
     private fun onCreateChat(userId: String) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
@@ -154,13 +175,21 @@ class SearchViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Joins an existing chat or navigates to it if already joined.
+     *
+     * @param chatId The ID of the chat to join.
+     */
     private fun onJoinChat(chatId: String) {
         viewModelScope.launch {
             _effect.send(SearchEffect.NavigateToChat(chatId))
         }
     }
 
-    private fun ru.kubsu.borshchevyk.core.model.domain.Chat.toSearchUser() = User(
+    /**
+     * Extension to map a Chat domain model to a User model for search results.
+     */
+    private fun Chat.toSearchUser() = User(
         userId = partnerId!!,
         tag = partnerName ?: "",
         firstName = partnerName,
@@ -168,14 +197,30 @@ class SearchViewModel @Inject constructor(
         avatarUrl = partnerAvatarUrl
     )
 
+    /**
+     * Represents the result of a search operation.
+     */
     private sealed interface Result {
+        /** Indicates that a search operation is currently in progress. */
         data object Loading : Result
+        /**
+         * Indicates that a search operation completed successfully.
+         *
+         * @property data The populated results of the search.
+         */
         data class Success(val data: GlobalSearchResults) : Result
+        /**
+         * Indicates that a search operation failed.
+         *
+         * @property message A descriptive message explaining the error.
+         */
         data class Error(val message: String) : Result
     }
 
     companion object {
+        /** The delay in milliseconds before a search is triggered after the query changes. */
         private const val DEBOUNCE_MS = 500L
+        /** The minimum number of characters required in the query to trigger a global search. */
         private const val MIN_QUERY_LENGTH = 3
     }
 }

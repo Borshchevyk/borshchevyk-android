@@ -17,7 +17,6 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import ru.kubsu.borshchevyk.core.domain.auth.GetUserIdUseCase
@@ -66,9 +65,11 @@ class ChatViewModel @Inject constructor(
     }
 
     private val _uiState = MutableStateFlow<ChatUiState>(ChatUiState.Loading)
+    /** StateFlow emitting the current [ChatUiState]. */
     val uiState: StateFlow<ChatUiState> = _uiState.asStateFlow()
 
     private val _effect = Channel<ChatEffect>(Channel.BUFFERED)
+    /** Flow of one-time [ChatEffect]s. */
     val effect = _effect.receiveAsFlow()
 
     private var typingJob: Job? = null
