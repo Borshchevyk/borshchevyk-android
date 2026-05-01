@@ -116,6 +116,13 @@ fun NotificationDto.MessageDto.toDomain(): Message = Message(
     } ?: emptyList()
 )
 
+/**
+ * Maps a database relation object [MessageWithDetails] to a domain [Message] model.
+ *
+ * Resolves authors, forwarded users, attachments, and reactions from the Room database relations.
+ *
+ * @return The mapped domain model.
+ */
 fun MessageWithDetails.toDomain(): Message = Message(
     id = message.id,
     chatId = message.chatId,
@@ -172,6 +179,11 @@ fun MessageWithDetails.toDomain(): Message = Message(
     }
 )
 
+/**
+ * Maps a domain [Message] model to a local [MessageEntity].
+ *
+ * @return The mapped database entity.
+ */
 fun Message.toMessageEntity(): MessageEntity = MessageEntity(
     id = id,
     chatId = chatId,
@@ -189,6 +201,11 @@ fun Message.toMessageEntity(): MessageEntity = MessageEntity(
     forwardedFromUserId = forwardedFromUserId
 )
 
+/**
+ * Extracts the author from a domain [Message] and maps it to a local [UserEntity].
+ *
+ * @return The mapped database entity, or null if the author is not present.
+ */
 fun Message.toAuthorEntity(): UserEntity? = author?.let {
     UserEntity(
         userId = it.userId,
@@ -202,6 +219,11 @@ fun Message.toAuthorEntity(): UserEntity? = author?.let {
     )
 }
 
+/**
+ * Extracts the forwarded user from a domain [Message] and maps it to a local [UserEntity].
+ *
+ * @return The mapped database entity, or null if there is no forwarded user.
+ */
 fun Message.toForwardedUserEntity(): UserEntity? = forwardedFromUser?.let {
     UserEntity(
         userId = it.userId,
@@ -215,6 +237,11 @@ fun Message.toForwardedUserEntity(): UserEntity? = forwardedFromUser?.let {
     )
 }
 
+/**
+ * Maps the attachments of a domain [Message] to a list of local [AttachmentEntity]s.
+ *
+ * @return A list of mapped database entities.
+ */
 fun Message.toAttachmentEntities(): List<AttachmentEntity> = attachments.map {
     AttachmentEntity(
         id = it.id,
@@ -231,6 +258,11 @@ fun Message.toAttachmentEntities(): List<AttachmentEntity> = attachments.map {
     )
 }
 
+/**
+ * Maps the reactions of a domain [Message] to a list of local [ReactionEntity]s.
+ *
+ * @return A list of mapped database entities.
+ */
 fun Message.toReactionEntities(): List<ReactionEntity> = reactions.map {
     ReactionEntity(
         messageId = id,

@@ -8,7 +8,10 @@ import kotlinx.coroutines.flow.Flow
 import ru.kubsu.borshchevyk.core.database.entity.ChatEntity
 
 /**
- * Data Access Object for handling [ChatEntity] operations.
+ * Data Access Object (DAO) for handling [ChatEntity] operations in the Borshchevyk messenger.
+ *
+ * Manages the persistence of chat sessions (both direct and group chats). This includes
+ * chats originating from the global server as well as those established over P2P mesh networks.
  */
 @Dao
 interface ChatDao {

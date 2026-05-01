@@ -8,7 +8,7 @@ import javax.inject.Inject
  * This is primarily used during app startup to route the user either to
  * the Auth screen or directly to the Messenger interface.
  *
- * @property authRepository the repository handling domain logic
+ * @property authRepository The repository handling authentication and user identity data.
  */
 class CheckAuthStatusUseCase @Inject constructor(
     private val authRepository: AuthRepository
@@ -16,7 +16,7 @@ class CheckAuthStatusUseCase @Inject constructor(
     /**
      * Evaluates the current authentication state.
      *
-     * @return `true` if a session or local identity exists, `false` otherwise
+     * @return `true` if a session or local identity exists, `false` otherwise.
      */
     suspend operator fun invoke(): Boolean {
         return authRepository.isLoggedIn()

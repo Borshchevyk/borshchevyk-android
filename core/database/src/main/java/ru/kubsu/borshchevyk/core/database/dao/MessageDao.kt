@@ -13,10 +13,12 @@ import ru.kubsu.borshchevyk.core.database.entity.ReactionEntity
 import ru.kubsu.borshchevyk.core.database.entity.UserEntity
 
 /**
- * Data Access Object for [MessageEntity] and its associated data.
+ * Data Access Object (DAO) for [MessageEntity] and its associated data in the Borshchevyk messenger.
  *
- * Provides transactional support for complex upsert operations involving relations like
- * attachments, reactions, and authors.
+ * This DAO provides transactional support for complex upsert operations involving relations like
+ * attachments, reactions, and authors. It handles both direct device-to-device (P2P/Mesh)
+ * and global server synchronization scenarios, ensuring local database consistency when merging
+ * incoming messages from different sources.
  */
 @Dao
 interface MessageDao {

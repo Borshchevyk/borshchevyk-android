@@ -5,14 +5,15 @@ import androidx.room.ForeignKey
 import androidx.room.Index
 
 /**
- * Represents a user reaction to a specific message.
+ * Represents a user's reaction (e.g., an emoji) to a specific message in the Borshchevyk messenger.
  *
- * This entity is linked to [MessageEntity] via a foreign key with CASCADE delete, meaning
- * if the message is deleted, all its reactions are also removed.
+ * Reactions are synced across peers in P2P mode or via the global server. This entity is linked
+ * to [MessageEntity] via a foreign key with CASCADE delete, meaning if the underlying message
+ * is deleted, all its associated reactions are automatically removed from the local database.
  *
- * @property messageId The ID of the message being reacted to.
- * @property userId The ID of the user who performed the reaction.
- * @property reaction The emoji or identifier representing the reaction.
+ * @property messageId The ID of the [MessageEntity] being reacted to.
+ * @property userId The ID of the [UserEntity] who performed the reaction.
+ * @property reaction The string representation of the reaction (typically a Unicode emoji).
  */
 @Entity(
     tableName = "reactions",

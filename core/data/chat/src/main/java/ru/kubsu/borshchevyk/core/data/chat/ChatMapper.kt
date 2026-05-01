@@ -7,6 +7,11 @@ import ru.kubsu.borshchevyk.core.network.dto.ChatMemberResponse
 import ru.kubsu.borshchevyk.core.model.domain.ChatMember
 import ru.kubsu.borshchevyk.core.model.domain.ChatMemberRole
 
+/**
+ * Maps a network [ChatResponse] DTO to a local [ChatEntity].
+ *
+ * @return The mapped database entity.
+ */
 fun ChatResponse.toEntity(): ChatEntity = ChatEntity(
     id = id,
     type = type,
@@ -24,6 +29,11 @@ fun ChatResponse.toEntity(): ChatEntity = ChatEntity(
     createdAt = createdAt
 )
 
+/**
+ * Maps a local [ChatEntity] to a domain [Chat] model.
+ *
+ * @return The mapped domain model.
+ */
 fun ChatEntity.toDomain(): Chat = Chat(
     id = id,
     type = type,
@@ -41,6 +51,11 @@ fun ChatEntity.toDomain(): Chat = Chat(
     createdAt = createdAt
 )
 
+/**
+ * Maps a network [ChatMemberResponse] DTO to a domain [ChatMember] model.
+ *
+ * @return The mapped domain model.
+ */
 fun ChatMemberResponse.toDomain(): ChatMember = ChatMember(
     chatId = chatId,
     userId = userId,

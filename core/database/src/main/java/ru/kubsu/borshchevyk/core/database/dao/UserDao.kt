@@ -8,7 +8,10 @@ import kotlinx.coroutines.flow.Flow
 import ru.kubsu.borshchevyk.core.database.entity.UserEntity
 
 /**
- * Data Access Object for handling [UserEntity] operations.
+ * Data Access Object (DAO) for handling [UserEntity] operations within the Borshchevyk messenger.
+ *
+ * Manages user profile data locally, supporting both global server profiles and
+ * locally discovered peers in P2P mesh networks.
  */
 @Dao
 interface UserDao {

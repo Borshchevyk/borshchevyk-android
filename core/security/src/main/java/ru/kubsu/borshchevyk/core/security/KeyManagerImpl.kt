@@ -44,12 +44,23 @@ class KeyManagerImpl @Inject constructor() : KeyManager {
         private const val RSA_KEY_SIZE = 2048
     }
 
+    /**
+     * Generates an RSA key pair in memory using the standard JCA provider.
+     *
+     * @return the generated [KeyPair].
+     */
     override fun generateInMemoryRsaKeyPair(): KeyPair {
         val kpg = KeyPairGenerator.getInstance(KeyProperties.KEY_ALGORITHM_RSA)
         kpg.initialize(RSA_KEY_SIZE)
         return kpg.generateKeyPair()
     }
 
+    /**
+     * Generates an RSA key pair directly within the hardware-backed "AndroidKeyStore".
+     *
+     * @param alias the unique Keystore alias under which the key pair will be stored.
+     * @return the public part of the generated key pair.
+     */
     override fun generateKeystoreRsaKeyPair(alias: String): PublicKey {
         val kpg = KeyPairGenerator.getInstance(KeyProperties.KEY_ALGORITHM_RSA, "AndroidKeyStore")
         val spec = KeyGenParameterSpec.Builder(
@@ -64,12 +75,25 @@ class KeyManagerImpl @Inject constructor() : KeyManager {
         return kpg.generateKeyPair().public
     }
 
+    /**
+     * Retrieves the public key for a given alias from the Android Keystore.
+     *
+     * @param alias the Keystore alias.
+     * @return the [PublicKey] if found, or `null` if the alias does not exist.
+     */
     override fun getPublicKey(alias: String): PublicKey? {
         if (!keyStore.containsAlias(alias)) return null
         val entry = keyStore.getEntry(alias, null) as? KeyStore.PrivateKeyEntry
         return entry?.certificate?.publicKey
     }
 
+    /**
+     * Encrypts arbitrary data using an AES-GCM symmetric key derived from a user password.
+     *
+     * @param data the raw bytes to encrypt.
+     * @param password the user's password used for key derivation.
+     * @return the encrypted byte array containing salt, IV, and ciphertext.
+     */
     override fun encryptWithPassword(data: ByteArray, password: String): ByteArray {
         val salt = ByteArray(SALT_SIZE)
         secureRandom.nextBytes(salt)
@@ -91,6 +115,14 @@ class KeyManagerImpl @Inject constructor() : KeyManager {
         return buffer.array()
     }
 
+    /**
+     * Decrypts a payload previously encrypted with a password-derived symmetric key.
+     *
+     * @param encryptedData the payload containing salt, IV, and ciphertext.
+     * @param password the user's password used for key derivation.
+     * @return the decrypted raw bytes.
+     * @throws IllegalArgumentException if the encrypted data is too short.
+     */
     override fun decryptWithPassword(encryptedData: ByteArray, password: String): ByteArray {
         if (encryptedData.size < SALT_SIZE + GCM_IV_SIZE) {
             throw IllegalArgumentException("Encrypted data is too short")
@@ -115,6 +147,12 @@ class KeyManagerImpl @Inject constructor() : KeyManager {
         return cipher.doFinal(encrypted)
     }
 
+    /**
+     * Retrieves or creates a hardware-backed AES/GCM secret key in the Android Keystore.
+     *
+     * @param alias the unique Keystore alias for the symmetric key.
+     * @return the hardware-backed [SecretKey].
+     */
     override fun getOrCreateLocalSymmetricKey(alias: String): SecretKey {
         if (keyStore.containsAlias(alias)) {
             val entry = keyStore.getEntry(alias, null) as KeyStore.SecretKeyEntry
@@ -134,6 +172,14 @@ class KeyManagerImpl @Inject constructor() : KeyManager {
         return keyGenerator.generateKey()
     }
 
+    /**
+     * Encrypts raw key bytes using a local, hardware-backed AES key from the Android Keystore.
+     *
+     * @param alias the Keystore alias of the AES wrapper key.
+     * @param keyBytes the raw bytes to wrap (encrypt).
+     * @return the wrapped blob containing the IV and ciphertext.
+     * @throws IllegalStateException if the cipher failed to generate an IV.
+     */
     override fun wrapKeyWithLocalKeystore(alias: String, keyBytes: ByteArray): ByteArray {
         val secretKey = getOrCreateLocalSymmetricKey(alias)
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
@@ -147,6 +193,14 @@ class KeyManagerImpl @Inject constructor() : KeyManager {
         return buffer.array()
     }
 
+    /**
+     * Decrypts a wrapped payload using the local, hardware-backed AES key.
+     *
+     * @param alias the Keystore alias of the AES wrapper key.
+     * @param wrappedKeyBytes the encrypted blob containing the IV and ciphertext.
+     * @return the unwrapped raw bytes.
+     * @throws IllegalArgumentException if the wrapped key data is too short.
+     */
     override fun unwrapKeyWithLocalKeystore(alias: String, wrappedKeyBytes: ByteArray): ByteArray {
         if (wrappedKeyBytes.size < GCM_IV_SIZE) {
             throw IllegalArgumentException("Wrapped key data is too short")
@@ -165,6 +219,13 @@ class KeyManagerImpl @Inject constructor() : KeyManager {
         return cipher.doFinal(encrypted)
     }
 
+    /**
+     * Signs the given data using raw RSA private key bytes provided in memory.
+     *
+     * @param privateKeyBytes the raw PKCS#8 encoded RSA private key.
+     * @param data the data to sign.
+     * @return the cryptographic signature (SHA256withRSA).
+     */
     override fun signDataWithRawKey(privateKeyBytes: ByteArray, data: ByteArray): ByteArray {
         val kf = KeyFactory.getInstance("RSA")
         val privateKey = kf.generatePrivate(PKCS8EncodedKeySpec(privateKeyBytes))
@@ -174,6 +235,14 @@ class KeyManagerImpl @Inject constructor() : KeyManager {
         return signature.sign()
     }
 
+    /**
+     * Signs the given data using the RSA private key securely stored in the Android Keystore.
+     *
+     * @param alias the Keystore alias of the RSA key pair.
+     * @param data the data to sign.
+     * @return the cryptographic signature (SHA256withRSA).
+     * @throws IllegalStateException if the key with the given alias is not found.
+     */
     override fun signData(alias: String, data: ByteArray): ByteArray {
         val entry = keyStore.getEntry(alias, null) as? KeyStore.PrivateKeyEntry
             ?: throw IllegalStateException("Key with alias $alias not found")

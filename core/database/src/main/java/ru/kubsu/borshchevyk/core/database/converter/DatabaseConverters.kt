@@ -5,7 +5,11 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
 /**
- * Type converters for Room to handle non-primitive types in the database.
+ * Type converters for Room to handle complex and non-primitive types in the Borshchevyk database.
+ *
+ * Since SQLite natively supports only a limited set of types (like integers, strings, and blobs),
+ * these converters use `kotlinx.serialization` to serialize lists and sets into JSON strings
+ * before storing them, and deserialize them back into Kotlin collections when reading.
  */
 class DatabaseConverters {
     private val json = Json { ignoreUnknownKeys = true }

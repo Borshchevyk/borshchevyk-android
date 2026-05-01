@@ -15,6 +15,17 @@ import ru.kubsu.borshchevyk.core.security.KeyManager
 import java.security.MessageDigest
 import javax.inject.Inject
 
+/**
+ * Implementation of [AuthRepository] managing user authentication, registration, and session state.
+ *
+ * Handles both online (global server) and offline (mesh network) authentication flows. It incorporates
+ * cryptographic key generation and signing for secure challenge-response authentication.
+ *
+ * @property networkDataSource Source for authentication REST API operations.
+ * @property keyManager Utility for generating, wrapping, and securely managing RSA keys.
+ * @property authPreferences Local storage for tokens and user identity.
+ * @property webSocketConnectionManager Manager for maintaining the global WebSocket connection.
+ */
 class AuthRepositoryImpl @Inject constructor(
     private val networkDataSource: AuthNetworkDataSource,
     private val keyManager: KeyManager,
@@ -22,30 +33,67 @@ class AuthRepositoryImpl @Inject constructor(
     private val webSocketConnectionManager: WebSocketConnectionManager
 ) : AuthRepository {
 
+    /** Flow emitting the current JWT access token. */
     override val accessToken: Flow<String?> = authPreferences.accessToken
+    
+    /** Flow emitting the current user's unique identifier. */
     override val userId: Flow<String?> = authPreferences.userId
+    
+    /** Flow emitting the current user's tag. */
     override val tag: Flow<String?> = authPreferences.tag
 
+    /**
+     * Logs out the current user by clearing local tokens, identity, and disconnecting WebSockets.
+     */
     override suspend fun logout() {
         authPreferences.clearTokens()
         authPreferences.clearIdentity()
         webSocketConnectionManager.disconnect()
     }
 
+    /**
+     * Retrieves the current user's ID from local storage.
+     *
+     * @return The user ID string, or null if not authenticated.
+     */
     override suspend fun getUserId(): String? {
         return authPreferences.userId.firstOrNull()
     }
 
+    /**
+     * Retrieves the current user's tag from local storage.
+     *
+     * @return The user tag string, or null if not authenticated.
+     */
     override suspend fun getTag(): String? {
         return authPreferences.tag.firstOrNull()
     }
 
+    /**
+     * Registers a user offline for mesh network usage by generating an RSA key pair in the Android Keystore.
+     *
+     * @param tag The user's chosen tag/username.
+     * @return A string indicating successful offline registration.
+     */
     override suspend fun registerOffline(tag: String): String {
         keyManager.generateKeystoreRsaKeyPair("mesh_key_$tag")
         authPreferences.saveTag(tag)
         return "offline_user_$tag"
     }
 
+    /**
+     * Registers a user online with the global server, including RSA key pair generation and cryptographic wrapping.
+     *
+     * Generates an in-memory RSA key pair, encrypts the private key with the user's password, and sends the
+     * public key and wrapped private key to the server. The private key is also locally wrapped and stored.
+     *
+     * @param email The user's email address.
+     * @param password The user's password.
+     * @param tag The user's chosen tag/username.
+     * @param firstName The user's first name.
+     * @param lastName The user's last name (optional).
+     * @return The newly registered user's unique identifier.
+     */
     override suspend fun registerOnline(email: String, password: String, tag: String, firstName: String, lastName: String?): String {
         val passwordHash = hashString(password)
 
@@ -75,6 +123,16 @@ class AuthRepositoryImpl @Inject constructor(
         return response.userId
     }
 
+    /**
+     * Authenticates a user online using a challenge-response mechanism.
+     *
+     * Retrieves the encrypted private key from the server, decrypts it using the provided password,
+     * signs a cryptographic challenge to prove identity, and securely stores the resulting session tokens.
+     *
+     * @param email The user's email address.
+     * @param password The user's password.
+     * @return The authenticated user's unique identifier.
+     */
     override suspend fun loginOnline(email: String, password: String): String {
         val passwordHash = hashString(password)
 
@@ -102,12 +160,23 @@ class AuthRepositoryImpl @Inject constructor(
         return loginResponse.userId
     }
 
+    /**
+     * Checks if the user is currently authenticated by verifying the presence of local tokens or identity tags.
+     *
+     * @return True if logged in, false otherwise.
+     */
     override suspend fun isLoggedIn(): Boolean {
         val token = authPreferences.accessToken.firstOrNull()
         val tag = authPreferences.tag.firstOrNull()
         return !token.isNullOrBlank() || !tag.isNullOrBlank()
     }
 
+    /**
+     * Generates a SHA-256 hash of the given string.
+     *
+     * @param input The plain text string.
+     * @return The lowercase hexadecimal representation of the hash.
+     */
     private fun hashString(input: String): String {
         val bytes = MessageDigest.getInstance("SHA-256").digest(input.toByteArray())
         return bytes.joinToString("") { "%02x".format(it) }

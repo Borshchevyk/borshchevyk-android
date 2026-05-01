@@ -7,22 +7,23 @@ import androidx.room.PrimaryKey
 import ru.kubsu.borshchevyk.core.model.domain.DomainAttachmentType
 
 /**
- * Represents a file attachment linked to a specific message.
+ * Represents a file attachment linked to a specific message within the Borshchevyk messenger.
  *
- * Linked to [MessageEntity] via `messageId`. Deleting the parent message results in the automatic
- * deletion of this attachment.
+ * Supports attachments of any format transferred over both the global server and P2P mesh networks.
+ * Linked to [MessageEntity] via `messageId` with a CASCADE delete constraint, ensuring
+ * database integrity by automatically removing attachments when the parent message is deleted.
  *
  * @property id The unique identifier of the attachment.
- * @property messageId The ID of the message this attachment belongs to.
- * @property type The type of the attachment (e.g., IMAGE, VIDEO, FILE).
- * @property originalFilename The original name of the file.
- * @property extension The file extension (e.g., jpg, pdf).
- * @property sizeBytes The size of the file in bytes.
- * @property thumbnailKey A key used to retrieve the thumbnail from local cache.
- * @property updatedAt Timestamp of the last update.
- * @property width The width (for visual media).
- * @property height The height (for visual media).
- * @property duration The duration in seconds (for audio/video).
+ * @property messageId The ID of the parent [MessageEntity] this attachment belongs to.
+ * @property type The type of the attachment (e.g., IMAGE, VIDEO, AUDIO, FILE).
+ * @property originalFilename The original name of the file, preserving the sender's naming.
+ * @property extension The file extension (e.g., jpg, pdf, mp3), useful for determining how to open it.
+ * @property sizeBytes The size of the file in bytes, used for download progress and storage management.
+ * @property thumbnailKey A key used to retrieve a lightweight thumbnail from the local cache without loading the full file.
+ * @property updatedAt ISO timestamp indicating when the attachment metadata was last updated.
+ * @property width The width in pixels (applicable for visual media like images and videos).
+ * @property height The height in pixels (applicable for visual media like images and videos).
+ * @property duration The duration in seconds (applicable for audio and video files).
  */
 @Entity(
     tableName = "attachments",

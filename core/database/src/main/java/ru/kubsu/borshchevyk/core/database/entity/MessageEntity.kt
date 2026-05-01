@@ -6,24 +6,27 @@ import ru.kubsu.borshchevyk.core.model.domain.MessageSource
 import ru.kubsu.borshchevyk.core.model.domain.MessageStatus
 
 /**
- * Represents a message within a chat conversation.
+ * Represents a discrete message within a Borshchevyk chat conversation.
  *
- * This entity belongs to a [ChatEntity] via the `chatId` foreign key.
+ * This is the core entity for all communication, capable of representing messages exchanged
+ * over standard client-server connections as well as decentralized P2P mesh networks.
+ * It tracks its origin via the [source] property, allowing the UI to differentiate between
+ * global and local interactions. It logically belongs to a [ChatEntity].
  *
  * @property id The unique identifier for the message.
- * @property chatId The ID of the chat this message belongs to.
- * @property authorId The ID of the user who sent the message.
+ * @property chatId The ID of the [ChatEntity] this message belongs to.
+ * @property authorId The ID of the [UserEntity] who sent the message.
  * @property text The textual content of the message.
- * @property createdAt ISO timestamp when the message was sent.
- * @property updatedAt ISO timestamp when the message was last edited.
- * @property status The delivery/read status of the message.
- * @property isDeleted Whether the message has been deleted.
- * @property source The origin source of the message.
- * @property isPinned Whether the message is pinned in the chat.
- * @property commentsCount The number of thread comments for this message.
- * @property parentMessageId The ID of the original message if this is a reply.
- * @property forwardedFromChatId The ID of the original chat if forwarded.
- * @property forwardedFromUserId The ID of the original sender if forwarded.
+ * @property createdAt ISO timestamp indicating when the message was initially sent.
+ * @property updatedAt ISO timestamp indicating when the message was last edited (null if never edited).
+ * @property status The current delivery/read status of the message (e.g., sent, delivered, read).
+ * @property isDeleted Flag indicating if the message has been logically deleted by the user.
+ * @property source The origin network source of the message (e.g., Global Server vs. P2P Mesh).
+ * @property isPinned Flag indicating whether the message is pinned to the top of the chat.
+ * @property commentsCount The number of thread comments/replies associated with this message.
+ * @property parentMessageId The ID of the parent message, used if this message is a direct reply.
+ * @property forwardedFromChatId The ID of the original chat if this message was forwarded.
+ * @property forwardedFromUserId The ID of the original sender if this message was forwarded.
  */
 @Entity(tableName = "messages")
 data class MessageEntity(

@@ -14,7 +14,12 @@ import ru.kubsu.borshchevyk.core.database.dao.UserDao
 import javax.inject.Singleton
 
 /**
- * Dagger Hilt module for providing database and DAO dependencies.
+ * Dagger Hilt dependency injection module for the Borshchevyk database layer.
+ *
+ * This module is responsible for instantiating the Room [AppDatabase] as a singleton and
+ * exposing its Data Access Objects (DAOs) to the rest of the application (e.g., repository layers).
+ * This ensures that only a single instance of the database connection is open at any time,
+ * providing a unified local cache for both global server and P2P mesh network operations.
  */
 @Module
 @InstallIn(SingletonComponent::class)
