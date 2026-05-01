@@ -19,6 +19,18 @@ import ru.kubsu.borshchevyk.core.domain.call.usecase.LeaveCallUseCase
 import ru.kubsu.borshchevyk.core.domain.call.usecase.ObserveCallEventsUseCase
 import javax.inject.Inject
 
+/**
+ * ViewModel managing the active call screen logic and state.
+ * It interacts with the LiveKit [CallHandler] to manage WebRTC connections
+ * and observes domain call events to handle external signaling (e.g. call rejected or ended by remote).
+ *
+ * @property savedStateHandle Provides navigation arguments (e.g., `callId` and `isInitiator`).
+ * @property callHandler The singleton managing the LiveKit room session.
+ * @property joinCallUseCase Retrieves the LiveKit access token for the room.
+ * @property endCallUseCase Ends the call for all participants (if initiator).
+ * @property leaveCallUseCase Leaves the call (if participant).
+ * @property observeCallEventsUseCase Observes signaling events to react to remote actions.
+ */
 @HiltViewModel
 class CallViewModel @Inject constructor(
     private val savedStateHandle: SavedStateHandle,
@@ -30,13 +42,19 @@ class CallViewModel @Inject constructor(
 ) : ViewModel() {
 
     private val TAG = "CallViewModel"
+    
+    /** The unique ID of the current call session. */
     val callId: String = checkNotNull(savedStateHandle["callId"])
+    
+    /** Indicates if the current user initiated this call. */
     val isInitiator: Boolean = savedStateHandle["isInitiator"] ?: false
 
     private val _uiState = MutableStateFlow<CallUiState>(CallUiState.Loading)
+    /** StateFlow emitting the current [CallUiState]. */
     val uiState: StateFlow<CallUiState> = _uiState.asStateFlow()
 
     private val _effect = Channel<CallEffect>(Channel.BUFFERED)
+    /** Flow of one-time [CallEffect]s to be handled by the UI. */
     val effect = _effect.receiveAsFlow()
 
     private var connectJob: Job? = null
@@ -46,6 +64,9 @@ class CallViewModel @Inject constructor(
         observeSessionState()
     }
 
+    /**
+     * Observes call signaling events from the domain layer (e.g., call rejected or ended).
+     */
     private fun observeCallEvents() {
         viewModelScope.launch {
             observeCallEventsUseCase().collect { event ->
@@ -63,6 +84,9 @@ class CallViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Observes the WebRTC session state from the [CallHandler] to update the UI accordingly.
+     */
     private fun observeSessionState() {
         viewModelScope.launch {
             callHandler.state.collect { sessionState ->
@@ -102,6 +126,10 @@ class CallViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Handles incoming intents from the UI.
+     * @param intent The [CallIntent] to process.
+     */
     fun handleIntent(intent: CallIntent) {
         when (intent) {
             is CallIntent.Connect -> connectToCall()
@@ -112,6 +140,9 @@ class CallViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Connects to the active call session using the provided token.
+     */
     private fun connectToCall() {
         if (connectJob?.isActive == true || _uiState.value is CallUiState.Active) return
 
@@ -127,6 +158,9 @@ class CallViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Toggles the user's microphone state (mute/unmute) in the active call.
+     */
     private fun toggleMic() {
         val state = _uiState.value as? CallUiState.Active ?: return
         viewModelScope.launch {
@@ -134,6 +168,9 @@ class CallViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Toggles the user's camera state (on/off) in the active call.
+     */
     private fun toggleCamera() {
         val state = _uiState.value as? CallUiState.Active ?: return
         viewModelScope.launch {
@@ -141,6 +178,9 @@ class CallViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Ends or leaves the current call depending on whether the user is the initiator.
+     */
     private fun endCall() {
         viewModelScope.launch {
             try {
@@ -158,6 +198,11 @@ class CallViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Handles the logic for when a call is ended, updating the UI state and disconnecting the handler.
+     *
+     * @param message An optional error message or reason for the call ending.
+     */
     private fun handleCallEnded(message: String? = null) {
         viewModelScope.launch {
             message?.let {
@@ -169,6 +214,9 @@ class CallViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Toggles the minimized state of the call interface.
+     */
     private fun toggleMinimize() {
         _uiState.update { state ->
             if (state is CallUiState.Active) {
@@ -177,6 +225,10 @@ class CallViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Called when the ViewModel is destroyed. Ensures the call is disconnected 
+     * to avoid memory leaks or lingering connections.
+     */
     override fun onCleared() {
         callHandler.disconnect()
         super.onCleared()

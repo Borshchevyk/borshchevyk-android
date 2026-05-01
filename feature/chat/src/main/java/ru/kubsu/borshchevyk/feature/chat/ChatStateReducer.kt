@@ -4,6 +4,14 @@ import ru.kubsu.borshchevyk.core.model.domain.ChatEvent
 import ru.kubsu.borshchevyk.core.model.domain.MessageReaction
 import ru.kubsu.borshchevyk.core.model.domain.MessageStatus
 
+/**
+ * Reduces the current [ChatUiState] based on the provided [ChatStateAction].
+ * This function processes all state transitions for the chat screen, ensuring
+ * a predictable unidirectional data flow.
+ *
+ * @param action The [ChatStateAction] representing the intent or event to process.
+ * @return The newly computed [ChatUiState].
+ */
 fun ChatUiState.reduce(action: ChatStateAction): ChatUiState {
     return when (action) {
         is ChatStateAction.LoadingStarted -> if (action.isFullLoad) ChatUiState.Loading else this

@@ -24,6 +24,19 @@ import ru.kubsu.borshchevyk.core.model.domain.User
 import ru.kubsu.borshchevyk.core.ui.theme.BorshchevykTheme
 import ru.kubsu.borshchevyk.feature.search.ui.components.UserSearchItem
 
+/**
+ * Composable that displays the main content of the Search screen.
+ * It handles the rendering of search results for both users and public chats,
+ * along with loading and error states.
+ *
+ * @param isLoading Whether a search operation is currently running.
+ * @param userResults The list of users to display.
+ * @param chatResults The list of public chats to display.
+ * @param onUserClick Callback triggered when a user item is clicked. Passes the user ID.
+ * @param onChatClick Callback triggered when a chat item is clicked. Passes the chat ID.
+ * @param modifier The modifier to be applied to the root layout.
+ * @param error An optional error message to display.
+ */
 @Composable
 internal fun SearchScreen(
     isLoading: Boolean,
@@ -104,6 +117,11 @@ internal fun SearchScreen(
     }
 }
 
+/**
+ * Displays a section header within the search results list.
+ *
+ * @param text The title text to display in the header.
+ */
 @Composable
 private fun SearchHeader(text: String) {
     Text(
@@ -114,6 +132,13 @@ private fun SearchHeader(text: String) {
     )
 }
 
+/**
+ * A reusable component to display informational text or errors in the center of the screen.
+ *
+ * @param title The main headline text.
+ * @param message The secondary descriptive text.
+ * @param modifier The modifier for layout positioning.
+ */
 @Composable
 private fun SearchInfoMessage(
     title: String,

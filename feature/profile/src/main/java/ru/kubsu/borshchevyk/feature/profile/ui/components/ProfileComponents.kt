@@ -22,6 +22,14 @@ import androidx.compose.ui.unit.dp
 import ru.kubsu.borshchevyk.core.model.domain.Visibility
 import ru.kubsu.borshchevyk.core.ui.theme.BorshchevykTheme
 
+/**
+ * A UI component that displays a title and a row of filter chips representing 
+ * different [Visibility] levels (e.g., EVERYONE, CONTACTS, NOBODY).
+ *
+ * @param title The label for this privacy setting.
+ * @param currentValue The currently selected visibility level.
+ * @param onValueChange Callback invoked when a new visibility level is selected.
+ */
 @Composable
 fun PrivacyOption(
     title: String,
@@ -48,6 +56,14 @@ fun PrivacyOption(
     }
 }
 
+/**
+ * Displays an individual item within a settings list.
+ *
+ * @param icon The icon to display alongside the setting title.
+ * @param title The text label for the setting.
+ * @param onClick Callback invoked when the settings item is clicked.
+ * @param isDestructive Indicates whether this action is destructive (e.g., deleting an account), applying appropriate styling. Defaults to false.
+ */
 @Composable
 fun SettingsItem(
     icon: ImageVector,

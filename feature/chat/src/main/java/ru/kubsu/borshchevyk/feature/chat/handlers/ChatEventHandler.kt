@@ -24,6 +24,15 @@ class ChatEventHandler @Inject constructor(
 ) {
     private val TAG = "ChatEventHandler"
 
+    /**
+     * Observes chat history and incoming events (e.g., via WebSockets) for a specific chat.
+     * Dispatches state actions when new data or events arrive and automatically resolves attachment metadata.
+     *
+     * @param chatId The unique identifier of the chat to observe.
+     * @param scope The coroutine scope in which the flows will be launched.
+     * @param dispatch Callback function to dispatch state actions back to the ViewModel.
+     * @param resolveAttachment Callback function to trigger resolution (e.g., metadata/previews) of attachments.
+     */
     fun observe(
         chatId: String,
         scope: CoroutineScope,

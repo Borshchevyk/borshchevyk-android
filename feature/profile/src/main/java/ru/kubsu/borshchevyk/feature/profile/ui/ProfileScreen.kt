@@ -176,6 +176,11 @@ internal fun ProfileScreen(
     }
 }
 
+/**
+ * Displays a fallback avatar containing the user's initial when no image is available.
+ *
+ * @param initial The single character initial to display.
+ */
 @Composable
 private fun InitialAvatar(initial: String) {
     Box(

@@ -34,6 +34,15 @@ import ru.kubsu.borshchevyk.feature.auth.AuthUiState
 import ru.kubsu.borshchevyk.feature.auth.ui.components.AuthTextField
 import ru.kubsu.borshchevyk.feature.auth.ui.components.TabButton
 
+/**
+ * The main stateless UI for the Authentication feature.
+ * Renders the forms for both Online and Mesh networking modes,
+ * handling state rendering and user interactions via intents.
+ *
+ * @param uiState The current state of the authentication UI.
+ * @param onIntent Callback to dispatch [AuthIntent]s back to the ViewModel.
+ * @param modifier The [Modifier] to apply to the screen's root layout.
+ */
 @Composable
 internal fun AuthScreen(
     uiState: AuthUiState,
@@ -104,6 +113,13 @@ internal fun AuthScreen(
     }
 }
 
+/**
+ * Composable that renders the input fields for the Online authentication mode.
+ * Dynamically switches between Login and Registration fields.
+ *
+ * @param uiState The current state of the authentication UI.
+ * @param onIntent Callback to dispatch [AuthIntent]s.
+ */
 @Composable
 private fun OnlineAuthFields(
     uiState: AuthUiState,
@@ -183,6 +199,13 @@ private fun OnlineAuthFields(
     }
 }
 
+/**
+ * Composable that renders the input fields for the Offline (Mesh) authentication mode.
+ * Allows user to set a unique tag to enter the mesh network.
+ *
+ * @param uiState The current state of the authentication UI.
+ * @param onIntent Callback to dispatch [AuthIntent]s.
+ */
 @Composable
 private fun OfflineAuthFields(
     uiState: AuthUiState,

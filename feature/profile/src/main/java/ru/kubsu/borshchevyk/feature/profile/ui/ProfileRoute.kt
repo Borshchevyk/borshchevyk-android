@@ -24,6 +24,17 @@ import ru.kubsu.borshchevyk.feature.profile.ProfileEffect
 import ru.kubsu.borshchevyk.feature.profile.ProfileIntent
 import ru.kubsu.borshchevyk.feature.profile.ProfileViewModel
 
+/**
+ * Entry point for the main profile feature. Handles state observation, effect processing,
+ * and routing to the UI component.
+ *
+ * @param onBackClick Callback invoked when the user navigates back.
+ * @param onNavigateToEditProfile Callback invoked to navigate to the Edit Profile screen.
+ * @param onNavigateToEditPrivacy Callback invoked to navigate to the Edit Privacy screen.
+ * @param onLogoutSuccess Callback invoked when the user successfully logs out.
+ * @param modifier The modifier to be applied to the layout.
+ * @param viewModel The ViewModel that manages the state and logic for the profile feature.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileRoute(

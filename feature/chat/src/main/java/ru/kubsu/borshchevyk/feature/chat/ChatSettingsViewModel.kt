@@ -19,6 +19,22 @@ import ru.kubsu.borshchevyk.feature.chat.handlers.ChatSettingsHandler
 import ru.kubsu.borshchevyk.feature.chat.handlers.ContactHandler
 import javax.inject.Inject
 
+/**
+ * Represents the UI state for the chat settings screen.
+ *
+ * @property currentUserId The ID of the currently authenticated user.
+ * @property isGroupChat Indicates whether the current chat is a group chat.
+ * @property members The list of members in the chat (if applicable).
+ * @property inviteLink The generated invite link for the chat, if any.
+ * @property isChatDeleted Indicates whether the chat has been deleted.
+ * @property isContact Indicates whether the chat partner is in the user's contacts.
+ * @property partnerId The ID of the chat partner (for private chats).
+ * @property partnerFirstName The first name of the chat partner.
+ * @property partnerLastName The last name of the chat partner.
+ * @property isDeletable Indicates whether the chat can be deleted.
+ * @property isLoading Indicates if settings data is currently being loaded.
+ * @property error An optional error message if an operation failed.
+ */
 data class ChatSettingsUiState(
     val currentUserId: String = "",
     val isGroupChat: Boolean = false,
@@ -34,6 +50,10 @@ data class ChatSettingsUiState(
     val error: String? = null
 )
 
+/**
+ * [ChatSettingsViewModel] manages the settings and configuration for a specific chat.
+ * It handles member management, permissions, updating chat info, and contact actions.
+ */
 @HiltViewModel
 class ChatSettingsViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
@@ -47,12 +67,19 @@ class ChatSettingsViewModel @Inject constructor(
     private val chatId: String = checkNotNull(savedStateHandle["chatId"])
 
     private val _uiState = MutableStateFlow(ChatSettingsUiState(isLoading = true))
+    
+    /**
+     * A state flow representing the current UI state of the chat settings.
+     */
     val uiState: StateFlow<ChatSettingsUiState> = _uiState.asStateFlow()
 
     init {
         loadData()
     }
 
+    /**
+     * Loads the initial settings data including chat details, members, and contact status.
+     */
     private fun loadData() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
@@ -85,6 +112,12 @@ class ChatSettingsViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Adds the current chat partner to the user's contacts.
+     *
+     * @param firstName The first name to save for the contact.
+     * @param lastName The last name to save for the contact.
+     */
     fun onAddContact(firstName: String, lastName: String?) {
         val partnerId = _uiState.value.partnerId ?: return
         viewModelScope.launch {
@@ -97,6 +130,9 @@ class ChatSettingsViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Removes the current chat partner from the user's contacts.
+     */
     fun onRemoveContact() {
         val partnerId = _uiState.value.partnerId ?: return
         viewModelScope.launch {
@@ -109,6 +145,11 @@ class ChatSettingsViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Invites a new user to the chat.
+     *
+     * @param userId The ID of the user to invite.
+     */
     fun onInviteUser(userId: String) = viewModelScope.launch {
         try {
             settingsHandler.inviteUser(chatId, userId)
@@ -118,6 +159,9 @@ class ChatSettingsViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Generates a new invite link for the chat.
+     */
     fun onGenerateInviteLink() = viewModelScope.launch {
         try {
             val link = settingsHandler.generateInviteLink(chatId)
@@ -127,6 +171,15 @@ class ChatSettingsViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Updates the permissions for a specific member in the chat.
+     *
+     * @param targetUserId The ID of the user whose permissions are being updated.
+     * @param canSendMessages Whether the user can send messages.
+     * @param canDeleteMessages Whether the user can delete messages.
+     * @param canInviteUsers Whether the user can invite others.
+     * @param canChangeInfo Whether the user can change chat info.
+     */
     fun onUpdatePermissions(
         targetUserId: String,
         canSendMessages: Boolean,
@@ -143,10 +196,18 @@ class ChatSettingsViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Clears the chat history.
+     *
+     * @param forAll Whether to clear the history for all participants.
+     */
     fun onClearHistory(forAll: Boolean) = viewModelScope.launch {
         try { settingsHandler.clearHistory(chatId, forAll) } catch (e: Exception) { _uiState.update { it.copy(error = e.message) } }
     }
 
+    /**
+     * Deletes the chat entirely.
+     */
     fun onDeleteChat() = viewModelScope.launch {
         try {
             settingsHandler.deleteChat(chatId)
@@ -156,6 +217,11 @@ class ChatSettingsViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Kicks a user from the chat.
+     *
+     * @param targetUserId The ID of the user to kick.
+     */
     fun onKickUser(targetUserId: String) = viewModelScope.launch {
         try {
             settingsHandler.kickUser(chatId, targetUserId)
@@ -166,6 +232,9 @@ class ChatSettingsViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Leaves the chat.
+     */
     fun onLeaveChat() = viewModelScope.launch {
         try {
             settingsHandler.leaveChat(chatId)
@@ -175,6 +244,12 @@ class ChatSettingsViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Updates the chat's title and description.
+     *
+     * @param title The new chat title.
+     * @param description The new chat description.
+     */
     fun onUpdateChatInfo(title: String?, description: String?) = viewModelScope.launch {
         try {
             settingsHandler.updateChatInfo(chatId, title, description)

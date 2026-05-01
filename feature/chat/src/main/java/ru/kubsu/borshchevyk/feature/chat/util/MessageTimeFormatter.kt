@@ -14,6 +14,13 @@ object MessageTimeFormatter {
     private val cache = ConcurrentHashMap<String, String>()
     private val formatter = DateTimeFormatter.ofPattern("HH:mm")
 
+    /**
+     * Formats an ISO-8601 time string into a localized "HH:mm" representation.
+     * Caches the formatted results to optimize performance in scrollable lists.
+     *
+     * @param timeStr The ISO-8601 time string to format.
+     * @return The formatted local time string.
+     */
     fun format(timeStr: String): String {
         return cache.getOrPut(timeStr) {
             try {

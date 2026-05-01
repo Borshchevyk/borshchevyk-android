@@ -80,10 +80,21 @@ class ChatViewModel @Inject constructor(
         observeDataSources()
     }
 
+    /**
+     * Dispatches a state reduction action to update the UI state.
+     *
+     * @param action The [ChatStateAction] to process.
+     */
     private fun dispatch(action: ChatStateAction) {
         _uiState.update { it.reduce(action) }
     }
 
+    /**
+     * Handles incoming MVI intents from the UI layer.
+     * Maps user actions or lifecycle events to corresponding business logic execution.
+     *
+     * @param intent The [ChatIntent] to handle.
+     */
     fun handleIntent(intent: ChatIntent) {
         when (intent) {
             is ChatIntent.OpenSettings -> openSettings()
@@ -108,6 +119,9 @@ class ChatViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Subscribes to necessary data streams including WebSocket events and network connectivity.
+     */
     private fun observeDataSources() {
         chatEventHandler.observe(
             chatId = chatId,
@@ -126,6 +140,10 @@ class ChatViewModel @Inject constructor(
             .launchIn(viewModelScope)
     }
 
+    /**
+     * Loads the initial state of the chat, including local user data, chat details,
+     * pinned messages, and triggers a sync with the backend.
+     */
     private fun loadInitialData() {
         viewModelScope.launch {
             dispatch(ChatStateAction.LoadingStarted())
@@ -167,6 +185,13 @@ class ChatViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Prepares and initiates the sending of a new message.
+     * Creates an optimistic UI representation of the message while the network request is pending.
+     *
+     * @param text The text content of the message.
+     * @param attachments A list of attached files.
+     */
     private fun onSendMessage(text: String, attachments: List<AttachmentFile>) {
         val state = uiState.value as? ChatUiState.Content ?: return
         val forwardPayload = state.input.forwardPayload
@@ -182,6 +207,15 @@ class ChatViewModel @Inject constructor(
         performSendMessage(tempId, text, attachments, forwardPayload)
     }
 
+    /**
+     * Executes the actual network call to send a message.
+     * Handles success or failure by updating the optimistic message status.
+     *
+     * @param tempId The temporary ID used for the optimistic message.
+     * @param text The text content of the message.
+     * @param attachments A list of attached files.
+     * @param forwardPayload Data for a forwarded message, if applicable.
+     */
     private fun performSendMessage(tempId: String, text: String, attachments: List<AttachmentFile>, forwardPayload: ForwardPayload?) {
         viewModelScope.launch {
             try {
@@ -197,6 +231,12 @@ class ChatViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Submits an edited message text to the server.
+     *
+     * @param messageId The ID of the message to edit.
+     * @param newText The updated text content.
+     */
     private fun onEditMessage(messageId: String, newText: String) {
         if (newText.isBlank()) return
         viewModelScope.launch {
@@ -209,6 +249,12 @@ class ChatViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Deletes a specific message.
+     *
+     * @param messageId The ID of the message to delete.
+     * @param forAll Whether to delete the message for all participants.
+     */
     private fun onDeleteMessage(messageId: String, forAll: Boolean) {
         viewModelScope.launch {
             try {
@@ -220,6 +266,9 @@ class ChatViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Sends a typing event to the server and schedules its cancellation.
+     */
     private fun onTyping() {
         viewModelScope.launch {
             try {
@@ -235,6 +284,12 @@ class ChatViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Toggles a user's reaction on a specific message.
+     *
+     * @param messageId The ID of the message.
+     * @param reaction The string representation of the reaction (e.g., an emoji).
+     */
     private fun onToggleReaction(messageId: String, reaction: String) {
         val state = uiState.value as? ChatUiState.Content ?: return
         val currentUserId = state.context.currentUserId
@@ -255,6 +310,11 @@ class ChatViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Pins a message in the chat.
+     *
+     * @param messageId The ID of the message to pin.
+     */
     private fun onPinMessage(messageId: String) {
         viewModelScope.launch {
             try {
@@ -266,6 +326,11 @@ class ChatViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Unpins a previously pinned message.
+     *
+     * @param messageId The ID of the message to unpin.
+     */
     private fun onUnpinMessage(messageId: String) {
         viewModelScope.launch {
             try {
@@ -277,6 +342,9 @@ class ChatViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Initiates a voice or video call in the current chat.
+     */
     private fun onInitiateCall() {
         val state = uiState.value as? ChatUiState.Content ?: return
         viewModelScope.launch {
@@ -290,6 +358,11 @@ class ChatViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Prepares to forward a message by extracting its data and navigating to the forward selection screen.
+     *
+     * @param message The [Message] to be forwarded.
+     */
     private fun onForwardMessage(message: Message) {
         val authorName = message.author?.let { "${it.firstName} ${it.lastName ?: ""}".trim() } ?: "User"
         val payload = ForwardPayload(
@@ -308,6 +381,11 @@ class ChatViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Resolves the actual download or display URL for an attachment.
+     *
+     * @param attachmentId The ID of the attachment to resolve.
+     */
     private fun resolveAttachmentUrl(attachmentId: String) {
         val state = uiState.value as? ChatUiState.Content ?: return
         if (state.feed.attachmentUrls.containsKey(attachmentId)) return
@@ -321,6 +399,15 @@ class ChatViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Creates an optimistic message object to be displayed in the UI while it is being sent.
+     *
+     * @param tempId The temporary unique ID for the message.
+     * @param text The message text.
+     * @param attachments The attachments to include.
+     * @param state The current UI state context.
+     * @return The constructed [Message] instance.
+     */
     private fun createOptimisticMessage(tempId: String, text: String, attachments: List<AttachmentFile>, state: ChatUiState.Content): Message {
         return Message(
             id = tempId,
@@ -344,16 +431,36 @@ class ChatViewModel @Inject constructor(
         )
     }
 
+    /**
+     * Navigates the user to the chat settings screen.
+     */
     private fun openSettings() = viewModelScope.launch { _effect.send(ChatEffect.NavigateToSettings(chatId)) }
 
+    /**
+     * Sends a voice message.
+     *
+     * @param bytes The audio file bytes.
+     * @param duration The duration of the audio in seconds.
+     */
     private fun onSendVoice(bytes: ByteArray, duration: Double) = viewModelScope.launch {
         try { mediaVoiceHandler.sendVoice(chatId, bytes, duration) } catch (e: Exception) { _effect.send(ChatEffect.ShowError("Voice send failed")) }
     }
 
+    /**
+     * Sends a circular video message (circle).
+     *
+     * @param bytes The video file bytes.
+     * @param duration The duration of the video in seconds.
+     */
     private fun onSendCircle(bytes: ByteArray, duration: Double) = viewModelScope.launch {
         try { mediaVoiceHandler.sendCircle(chatId, bytes, duration) } catch (e: Exception) { _effect.send(ChatEffect.ShowError("Circle send failed")) }
     }
 
+    /**
+     * Attempts to resend a message that previously failed to send.
+     *
+     * @param messageId The ID of the failed message.
+     */
     private fun onResendMessage(messageId: String) {
         val data = failedMessagesData.remove(messageId) ?: return
         val state = uiState.value as? ChatUiState.Content ?: return
@@ -362,6 +469,11 @@ class ChatViewModel @Inject constructor(
         performSendMessage(messageId, data.first, data.second, data.third)
     }
 
+    /**
+     * Marks a message as read when it becomes visible on the screen.
+     *
+     * @param messageId The ID of the message.
+     */
     private fun onMessageVisible(messageId: String) {
         val state = uiState.value as? ChatUiState.Content ?: return
         val message = state.feed.messages.find { it.id == messageId } ?: return
@@ -370,10 +482,20 @@ class ChatViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Loads the list of users who have read a specific message.
+     *
+     * @param messageId The ID of the message.
+     */
     private fun onLoadReaders(messageId: String) = viewModelScope.launch {
         try { dispatch(ChatStateAction.SetReaders(messageId, historyUseCases.getMessageReaders(chatId, messageId))) } catch (e: Exception) { _effect.send(ChatEffect.ShowError("Readers load failed")) }
     }
 
+    /**
+     * Loads comments or replies associated with a specific message.
+     *
+     * @param messageId The ID of the message.
+     */
     private fun onLoadComments(messageId: String) = viewModelScope.launch {
         try { dispatch(ChatStateAction.SetComments(messageId, historyUseCases.getMessageComments(chatId, messageId))) } catch (e: Exception) { _effect.send(ChatEffect.ShowError("Comments load failed")) }
     }

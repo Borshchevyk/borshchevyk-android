@@ -29,6 +29,17 @@ import ru.kubsu.borshchevyk.feature.search.SearchEffect
 import ru.kubsu.borshchevyk.feature.search.SearchIntent
 import ru.kubsu.borshchevyk.feature.search.SearchViewModel
 
+/**
+ * The top-level route composable for the Search feature.
+ * This component connects the [SearchScreen] to the [SearchViewModel] and handles
+ * side effects like navigation and error displaying.
+ *
+ * @param onBackClick Callback invoked when the user navigates back.
+ * @param onChatCreated Callback invoked when a chat is created or joined, passing the chat ID.
+ * @param onUserSelected Optional callback for when a user is selected, useful for returning a result instead of navigating.
+ * @param modifier The modifier to be applied to the layout.
+ * @param viewModel The [SearchViewModel] that manages the state for this route.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SearchRoute(

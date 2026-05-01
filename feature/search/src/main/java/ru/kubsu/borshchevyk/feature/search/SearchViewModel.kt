@@ -51,6 +51,9 @@ class SearchViewModel @Inject constructor(
         observeSearchQuery()
     }
 
+    /**
+     * Loads default search results.
+     */
     private fun loadDefaultResults() {
         viewModelScope.launch {
             try {
@@ -78,10 +81,18 @@ class SearchViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Updates the current search query.
+     *
+     * @param newQuery The new search query string.
+     */
     private fun onQueryChange(newQuery: String) {
         _uiState.update { it.copy(query = newQuery, error = null) }
     }
 
+    /**
+     * Observes the search query and triggers searches.
+     */
     private fun observeSearchQuery() {
         uiState
             .map { it.query }

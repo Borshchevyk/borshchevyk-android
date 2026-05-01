@@ -23,6 +23,16 @@ import ru.kubsu.borshchevyk.feature.chat.ChatViewModel
 import ru.kubsu.borshchevyk.feature.chat.ui.chat.components.ChatTopAppBar
 import ru.kubsu.borshchevyk.feature.chat.ui.chat.components.MessageInput
 
+/**
+ * Route for the Chat screen. Handles ViewModel interaction, UI state observation, and navigation events.
+ *
+ * @param onBackClick Callback invoked when the user navigates back.
+ * @param onSettingsClick Callback invoked when the user opens chat settings.
+ * @param onNavigateToForwardSelection Callback invoked when the user forwards a message.
+ * @param onNavigateToCall Callback invoked when the user initiates a call.
+ * @param modifier The modifier to be applied to the layout.
+ * @param chatViewModel The view model managing the state for this screen.
+ */
 @Composable
 fun ChatRoute(
     onBackClick: () -> Unit,
@@ -101,6 +111,11 @@ fun ChatRoute(
     }
 }
 
+/**
+ * Displays a loading indicator centered on the screen.
+ *
+ * @param modifier The modifier to be applied to the layout.
+ */
 @Composable
 private fun LoadingScreen(modifier: Modifier) {
     Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -108,6 +123,12 @@ private fun LoadingScreen(modifier: Modifier) {
     }
 }
 
+/**
+ * An error screen displaying a message when the chat fails to load or encounters a critical error.
+ *
+ * @param message The error message to display.
+ * @param modifier The modifier to be applied to the layout.
+ */
 @Composable
 private fun ErrorScreen(message: String, modifier: Modifier) {
     Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {

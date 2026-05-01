@@ -46,6 +46,15 @@ import kotlinx.coroutines.delay
 import ru.kubsu.borshchevyk.core.ui.theme.BorshchevykTheme
 import kotlin.math.atan2
 
+/**
+ * A circular video player component used for playing circle video messages.
+ *
+ * @param url The URL of the video to play.
+ * @param duration The duration of the video in seconds.
+ * @param imageRequest The image request for the video thumbnail/preview.
+ * @param loadError Whether an error occurred while loading the video preview.
+ * @param onLoadError Callback invoked when the video preview fails to load.
+ */
 @Composable
 internal fun CircleVideoPlayer(
     url: String?,
@@ -99,16 +108,20 @@ internal fun CircleVideoPlayer(
                 factory = { ctx ->
                     TextureView(ctx).apply {
                         surfaceTextureListener = object : TextureView.SurfaceTextureListener {
+                            /** Called when the surface texture is ready for use. Initializes the video surface. */
                             override fun onSurfaceTextureAvailable(surface: SurfaceTexture, width: Int, height: Int) {
                                 videoSurface = Surface(surface)
                             }
+                            /** Called when the surface texture's buffers size changes. Currently a no-op. */
                             override fun onSurfaceTextureSizeChanged(surface: SurfaceTexture, width: Int, height: Int) {}
+                            /** Called when the surface texture is about to be destroyed. Releases the video surface. */
                             override fun onSurfaceTextureDestroyed(surface: SurfaceTexture): Boolean {
                                 videoSurface?.release()
                                 videoSurface = null
                                 mediaPlayer?.setSurface(null)
                                 return true
                             }
+                            /** Called when the surface texture is updated through a new frame. Currently a no-op. */
                             override fun onSurfaceTextureUpdated(surface: SurfaceTexture) {}
                         }
                     }

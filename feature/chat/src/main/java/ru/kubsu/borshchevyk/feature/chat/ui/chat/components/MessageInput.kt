@@ -57,6 +57,19 @@ import ru.kubsu.borshchevyk.core.model.domain.Message
 import ru.kubsu.borshchevyk.core.ui.theme.BorshchevykTheme
 import ru.kubsu.borshchevyk.feature.chat.AttachmentFile
 
+/**
+ * Input component for typing and sending messages, including text, voice, and circle videos.
+ *
+ * @param editingMessage The message currently being edited, if any.
+ * @param isSending Whether a message is currently being sent.
+ * @param onSendMessage Callback invoked when a text message with optional attachments is sent.
+ * @param onSendVoice Callback invoked when a voice message is sent.
+ * @param onSendCircle Callback invoked when a circle video message is sent.
+ * @param onEditMessage Callback invoked when an existing message is edited.
+ * @param onCancelEdit Callback invoked when message editing is canceled.
+ * @param onTyping Callback invoked when the user is typing.
+ * @param forwardPayload The payload of the message being forwarded, if any.
+ */
 @Composable
 internal fun MessageInput(
     editingMessage: Message?,
@@ -78,6 +91,12 @@ internal fun MessageInput(
     var mediaRecorder by remember { mutableStateOf<android.media.MediaRecorder?>(null) }
     var voiceFile by remember { mutableStateOf<java.io.File?>(null) }
 
+    /**
+     * Extracts the duration in seconds and the raw byte array from a given media URI.
+     *
+     * @param uri The URI of the media file to process.
+     * @return A pair containing the byte array of the file and its duration in seconds.
+     */
     fun extractDurationAndBytes(uri: android.net.Uri): Pair<ByteArray?, Double> {
         var duration = 0.0
         var bytes: ByteArray? = null

@@ -25,6 +25,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 
+/**
+ * The main Compose entry point for an active video/audio call.
+ * This screen requests camera/microphone permissions, handles LiveKit video rendering,
+ * and delegates logic to the [CallViewModel].
+ *
+ * @param viewModel The [CallViewModel] handling the call state and logic.
+ * @param onNavigateBack Callback triggered when the call is ended or an unrecoverable error occurs.
+ */
 @Composable
 fun CallScreen(
     viewModel: CallViewModel = hiltViewModel(),
@@ -110,6 +118,13 @@ fun CallScreen(
     }
 }
 
+/**
+ * Composable responsible for rendering the full-screen active call UI,
+ * including the remote video track, local video Picture-in-Picture (PiP), and control buttons.
+ *
+ * @param state The active [CallUiState.Active] state.
+ * @param onIntent Callback to dispatch [CallIntent]s to the ViewModel.
+ */
 @Composable
 private fun ActiveCallContent(
     state: CallUiState.Active,
@@ -228,6 +243,13 @@ private fun ActiveCallContent(
     }
 }
 
+/**
+ * Composable responsible for rendering a minimized card banner for an active call.
+ * This is useful when the user wants to browse the app while remaining on the call.
+ *
+ * @param state The active [CallUiState.Active] state.
+ * @param onIntent Callback to dispatch [CallIntent]s to the ViewModel.
+ */
 @Composable
 private fun MinimizedCallBanner(
     state: CallUiState.Active,
@@ -296,6 +318,14 @@ private fun MinimizedCallBanner(
     }
 }
 
+/**
+ * A reusable circular icon button designed for the call control interface.
+ *
+ * @param icon The material icon to display.
+ * @param onClick The click listener.
+ * @param isActive Determines whether the toggle state is currently active.
+ * @param isDestructive Determines whether this is a destructive action (like ending a call).
+ */
 @Composable
 private fun ControlIconButton(
     icon: androidx.compose.ui.graphics.vector.ImageVector,

@@ -24,12 +24,24 @@ import ru.kubsu.borshchevyk.core.domain.message.ObserveNewMessagesUseCase
 import ru.kubsu.borshchevyk.core.model.domain.Chat
 import javax.inject.Inject
 
+/**
+ * Represents the UI state for the chat list screen.
+ *
+ * @property chats The list of chats available to the user.
+ * @property isLoading Indicates if the chat list is currently being loaded or refreshed.
+ * @property error An optional error message if loading or an operation failed.
+ */
 data class ChatListUiState(
     val chats: List<Chat> = emptyList(),
     val isLoading: Boolean = false,
     val error: String? = null
 )
 
+/**
+ * [ChatListViewModel] manages the data and business logic for the chat list screen.
+ * It handles loading chats, real-time updates via WebSockets, and user actions such as
+ * creating, pinning, or joining chats.
+ */
 @HiltViewModel
 class ChatListViewModel @Inject constructor(
     private val observeUserChatsUseCase: ObserveUserChatsUseCase,
@@ -46,6 +58,10 @@ class ChatListViewModel @Inject constructor(
 
     private val TAG = "ChatListViewModel"
     private val _uiState = MutableStateFlow(ChatListUiState(isLoading = true))
+    
+    /**
+     * A state flow representing the current UI state of the chat list.
+     */
     val uiState: StateFlow<ChatListUiState> = _uiState.asStateFlow()
 
     init {
@@ -54,6 +70,10 @@ class ChatListViewModel @Inject constructor(
         connectAndObserveWebSockets()
     }
 
+    /**
+     * Observes the user's chats from the local database and updates the UI state.
+     * Sorts the chats by pinned status and creation date.
+     */
     private fun observeChats() {
         observeUserChatsUseCase()
             .onEach { chats ->
@@ -63,6 +83,10 @@ class ChatListViewModel @Inject constructor(
             .launchIn(viewModelScope)
     }
 
+    /**
+     * Initializes the WebSocket connection and observes global chat events
+     * and new messages for real-time synchronization.
+     */
     private fun connectAndObserveWebSockets() {
         viewModelScope.launch {
             Log.d(TAG, "Initializing WebSocket connection...")
@@ -86,6 +110,11 @@ class ChatListViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Syncs the user's chats with the backend server.
+     *
+     * @param showLoading Whether to show a loading indicator during the sync.
+     */
     fun loadChats(showLoading: Boolean = true) {
         viewModelScope.launch {
             if (showLoading) _uiState.update { it.copy(isLoading = true, error = null) }
@@ -97,6 +126,11 @@ class ChatListViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Pins a specific chat to the top of the chat list.
+     *
+     * @param chatId The unique identifier of the chat to pin.
+     */
     fun onPinChat(chatId: String) {
         viewModelScope.launch {
             try {
@@ -108,6 +142,11 @@ class ChatListViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Unpins a previously pinned chat.
+     *
+     * @param chatId The unique identifier of the chat to unpin.
+     */
     fun onUnpinChat(chatId: String) {
         viewModelScope.launch {
             try {
@@ -119,6 +158,12 @@ class ChatListViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Creates a new private chat with another user.
+     *
+     * @param targetUserId The ID of the user to start a chat with.
+     * @param onSuccess Callback invoked with the new chat's ID upon success.
+     */
     fun onCreatePrivateChat(targetUserId: String, onSuccess: (String) -> Unit) {
         viewModelScope.launch {
             try {
@@ -130,6 +175,13 @@ class ChatListViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Creates a new group chat.
+     *
+     * @param title The title of the group chat.
+     * @param description An optional description for the group chat.
+     * @param onSuccess Callback invoked with the new chat's ID upon success.
+     */
     fun onCreateGroupChat(title: String, description: String?, onSuccess: (String) -> Unit) {
         viewModelScope.launch {
             try {
@@ -141,6 +193,12 @@ class ChatListViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Joins an existing chat using an invite code.
+     *
+     * @param inviteCode The invite code for the chat.
+     * @param onSuccess Callback invoked with the joined chat's ID upon success.
+     */
     fun onJoinChat(inviteCode: String, onSuccess: (String) -> Unit) {
         viewModelScope.launch {
             try {

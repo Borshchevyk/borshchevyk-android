@@ -21,6 +21,14 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import ru.kubsu.borshchevyk.core.ui.theme.BorshchevykTheme
 
+/**
+ * A custom tab button component used to switch between authentication modes.
+ *
+ * @param text The text to display inside the button.
+ * @param isSelected Whether this tab is currently selected.
+ * @param onClick Callback triggered when the tab is clicked.
+ * @param modifier The [Modifier] to apply to the button.
+ */
 @Composable
 fun TabButton(
     text: String,
@@ -46,6 +54,17 @@ fun TabButton(
     }
 }
 
+/**
+ * A custom text field component for the authentication screens.
+ * Wraps [OutlinedTextField] with consistent styling and optional error message display.
+ *
+ * @param value The current text value.
+ * @param onValueChange Callback triggered when the text changes.
+ * @param label The label to display above the text field.
+ * @param modifier The [Modifier] to apply to the component.
+ * @param error Optional error message to display below the text field.
+ * @param isPassword If `true`, applies visual transformation to obscure the input text.
+ */
 @Composable
 fun AuthTextField(
     value: String,

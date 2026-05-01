@@ -18,6 +18,14 @@ import ru.kubsu.borshchevyk.feature.profile.ProfileIntent
 import ru.kubsu.borshchevyk.feature.profile.ProfileUiState
 import ru.kubsu.borshchevyk.feature.profile.ui.components.PrivacyOption
 
+/**
+ * Displays the edit privacy screen, allowing the user to configure privacy settings
+ * such as email visibility, searchability, profile photo visibility, and chat invitations.
+ *
+ * @param uiState The current state of the profile UI, containing privacy settings and loading status.
+ * @param onIntent Callback for user actions to update specific privacy settings.
+ * @param modifier The modifier to be applied to the layout.
+ */
 @Composable
 internal fun EditPrivacyScreen(
     uiState: ProfileUiState,

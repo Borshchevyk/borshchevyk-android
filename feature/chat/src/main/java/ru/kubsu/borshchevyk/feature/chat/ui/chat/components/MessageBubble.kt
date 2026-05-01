@@ -143,6 +143,16 @@ internal fun MessageBubble(
     }
 }
 
+/**
+ * Renders the content of a message.
+ *
+ * @param message The message to render.
+ * @param isFromMe Whether the message is sent by the current user.
+ * @param isOnlyCircle Whether the message contains only a circle attachment.
+ * @param attachmentUrls The map of attachment URLs.
+ * @param onResolveAttachmentUrl The callback to resolve an attachment URL.
+ * @param onResend The callback to resend the message.
+ */
 @Composable
 private fun MessageContent(
     message: Message,
@@ -184,6 +194,13 @@ private fun MessageContent(
     }
 }
 
+/**
+ * Renders information about a forwarded message.
+ *
+ * @param message The message containing forwarding information.
+ * @param isFromMe Whether the message is sent by the current user.
+ * @param isOnlyCircle Whether the message contains only a circle attachment.
+ */
 @Composable
 private fun ForwardedInfo(message: Message, isFromMe: Boolean, isOnlyCircle: Boolean) {
     val forwardedName = remember(message.forwardedFromUser) {
@@ -244,6 +261,13 @@ private fun MessageTimeAndStatus(
     }
 }
 
+/**
+ * Renders the status icon of a message.
+ *
+ * @param status The current status of the message.
+ * @param color The color of the status icon.
+ * @param onResend The callback to resend the message.
+ */
 @Composable
 private fun StatusIcon(status: MessageStatus?, color: Color, onResend: () -> Unit) {
     when (status) {

@@ -40,6 +40,9 @@ class ContactsViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Loads the initial list of contacts from the repository.
+     */
     private fun loadContacts() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }

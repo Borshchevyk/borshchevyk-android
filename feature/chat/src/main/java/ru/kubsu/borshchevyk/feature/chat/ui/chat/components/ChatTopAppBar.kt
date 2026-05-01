@@ -21,6 +21,15 @@ import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
+/**
+ * Top app bar for the Chat screen, displaying chat name, status, and action buttons.
+ *
+ * @param context The current context of the chat, including status and metadata.
+ * @param typingUsers Set of user IDs currently typing in the chat.
+ * @param onBackClick Callback invoked when the back button is clicked.
+ * @param onCallClick Callback invoked when the call button is clicked.
+ * @param onSettingsClick Callback invoked when the settings button is clicked.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatTopAppBar(
@@ -72,6 +81,12 @@ fun ChatTopAppBar(
     )
 }
 
+/**
+ * Displays the current status of the chat, such as online status, last seen time, or typing indicators.
+ *
+ * @param context The current context of the chat, including status and metadata.
+ * @param typingUsers Set of user IDs currently typing in the chat.
+ */
 @Composable
 private fun ChatStatusLine(
     context: ChatContext,
@@ -105,6 +120,12 @@ private fun ChatStatusLine(
     )
 }
 
+/**
+ * Formats a timestamp into a human-readable "last seen" string (e.g., "last seen at 14:30").
+ *
+ * @param lastSeenAt The timestamp in milliseconds since epoch.
+ * @return A formatted string indicating when the user was last seen.
+ */
 private fun formatLastSeen(lastSeenAt: Long): String {
     val time = Instant.ofEpochMilli(lastSeenAt)
         .atZone(ZoneId.systemDefault())

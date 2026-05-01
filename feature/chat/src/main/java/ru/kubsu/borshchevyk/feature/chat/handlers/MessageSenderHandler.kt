@@ -8,10 +8,24 @@ import ru.kubsu.borshchevyk.core.model.domain.Message
 import ru.kubsu.borshchevyk.feature.chat.AttachmentFile
 import javax.inject.Inject
 
+/**
+ * Handler exclusively responsible for constructing and sending standard text and attachment messages.
+ *
+ * @property messageUseCases Use cases for sending the final chat message.
+ * @property attachmentUseCases Use cases for uploading attachments before sending the message.
+ */
 class MessageSenderHandler @Inject constructor(
     private val messageUseCases: ChatMessageUseCases,
     private val attachmentUseCases: ChatAttachmentUseCases
 ) {
+    /**
+     * Sends a new message to the specified chat, optionally including uploaded attachments or forwarded content.
+     *
+     * @param chatId The unique identifier of the target chat.
+     * @param text The text content of the message.
+     * @param attachments A list of local files to be uploaded and attached to the message.
+     * @param forwardPayload Optional data if this message is being forwarded from another chat.
+     */
     suspend fun sendMessage(
         chatId: String,
         text: String,

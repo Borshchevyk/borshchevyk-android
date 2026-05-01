@@ -57,6 +57,9 @@ class ProfileViewModel @Inject constructor(
         observePrivacyUpdates()
     }
 
+    /**
+     * Observes updates to privacy settings.
+     */
     private fun observePrivacyUpdates() {
         privacyUpdateFlow
             .debounce(1000L)
@@ -66,6 +69,11 @@ class ProfileViewModel @Inject constructor(
             .launchIn(viewModelScope)
     }
 
+    /**
+     * Handles UI intents.
+     *
+     * @param intent The intent to handle.
+     */
     fun handleIntent(intent: ProfileIntent) {
         when (intent) {
             is ProfileIntent.Refresh -> loadData(isRefreshing = true)
@@ -84,6 +92,11 @@ class ProfileViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Loads profile data.
+     *
+     * @param isRefreshing Whether the loading is triggered by a refresh action.
+     */
     private fun loadData(isRefreshing: Boolean = false) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = !isRefreshing, isRefreshing = isRefreshing) }
@@ -165,6 +178,11 @@ class ProfileViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Performs the network request to update privacy settings.
+     *
+     * @param settings The new privacy settings.
+     */
     private suspend fun performUpdatePrivacy(settings: PrivacySettings) {
         try {
             val updatedSettings = updatePrivacySettingsUseCase(

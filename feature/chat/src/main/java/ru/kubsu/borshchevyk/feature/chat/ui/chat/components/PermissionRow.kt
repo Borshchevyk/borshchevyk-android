@@ -15,6 +15,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import ru.kubsu.borshchevyk.core.ui.theme.BorshchevykTheme
 
+/**
+ * A row component displaying a permission toggle with a checkbox and label.
+ *
+ * @param label The text label for the permission.
+ * @param checked The current checked state of the permission.
+ * @param onCheckedChange Callback invoked when the checked state changes.
+ */
 @Composable
 fun PermissionRow(label: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
     Row(

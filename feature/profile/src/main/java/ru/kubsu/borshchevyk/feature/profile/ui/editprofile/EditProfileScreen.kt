@@ -48,6 +48,14 @@ import ru.kubsu.borshchevyk.core.ui.theme.BorshchevykTheme
 import ru.kubsu.borshchevyk.feature.profile.ProfileIntent
 import ru.kubsu.borshchevyk.feature.profile.ProfileUiState
 
+/**
+ * Displays the edit profile screen, allowing the user to update their personal information
+ * such as first name, last name, bio, and avatar.
+ *
+ * @param uiState The current state of the profile UI, containing user data and loading statuses.
+ * @param onIntent Callback for user actions (e.g., updating profile, changing avatar).
+ * @param modifier The modifier to be applied to the layout.
+ */
 @Composable
 internal fun EditProfileScreen(
     uiState: ProfileUiState,

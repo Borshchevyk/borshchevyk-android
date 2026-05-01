@@ -52,6 +52,22 @@ import ru.kubsu.borshchevyk.feature.chat.ui.chat.components.DeleteChatDialog
 import ru.kubsu.borshchevyk.feature.chat.ui.chat.components.UpdateChatInfoDialog
 import ru.kubsu.borshchevyk.feature.chat.ui.chat.components.UpdatePermissionsDialog
 
+/**
+ * Screen displaying the settings for a specific chat.
+ *
+ * @param uiState The current UI state of the chat settings.
+ * @param onBackClick Callback invoked when the user navigates back.
+ * @param onShowInviteSearch Callback invoked to show the user invite search screen.
+ * @param onGenerateLink Callback invoked to generate an invite link for the group chat.
+ * @param onUpdatePermissions Callback invoked to update a member's permissions.
+ * @param onClearHistory Callback invoked to clear the chat history.
+ * @param onDeleteChat Callback invoked to delete the chat.
+ * @param onKickUser Callback invoked to kick a user from the group chat.
+ * @param onLeaveChat Callback invoked when the current user leaves the group chat.
+ * @param onUpdateChatInfo Callback invoked to update the chat's title and description.
+ * @param onAddContact Callback invoked to add a user to contacts.
+ * @param onRemoveContact Callback invoked to remove a user from contacts.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun ChatSettingsScreen(
@@ -194,6 +210,18 @@ internal fun ChatSettingsScreen(
     }
 }
 
+/**
+ * Displays the header section of the chat settings, including options to add/remove contacts,
+ * edit chat info, invite users, and generate invite links.
+ *
+ * @param uiState Current settings UI state.
+ * @param canChangeInfo Whether the current user has permission to change chat info.
+ * @param onShowUpdateInfo Callback to display the update info dialog.
+ * @param onShowInvite Callback to display the invite user dialog.
+ * @param onGenerateLink Callback to generate a new invite link.
+ * @param onShowAddContact Callback to display the add contact dialog.
+ * @param onRemoveContact Callback to remove the user from contacts.
+ */
 @Composable
 private fun ChatSettingsHeader(
     uiState: ChatSettingsUiState,
@@ -294,6 +322,15 @@ private fun ChatSettingsHeader(
     Spacer(modifier = Modifier.height(8.dp))
 }
 
+/**
+ * Displays a single row for a chat member, showing their name, role, and a settings icon
+ * if the current user has permissions to manage them.
+ *
+ * @param member The chat member to display.
+ * @param currentUserId The ID of the current user viewing the settings.
+ * @param canManagePermissions Whether the current user can manage permissions for this member.
+ * @param onMemberClick Callback invoked when the member row is clicked.
+ */
 @Composable
 private fun MemberItemRow(
     member: ChatMember,
@@ -335,6 +372,16 @@ private fun MemberItemRow(
     HorizontalDivider(color = BorshchevykTheme.colors.outline.copy(alpha = 0.5f))
 }
 
+/**
+ * The danger zone section containing destructive actions like clearing history, 
+ * leaving the chat, or deleting the chat entirely.
+ *
+ * @param uiState Current settings UI state.
+ * @param currentUserMember The current user's membership details in the chat.
+ * @param onShowClearHistory Callback to display the clear history confirmation dialog.
+ * @param onShowDeleteChat Callback to display the delete chat confirmation dialog.
+ * @param onLeaveChat Callback to leave the group chat.
+ */
 @Composable
 private fun ChatSettingsDangerZone(
     uiState: ChatSettingsUiState,
