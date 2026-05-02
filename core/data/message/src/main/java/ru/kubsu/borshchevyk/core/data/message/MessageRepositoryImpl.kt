@@ -119,10 +119,16 @@ class MessageRepositoryImpl @Inject constructor(
     override suspend fun syncChatHistory(chatId: String, page: Int, size: Int) {
         withContext(ioDispatcher) {
             val messages = networkDataSource.loadChatHistory(chatId, page, size).getOrThrow().map { it.toDomain() }
-            val messageEntities = messages.map { it.toMessageEntity() }
-            val users = messages.flatMap { listOfNotNull(it.toAuthorEntity(), it.toForwardedUserEntity()) }.distinctBy { it.userId }
-            val attachments = messages.flatMap { it.toAttachmentEntities() }
-            val reactions = messages.flatMap { it.toReactionEntities() }
+            
+            messages.filter { it.isDeleted }.forEach {
+                messageDao.deleteMessage(it.id)
+            }
+
+            val activeMessages = messages.filter { !it.isDeleted }
+            val messageEntities = activeMessages.map { it.toMessageEntity() }
+            val users = activeMessages.flatMap { listOfNotNull(it.toAuthorEntity(), it.toForwardedUserEntity()) }.distinctBy { it.userId }
+            val attachments = activeMessages.flatMap { it.toAttachmentEntities() }
+            val reactions = activeMessages.flatMap { it.toReactionEntities() }
             
             messageDao.upsertMessagesWithDetails(messageEntities, users, attachments, reactions)
         }
@@ -399,6 +405,10 @@ class MessageRepositoryImpl @Inject constructor(
      * into the local Room database cache.
      */
     private fun Message.saveToDb() {
+        if (isDeleted) {
+            messageDao.deleteMessage(id)
+            return
+        }
         messageDao.upsertMessageWithDetails(
             message = toMessageEntity(),
             author = toAuthorEntity(),
