@@ -100,6 +100,7 @@ class ChatRepositoryImpl @Inject constructor(
         withContext(ioDispatcher) {
             val networkChats = networkDataSource.getUserChats().getOrThrow()
             chatDao.upsertChats(networkChats.map { it.toEntity() })
+            chatDao.deleteChatsNotIn(networkChats.map { it.id })
         }
     }
 
@@ -124,6 +125,7 @@ class ChatRepositoryImpl @Inject constructor(
         }
         val networkChats = networkDataSource.getUserChats().getOrThrow()
         chatDao.upsertChats(networkChats.map { it.toEntity() })
+        chatDao.deleteChatsNotIn(networkChats.map { it.id })
         networkChats.map { it.toEntity().toDomain() }
     }
 

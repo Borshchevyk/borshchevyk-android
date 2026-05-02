@@ -26,7 +26,7 @@ data class NotificationDto(
      */
     @Serializable
     data class ChatEventDto(
-        val chat: ShortChatDto,
+        val chat: ChatResponse,
         val action: String
     )
     

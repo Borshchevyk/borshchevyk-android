@@ -38,14 +38,37 @@ data class DomainReadReceiptEvent(
 )
 
 /**
+ * Represents the type of global chat event received.
+ */
+enum class GlobalChatAction {
+    JOINED,
+    KICKED,
+    LEFT,
+    DELETED,
+    HISTORY_CLEARED,
+    PINNED,
+    UNPINNED,
+    INFO_UPDATED,
+    PERMISSIONS_UPDATED,
+    MESSAGE,
+    UNKNOWN;
+
+    companion object {
+        fun fromString(action: String): GlobalChatAction {
+            return entries.find { it.name.equals(action, ignoreCase = true) } ?: UNKNOWN
+        }
+    }
+}
+
+/**
  * Domain model representing a global event affecting a chat (e.g., title changed, avatar updated).
  *
- * @property chatId The unique ID of the chat.
+ * @property chat The affected chat domain model.
  * @property action The action performed on the chat.
  */
 data class DomainGlobalChatEvent(
-    val chatId: String,
-    val action: String
+    val chat: Chat,
+    val action: GlobalChatAction
 )
 
 /**

@@ -30,6 +30,28 @@ fun ChatResponse.toEntity(): ChatEntity = ChatEntity(
 )
 
 /**
+ * Maps a network [ChatResponse] DTO to a domain [Chat] model.
+ *
+ * @return The mapped domain model.
+ */
+fun ChatResponse.toDomain(): Chat = Chat(
+    id = id,
+    type = type,
+    title = if (type == ru.kubsu.borshchevyk.core.model.domain.ChatType.PRIVATE) partnerName ?: title else title,
+    description = description,
+    partnerId = partnerId,
+    partnerName = partnerName,
+    partnerAvatarUrl = partnerAvatarUrl,
+    partnerLastOnline = partnerLastOnline,
+    lastMessage = lastMessage,
+    unreadCount = unreadCount,
+    allowedReactions = allowedReactions,
+    isDeletable = isDeletable,
+    isPinned = isPinned,
+    createdAt = createdAt
+)
+
+/**
  * Maps a local [ChatEntity] to a domain [Chat] model.
  *
  * @return The mapped domain model.

@@ -2,12 +2,20 @@ package ru.kubsu.borshchevyk.core.data.message
 
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.buffer
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.channels.Channel
+import android.util.Log
 import kotlinx.coroutines.withContext
 import ru.kubsu.borshchevyk.core.database.dao.MessageDao
+import ru.kubsu.borshchevyk.core.database.dao.ChatDao
+import ru.kubsu.borshchevyk.core.data.chat.toEntity
+import ru.kubsu.borshchevyk.core.data.chat.toDomain
 import ru.kubsu.borshchevyk.core.domain.message.MessageRepository
 import ru.kubsu.borshchevyk.core.model.domain.DomainGlobalChatEvent
+import ru.kubsu.borshchevyk.core.model.domain.GlobalChatAction
 import ru.kubsu.borshchevyk.core.model.domain.DomainPresenceStatus
 import ru.kubsu.borshchevyk.core.model.domain.DomainReactionEvent
 import ru.kubsu.borshchevyk.core.model.domain.DomainReadReceiptEvent
@@ -40,6 +48,7 @@ class MessageRepositoryImpl @Inject constructor(
     private val chatWebSocketDataSource: ChatWebSocketDataSource,
     private val presenceWebSocketDataSource: PresenceWebSocketDataSource,
     private val messageDao: MessageDao,
+    private val chatDao: ChatDao,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher
 ) : MessageRepository {
 
@@ -140,12 +149,18 @@ class MessageRepositoryImpl @Inject constructor(
      */
     override fun observeNewMessages(): Flow<Message> = 
         chatWebSocketDataSource.observeNewMessages()
+            .buffer(capacity = Channel.BUFFERED)
             .map { it.toDomain() }
             .onEach { domainMsg -> 
-                withContext(ioDispatcher) {
-                    domainMsg.saveToDb() 
+                try {
+                    withContext(ioDispatcher) {
+                        domainMsg.saveToDb() 
+                    }
+                } catch (e: Exception) {
+                    Log.e("MessageRepository", "Failed to save new message to db: ${domainMsg.id}", e)
                 }
             }
+            .catch { e -> Log.e("MessageRepository", "Fatal error in observeNewMessages pipeline", e) }
 
     /**
      * Observes global chat events (e.g., chat created, deleted, updated) from the WebSocket.
@@ -153,7 +168,29 @@ class MessageRepositoryImpl @Inject constructor(
      * @return A [Flow] emitting [DomainGlobalChatEvent] models.
      */
     override fun observeChatEvents(): Flow<DomainGlobalChatEvent> = 
-        chatWebSocketDataSource.observeChatEvents().map { DomainGlobalChatEvent(it.chat.id, it.action) }
+        chatWebSocketDataSource.observeChatEvents()
+            .buffer(capacity = Channel.BUFFERED)
+            .map { event -> 
+                val action = GlobalChatAction.fromString(event.action)
+                DomainGlobalChatEvent(event.chat.toDomain(), action) to event.chat
+            }
+            .onEach { (domainEvent, chatDto) ->
+                try {
+                    withContext(ioDispatcher) {
+                        val action = domainEvent.action
+                        if (action == GlobalChatAction.DELETED || action == GlobalChatAction.KICKED || action == GlobalChatAction.LEFT) {
+                            chatDao.deleteChat(domainEvent.chat.id)
+                            messageDao.deleteMessagesByChat(domainEvent.chat.id)
+                        } else {
+                            chatDao.upsertChat(chatDto.toEntity())
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.e("MessageRepository", "Failed to sync chat event: ${domainEvent.action}", e)
+                }
+            }
+            .map { it.first }
+            .catch { e -> Log.e("MessageRepository", "Fatal error in observeChatEvents pipeline", e) }
 
     /**
      * Observes real-time deleted message events and removes them from the local cache.

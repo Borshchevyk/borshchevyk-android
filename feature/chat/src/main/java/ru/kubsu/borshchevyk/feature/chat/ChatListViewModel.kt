@@ -101,7 +101,7 @@ class ChatListViewModel @Inject constructor(
                 
                 observeGlobalChatEventsUseCase()
                     .onEach { event ->
-                        Log.d(TAG, "WS: Received chat event ${event.action} for chat ${event.chatId}. UI will update via DB Flow.")
+                        Log.d(TAG, "WS: Received chat event ${event.action} for chat ${event.chat.id}. UI will update via DB Flow.")
                     }
                     .launchIn(this)
             } catch (e: Exception) {
@@ -135,7 +135,6 @@ class ChatListViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 pinChatUseCase(chatId)
-                loadChats(showLoading = false)
             } catch (e: Exception) {
                 _uiState.update { it.copy(error = e.message) }
             }
@@ -151,7 +150,6 @@ class ChatListViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 unpinChatUseCase(chatId)
-                loadChats(showLoading = false)
             } catch (e: Exception) {
                 _uiState.update { it.copy(error = e.message) }
             }

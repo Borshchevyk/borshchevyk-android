@@ -66,6 +66,14 @@ interface ChatDao {
     fun deleteChat(chatId: String)
 
     /**
+     * Deletes all chats that are not present in the provided list of IDs.
+     *
+     * @param chatIds The list of chat IDs to keep.
+     */
+    @Query("DELETE FROM chats WHERE id NOT IN (:chatIds)")
+    fun deleteChatsNotIn(chatIds: List<String>)
+
+    /**
      * Clears all chats from the database.
      */
     @Query("DELETE FROM chats")
