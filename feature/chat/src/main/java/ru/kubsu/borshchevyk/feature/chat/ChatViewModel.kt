@@ -199,8 +199,27 @@ class ChatViewModel @Inject constructor(
 
         if (text.isBlank() && attachments.isEmpty() && forwardPayload == null) return
 
+        if (forwardPayload != null && (text.isNotBlank() || attachments.isNotEmpty())) {
+            val baseTime = System.currentTimeMillis()
+            
+            // First, send the forwarded message
+            val tempId1 = "temp_fwd_${baseTime}_1"
+            val optimisticMessage1 = createOptimisticMessage(tempId1, "", emptyList(), state, forwardPayload)
+            dispatch(ChatStateAction.MessageSending(tempId1, optimisticMessage1))
+            performSendMessage(tempId1, "", emptyList(), forwardPayload)
+
+            // Second, send the user's typed message
+            val tempId2 = "temp_txt_${baseTime}_2"
+            val optimisticMessage2 = createOptimisticMessage(tempId2, text, attachments, state, null)
+            dispatch(ChatStateAction.MessageSending(tempId2, optimisticMessage2))
+            performSendMessage(tempId2, text, attachments, null)
+            
+            savedStateHandle.remove<String>("forwardPayloadJson")
+            return
+        }
+
         val tempId = "temp_${System.currentTimeMillis()}"
-        val optimisticMessage = createOptimisticMessage(tempId, text, attachments, state)
+        val optimisticMessage = createOptimisticMessage(tempId, text, attachments, state, forwardPayload)
 
         dispatch(ChatStateAction.MessageSending(tempId, optimisticMessage))
         savedStateHandle.remove<String>("forwardPayloadJson")
@@ -409,17 +428,23 @@ class ChatViewModel @Inject constructor(
      * @param state The current UI state context.
      * @return The constructed [Message] instance.
      */
-    private fun createOptimisticMessage(tempId: String, text: String, attachments: List<AttachmentFile>, state: ChatUiState.Content): Message {
+    private fun createOptimisticMessage(
+        tempId: String, 
+        text: String, 
+        attachments: List<AttachmentFile>, 
+        state: ChatUiState.Content, 
+        forwardPayload: ForwardPayload? = null
+    ): Message {
         return Message(
             id = tempId,
             chatId = chatId,
             authorId = state.context.currentUserId,
-            text = text.ifBlank { state.input.forwardPayload?.text ?: "" },
+            text = text.ifBlank { forwardPayload?.text ?: "" },
             createdAt = java.time.LocalDateTime.now(java.time.ZoneOffset.UTC).toString() + "Z",
             status = ru.kubsu.borshchevyk.core.model.domain.MessageStatus.SENDING,
             source = ru.kubsu.borshchevyk.core.model.domain.MessageSource.ONLINE,
-            forwardedFromChatId = state.input.forwardPayload?.fromChatId,
-            forwardedFromUserId = state.input.forwardPayload?.fromUserId,
+            forwardedFromChatId = forwardPayload?.fromChatId,
+            forwardedFromUserId = forwardPayload?.fromUserId,
             attachments = attachments.map { 
                 ru.kubsu.borshchevyk.core.model.domain.Attachment(
                     id = "temp_${it.originalFilename}",
