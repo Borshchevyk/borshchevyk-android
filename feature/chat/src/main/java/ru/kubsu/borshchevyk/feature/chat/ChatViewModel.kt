@@ -408,7 +408,7 @@ class ChatViewModel @Inject constructor(
      */
     private fun resolveAttachmentUrl(attachmentId: String) {
         val state = uiState.value as? ChatUiState.Content ?: return
-        if (state.feed.attachmentUrls.containsKey(attachmentId)) return
+        if (state.feed.attachmentUrls.containsKey(attachmentId) || attachmentId.startsWith("temp_")) return
         viewModelScope.launch {
             try {
                 val url = attachmentUseCases.getAttachmentUrl(attachmentId)

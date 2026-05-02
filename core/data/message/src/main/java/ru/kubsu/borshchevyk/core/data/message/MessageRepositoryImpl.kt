@@ -263,7 +263,13 @@ class MessageRepositoryImpl @Inject constructor(
                     val msgWithDetails = messageDao.getMessage(event.messageId)
                     if (msgWithDetails != null && msgWithDetails.message.status != MessageStatus.READ) {
                         val updatedMsg = msgWithDetails.message.copy(status = MessageStatus.READ)
-                        messageDao.insertMessageEntity(updatedMsg)
+                        messageDao.upsertMessageWithDetails(
+                            message = updatedMsg,
+                            author = msgWithDetails.author,
+                            forwardedFromUser = msgWithDetails.forwardedFromUser,
+                            attachments = msgWithDetails.attachments,
+                            reactions = msgWithDetails.reactions
+                        )
                     }
                 }
             }
