@@ -132,7 +132,7 @@ private fun ActiveCallContent(
 ) {
     Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
         // Remote Video
-        if (state.remoteVideoTrack != null) {
+        if (state.remoteVideoTrack != null && !state.isRemoteVideoMuted) {
             io.livekit.android.compose.ui.VideoTrackView(
                 passedRoom = state.room,
                 videoTrack = state.remoteVideoTrack,

@@ -23,6 +23,7 @@ sealed interface CallUiState {
      * @property isMicEnabled Whether the local microphone is currently unmuted.
      * @property isCameraEnabled Whether the local camera is currently streaming.
      * @property isRemoteMicMuted Whether the remote participant has muted their microphone.
+     * @property isRemoteVideoMuted Whether the remote participant has muted their camera.
      * @property isMinimized Whether the call UI is minimized (e.g. into a banner or PiP).
      */
     data class Active(
@@ -33,6 +34,7 @@ sealed interface CallUiState {
         val isMicEnabled: Boolean = true,
         val isCameraEnabled: Boolean = true,
         val isRemoteMicMuted: Boolean = false,
+        val isRemoteVideoMuted: Boolean = false,
         val isMinimized: Boolean = false
     ) : CallUiState
 }

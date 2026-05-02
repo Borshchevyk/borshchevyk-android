@@ -106,7 +106,8 @@ class CallViewModel @Inject constructor(
                                     remoteParticipantName = sessionState.remoteParticipantName,
                                     isMicEnabled = sessionState.isMicEnabled,
                                     isCameraEnabled = sessionState.isCameraEnabled,
-                                    isRemoteMicMuted = sessionState.isRemoteMicMuted
+                                    isRemoteMicMuted = sessionState.isRemoteMicMuted,
+                                    isRemoteVideoMuted = sessionState.isRemoteVideoMuted
                                 )
                             } else {
                                 CallUiState.Active(
@@ -116,7 +117,9 @@ class CallViewModel @Inject constructor(
                                     remoteParticipantName = sessionState.remoteParticipantName,
                                     isMicEnabled = sessionState.isMicEnabled,
                                     isCameraEnabled = sessionState.isCameraEnabled,
-                                    isRemoteMicMuted = sessionState.isRemoteMicMuted
+                                    isRemoteMicMuted = sessionState.isRemoteMicMuted,
+                                    isRemoteVideoMuted = sessionState.isRemoteVideoMuted,
+                                    isMinimized = false
                                 )
                             }
                         }

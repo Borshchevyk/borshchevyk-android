@@ -125,6 +125,7 @@ class CallHandler @Inject constructor(
         val firstRemote = r.remoteParticipants.values.firstOrNull()
         val remoteVideoTrack = firstRemote?.videoTrackPublications?.firstOrNull()?.first?.track as? VideoTrack
         val isRemoteMicMuted = firstRemote?.audioTrackPublications?.firstOrNull()?.first?.muted ?: false
+        val isRemoteVideoMuted = firstRemote?.videoTrackPublications?.firstOrNull()?.first?.muted ?: false
         
         _state.update {
             CallSessionState.Active(
@@ -134,7 +135,8 @@ class CallHandler @Inject constructor(
                 remoteParticipantName = firstRemote?.identity?.value,
                 isMicEnabled = r.localParticipant.isMicrophoneEnabled,
                 isCameraEnabled = r.localParticipant.isCameraEnabled,
-                isRemoteMicMuted = isRemoteMicMuted
+                isRemoteMicMuted = isRemoteMicMuted,
+                isRemoteVideoMuted = isRemoteVideoMuted
             )
         }
     }
@@ -154,6 +156,7 @@ sealed interface CallSessionState {
         val remoteParticipantName: String?,
         val isMicEnabled: Boolean,
         val isCameraEnabled: Boolean,
-        val isRemoteMicMuted: Boolean
+        val isRemoteMicMuted: Boolean,
+        val isRemoteVideoMuted: Boolean
     ) : CallSessionState
 }
