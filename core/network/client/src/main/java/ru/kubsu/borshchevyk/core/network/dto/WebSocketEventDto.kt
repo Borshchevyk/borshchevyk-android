@@ -68,7 +68,7 @@ data class NotificationDto(
         val id: String,
         val chat: ShortChatDto,
         val author: ShortUserDto,
-        val text: String,
+        val text: String? = null,
         val createdAt: String,
         val updatedAt: String? = null,
         @SerialName("deleted") val isDeleted: Boolean = false,
@@ -130,6 +130,6 @@ data class ReadReceiptEvent(
 @Serializable
 data class PresenceStatusResponse(
     val userId: String,
-    @SerialName("online") val isOnline: Boolean = false,
+    @SerialName("isOnline") val isOnline: Boolean = false,
     val lastSeenAt: Long? = null
 )
