@@ -7,6 +7,7 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -223,7 +224,7 @@ private fun ForwardedInfo(message: Message, isFromMe: Boolean, isOnlyCircle: Boo
 }
 
 @Composable
-private fun MessageTimeAndStatus(
+private fun ColumnScope.MessageTimeAndStatus(
     message: Message,
     isFromMe: Boolean,
     isOnlyCircle: Boolean,
@@ -233,7 +234,7 @@ private fun MessageTimeAndStatus(
                 else if (isFromMe) BorshchevykTheme.colors.onPrimary.copy(alpha = 0.7f) 
                 else BorshchevykTheme.colors.onSurfaceVariant.copy(alpha = 0.7f)
 
-    val rowModifier = if (isOnlyCircle) {
+    val baseModifier = if (isOnlyCircle) {
         Modifier
             .padding(top = 4.dp)
             .background(Color.Black.copy(alpha = 0.4f), RoundedCornerShape(12.dp))
@@ -242,12 +243,7 @@ private fun MessageTimeAndStatus(
         Modifier.padding(top = 4.dp)
     }
 
-    Row(modifier = rowModifier.padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-        if (message.updatedAt != null && message.updatedAt != message.createdAt) {
-            Text("edited", style = BorshchevykTheme.typography.labelSmall.copy(fontSize = 10.sp), color = color)
-            Spacer(modifier = Modifier.width(4.dp))
-        }
-        
+    Row(modifier = baseModifier.align(Alignment.End), verticalAlignment = Alignment.CenterVertically) {
         Text(
             text = MessageTimeFormatter.format(message.createdAt),
             style = BorshchevykTheme.typography.labelSmall.copy(fontSize = 10.sp),
