@@ -181,6 +181,9 @@ class MessageRepositoryImpl @Inject constructor(
                         if (action == GlobalChatAction.DELETED || action == GlobalChatAction.KICKED || action == GlobalChatAction.LEFT) {
                             chatDao.deleteChat(domainEvent.chat.id)
                             messageDao.deleteMessagesByChat(domainEvent.chat.id)
+                        } else if (action == GlobalChatAction.HISTORY_CLEARED) {
+                            chatDao.upsertChat(chatDto.toEntity())
+                            messageDao.deleteMessagesByChat(domainEvent.chat.id)
                         } else {
                             chatDao.upsertChat(chatDto.toEntity())
                         }
