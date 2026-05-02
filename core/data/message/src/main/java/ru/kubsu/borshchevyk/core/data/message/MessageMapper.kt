@@ -1,6 +1,5 @@
 package ru.kubsu.borshchevyk.core.data.message
 
-import ru.kubsu.borshchevyk.core.database.dao.MessageDao
 import ru.kubsu.borshchevyk.core.database.entity.AttachmentEntity
 import ru.kubsu.borshchevyk.core.database.entity.MessageEntity
 import ru.kubsu.borshchevyk.core.database.entity.MessageWithDetails
@@ -77,7 +76,7 @@ fun NotificationDto.MessageDto.toDomain(): Message = Message(
         tag = author.tag ?: "",
         avatarUrl = author.avatarUrl
     ),
-    text = text,
+    text = text ?: "",
     createdAt = createdAt,
     updatedAt = updatedAt,
     status = status?.let { MessageStatus.valueOf(it) },
