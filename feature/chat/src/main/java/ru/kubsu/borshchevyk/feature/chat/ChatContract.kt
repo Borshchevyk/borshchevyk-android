@@ -24,6 +24,7 @@ sealed interface ChatStateAction {
         val currentUserId: String,
         val isGroup: Boolean,
         val chatTitle: String,
+        val chatAvatarUrl: String?,
         val history: List<Message>,
         val pinned: List<Message>,
         val forwardPayload: ru.kubsu.borshchevyk.core.model.domain.ForwardPayload?

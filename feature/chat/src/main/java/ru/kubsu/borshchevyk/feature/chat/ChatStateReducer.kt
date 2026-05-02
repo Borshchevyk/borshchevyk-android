@@ -22,7 +22,8 @@ fun ChatUiState.reduce(action: ChatStateAction): ChatUiState {
                     chatId = action.chatId,
                     currentUserId = action.currentUserId,
                     isGroupChat = action.isGroup,
-                    chatName = action.chatTitle
+                    chatName = action.chatTitle,
+                    chatAvatarUrl = action.chatAvatarUrl
                 ),
                 feed = MessageFeed(
                     messages = action.history,

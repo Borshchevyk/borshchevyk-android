@@ -162,6 +162,7 @@ class ChatViewModel @Inject constructor(
                     currentUserId = userId,
                     isGroup = isGroup,
                     chatTitle = chatTitle,
+                    chatAvatarUrl = chat?.partnerAvatarUrl,
                     history = emptyList(),
                     pinned = pinned,
                     forwardPayload = initialForwardPayload

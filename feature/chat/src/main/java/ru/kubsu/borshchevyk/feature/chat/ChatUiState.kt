@@ -9,6 +9,7 @@ data class ChatContext(
     val currentUserId: String = "",
     val isGroupChat: Boolean = false,
     val chatName: String = "",
+    val chatAvatarUrl: String? = null,
     val isOnline: Boolean? = null,
     val lastSeenAt: Long? = null
 )
