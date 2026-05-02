@@ -61,8 +61,17 @@ fun ChatUiState.reduce(action: ChatStateAction): ChatUiState {
         }
         is ChatStateAction.MessageSending -> {
             if (this is ChatUiState.Content) {
+                val existingIndex = this.feed.messages.indexOfFirst { it.id == action.tempId }
+                val newMessages = if (existingIndex != -1) {
+                    val mutableMessages = this.feed.messages.toMutableList()
+                    mutableMessages[existingIndex] = action.message
+                    mutableMessages
+                } else {
+                    listOf(action.message) + this.feed.messages
+                }
+
                 this.copy(
-                    feed = this.feed.copy(messages = listOf(action.message) + this.feed.messages),
+                    feed = this.feed.copy(messages = newMessages),
                     input = this.input.copy(isSending = true, forwardPayload = null, editingMessage = null)
                 )
             } else this
