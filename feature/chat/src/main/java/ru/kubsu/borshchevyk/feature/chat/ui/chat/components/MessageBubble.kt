@@ -297,6 +297,21 @@ private fun MessageDropdownMenu(
         onDismissRequest = onDismiss,
         containerColor = BorshchevykTheme.colors.surface
     ) {
+        if (message.updatedAt != null && message.updatedAt != message.createdAt) {
+            DropdownMenuItem(
+                text = { 
+                    Text(
+                        text = "Отредактировано: ${MessageTimeFormatter.format(message.updatedAt!!)}",
+                        style = BorshchevykTheme.typography.labelSmall, 
+                        color = BorshchevykTheme.colors.onSurfaceVariant
+                    ) 
+                },
+                onClick = { },
+                enabled = false
+            )
+            HorizontalDivider(color = BorshchevykTheme.colors.outline.copy(alpha = 0.5f))
+        }
+
         DropdownMenuItem(text = { Text("Forward") }, onClick = { onDismiss(); onForward() })
         DropdownMenuItem(text = { Text(if (message.isPinned) "Unpin" else "Pin") }, onClick = { onDismiss(); onPinToggle() })
         if (isFromMe) {

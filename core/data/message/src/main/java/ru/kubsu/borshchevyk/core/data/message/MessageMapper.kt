@@ -79,7 +79,7 @@ fun NotificationDto.MessageDto.toDomain(): Message = Message(
     ),
     text = text,
     createdAt = createdAt,
-    updatedAt = null,
+    updatedAt = updatedAt,
     status = status?.let { MessageStatus.valueOf(it) },
     isDeleted = isDeleted,
     source = MessageSource.ONLINE,

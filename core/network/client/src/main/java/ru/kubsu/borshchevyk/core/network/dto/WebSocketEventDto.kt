@@ -70,6 +70,7 @@ data class NotificationDto(
         val author: ShortUserDto,
         val text: String,
         val createdAt: String,
+        val updatedAt: String? = null,
         @SerialName("deleted") val isDeleted: Boolean = false,
         val status: String? = null,
         val forwardedFromChat: ShortChatDto? = null,
