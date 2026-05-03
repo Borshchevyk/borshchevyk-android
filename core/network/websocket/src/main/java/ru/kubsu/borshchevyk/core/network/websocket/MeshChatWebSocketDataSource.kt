@@ -39,7 +39,7 @@ class MeshChatWebSocketDataSource @Inject constructor(
                     author = ShortUserDto(id = envelope.originEndpointId, firstName = "Mesh User"),
                     text = meshPayload.request.text,
                     createdAt = Instant.now().toString(),
-                    status = "DELIVERED"
+                    status = "RECEIVED_BY_USER"
                 )
             }
     }
