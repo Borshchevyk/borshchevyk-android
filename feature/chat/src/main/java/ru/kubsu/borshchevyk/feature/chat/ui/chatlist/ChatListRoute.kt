@@ -1,5 +1,10 @@
 package ru.kubsu.borshchevyk.feature.chat.ui.chatlist
 
+import android.Manifest
+import android.os.Build
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -31,6 +36,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -63,6 +69,33 @@ fun ChatListRoute(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var showCreateGroupDialog by rememberSaveable { mutableStateOf(false) }
     var showJoinDialog by rememberSaveable { mutableStateOf(false) }
+    val context = LocalContext.current
+
+    val meshPermissionsLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val allGranted = permissions.values.all { it }
+        if (allGranted) {
+            viewModel.toggleNetworkMode()
+        } else {
+            Toast.makeText(context, "Mesh permissions denied", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    val requiredMeshPermissions = mutableListOf(
+        Manifest.permission.ACCESS_FINE_LOCATION,
+        Manifest.permission.ACCESS_WIFI_STATE,
+        Manifest.permission.CHANGE_WIFI_STATE
+    ).apply {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            add(Manifest.permission.BLUETOOTH_ADVERTISE)
+            add(Manifest.permission.BLUETOOTH_CONNECT)
+            add(Manifest.permission.BLUETOOTH_SCAN)
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            add(Manifest.permission.NEARBY_WIFI_DEVICES)
+        }
+    }.toTypedArray()
 
     Scaffold(
         topBar = {
@@ -108,7 +141,15 @@ fun ChatListRoute(
                         }
                         Switch(
                             checked = uiState.networkMode == NetworkMode.MESH,
-                            onCheckedChange = { viewModel.toggleNetworkMode() },
+                            onCheckedChange = { 
+                                if (uiState.networkMode == NetworkMode.GLOBAL) {
+                                    // Switching to MESH, request permissions first
+                                    meshPermissionsLauncher.launch(requiredMeshPermissions)
+                                } else {
+                                    // Switching to GLOBAL, just toggle
+                                    viewModel.toggleNetworkMode()
+                                }
+                            },
                             colors = SwitchDefaults.colors(
                                 checkedThumbColor = BorshchevykTheme.colors.primary,
                                 checkedTrackColor = BorshchevykTheme.colors.primaryContainer,
