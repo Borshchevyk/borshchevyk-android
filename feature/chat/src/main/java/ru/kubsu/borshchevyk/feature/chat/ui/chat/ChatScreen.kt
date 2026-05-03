@@ -28,7 +28,7 @@ import ru.kubsu.borshchevyk.feature.chat.ui.chat.components.ReadersDialog
 @Composable
 internal fun ChatScreen(
     contentState: ChatUiState.Content,
-    onResolveAttachmentUrl: (String) -> Unit,
+    onResolveAttachmentUrl: (String, Boolean) -> Unit,
     onPinToggle: (Message) -> Unit,
     onReactionToggle: (String, String) -> Unit,
     onEdit: (Message) -> Unit,
@@ -73,6 +73,7 @@ internal fun ChatScreen(
                     isFromMe = message.authorId == contentState.context.currentUserId,
                     currentUserId = contentState.context.currentUserId,
                     attachmentUrls = contentState.feed.attachmentUrls,
+                    thumbnailUrls = contentState.feed.thumbnailUrls,
                     onResolveAttachmentUrl = onResolveAttachmentUrl,
                     onPinToggle = { onPinToggle(message) },
                     onReactionToggle = { reaction -> onReactionToggle(message.id, reaction) },

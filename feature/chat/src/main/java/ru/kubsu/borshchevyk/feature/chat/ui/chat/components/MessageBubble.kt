@@ -53,7 +53,8 @@ internal fun MessageBubble(
     isFromMe: Boolean,
     currentUserId: String,
     attachmentUrls: Map<String, String>,
-    onResolveAttachmentUrl: (String) -> Unit,
+    thumbnailUrls: Map<String, String>,
+    onResolveAttachmentUrl: (String, Boolean) -> Unit,
     onPinToggle: () -> Unit,
     onReactionToggle: (String) -> Unit,
     onEdit: () -> Unit,
@@ -113,6 +114,7 @@ internal fun MessageBubble(
                     isFromMe = isFromMe,
                     isOnlyCircle = isOnlyCircle,
                     attachmentUrls = attachmentUrls,
+                    thumbnailUrls = thumbnailUrls,
                     onResolveAttachmentUrl = onResolveAttachmentUrl,
                     onResend = onResend
                 )
@@ -151,6 +153,7 @@ internal fun MessageBubble(
  * @param isFromMe Whether the message is sent by the current user.
  * @param isOnlyCircle Whether the message contains only a circle attachment.
  * @param attachmentUrls The map of attachment URLs.
+ * @param thumbnailUrls The map of thumbnail URLs.
  * @param onResolveAttachmentUrl The callback to resolve an attachment URL.
  * @param onResend The callback to resend the message.
  */
@@ -160,7 +163,8 @@ private fun MessageContent(
     isFromMe: Boolean,
     isOnlyCircle: Boolean,
     attachmentUrls: Map<String, String>,
-    onResolveAttachmentUrl: (String) -> Unit,
+    thumbnailUrls: Map<String, String>,
+    onResolveAttachmentUrl: (String, Boolean) -> Unit,
     onResend: () -> Unit
 ) {
     Column(
@@ -177,6 +181,7 @@ private fun MessageContent(
             AttachmentGallery(
                 attachments = message.attachments,
                 attachmentUrls = attachmentUrls,
+                thumbnailUrls = thumbnailUrls,
                 onResolveAttachmentUrl = onResolveAttachmentUrl,
                 isFromMe = isFromMe
             )

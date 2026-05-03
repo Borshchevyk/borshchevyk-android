@@ -19,7 +19,8 @@ data class MessageFeed(
     val pinnedMessages: List<Message> = emptyList(),
     val commentsByMessageId: Map<String, List<Message>> = emptyMap(),
     val readersByMessageId: Map<String, List<User>> = emptyMap(),
-    val attachmentUrls: Map<String, String> = emptyMap()
+    val attachmentUrls: Map<String, String> = emptyMap(),
+    val thumbnailUrls: Map<String, String> = emptyMap()
 )
 
 data class InputState(

@@ -37,7 +37,7 @@ sealed interface ChatStateAction {
     data class HistoryUpdated(val history: List<Message>) : ChatStateAction
     data class SetEditingMessage(val message: Message?) : ChatStateAction
     data class MessageUpdated(val message: Message) : ChatStateAction
-    data class UpdateAttachmentUrl(val attachmentId: String, val url: String) : ChatStateAction
+    data class UpdateAttachmentUrl(val attachmentId: String, val url: String, val isThumbnail: Boolean = false) : ChatStateAction
     data class SetReaders(val messageId: String, val readers: List<User>) : ChatStateAction
     data class SetComments(val messageId: String, val comments: List<Message>) : ChatStateAction
     data class MessageRemoved(val messageId: String) : ChatStateAction
@@ -63,7 +63,7 @@ sealed interface ChatIntent {
     data class PinMessage(val messageId: String) : ChatIntent
     data class UnpinMessage(val messageId: String) : ChatIntent
     data class ToggleReaction(val messageId: String, val reaction: String) : ChatIntent
-    data class ResolveAttachmentUrl(val attachmentId: String) : ChatIntent
+    data class ResolveAttachmentUrl(val attachmentId: String, val isThumbnail: Boolean = false) : ChatIntent
     data class ResendMessage(val messageId: String) : ChatIntent
     data class ForwardMessage(val message: Message) : ChatIntent
     object InitiateCall : ChatIntent

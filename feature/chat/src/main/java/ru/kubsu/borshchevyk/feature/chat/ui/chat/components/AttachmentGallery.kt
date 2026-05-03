@@ -8,7 +8,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -31,14 +35,15 @@ import ru.kubsu.borshchevyk.core.ui.theme.BorshchevykTheme
 internal fun AttachmentGallery(
     attachments: List<Attachment>,
     attachmentUrls: Map<String, String>,
-    onResolveAttachmentUrl: (String) -> Unit,
+    thumbnailUrls: Map<String, String>,
+    onResolveAttachmentUrl: (String, Boolean) -> Unit,
     isFromMe: Boolean
 ) {
     if (attachments.isEmpty()) return
 
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         attachments.forEach { attachment ->
-            AttachmentItem(attachment, attachmentUrls, onResolveAttachmentUrl, isFromMe)
+            AttachmentItem(attachment, attachmentUrls, thumbnailUrls, onResolveAttachmentUrl, isFromMe)
         }
     }
 }
@@ -47,20 +52,26 @@ internal fun AttachmentGallery(
 internal fun AttachmentItem(
     attachment: Attachment,
     attachmentUrls: Map<String, String>,
-    onResolveAttachmentUrl: (String) -> Unit,
+    thumbnailUrls: Map<String, String>,
+    onResolveAttachmentUrl: (String, Boolean) -> Unit,
     isFromMe: Boolean
 ) {
     val url = attachmentUrls[attachment.id]
-    val thumbnailUrl = attachment.thumbnailKey?.let { attachmentUrls[it] }
+    val thumbnailUrl = attachment.thumbnailKey?.let { thumbnailUrls[it] ?: attachmentUrls[it] } 
+        ?: if (attachment.type == DomainAttachmentType.VIDEO || attachment.type == DomainAttachmentType.CIRCLE) thumbnailUrls[attachment.id] else null
     var loadError by remember { mutableStateOf(false) }
 
     LaunchedEffect(attachment.id, attachment.thumbnailKey) {
-        if (url == null) {
-            onResolveAttachmentUrl(attachment.id)
+        if (url == null && attachment.type != DomainAttachmentType.VIDEO && attachment.type != DomainAttachmentType.CIRCLE) {
+            onResolveAttachmentUrl(attachment.id, false)
         }
-        val key = attachment.thumbnailKey
-        if (thumbnailUrl == null && key != null) {
-            onResolveAttachmentUrl(key)
+        if (thumbnailUrl == null) {
+            val key = attachment.thumbnailKey
+            if (key != null) {
+                onResolveAttachmentUrl(key, true)
+            } else if (attachment.type == DomainAttachmentType.VIDEO || attachment.type == DomainAttachmentType.CIRCLE) {
+                onResolveAttachmentUrl(attachment.id, true)
+            }
         }
     }
 
@@ -77,7 +88,7 @@ internal fun AttachmentItem(
 
     when (attachment.type) {
         DomainAttachmentType.PHOTO -> {
-            if (url != null && !loadError) {
+            if ((url != null || thumbnailUrl != null) && !loadError) {
                 SubcomposeAsyncImage(
                     model = imageRequest,
                     contentDescription = "Attachment",
@@ -99,6 +110,56 @@ internal fun AttachmentItem(
                         FileAttachmentCard(attachment, isFromMe)
                     }
                 )
+            } else {
+                FileAttachmentCard(attachment, isFromMe)
+            }
+        }
+        DomainAttachmentType.VIDEO -> {
+            if ((url != null || thumbnailUrl != null) && !loadError) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(0.8f)
+                        .aspectRatio(16f / 9f)
+                        .clip(RoundedCornerShape(12.dp)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    SubcomposeAsyncImage(
+                        model = imageRequest,
+                        contentDescription = "Video Attachment",
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop,
+                        loading = {
+                            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(24.dp),
+                                    color = if (isFromMe) BorshchevykTheme.colors.onPrimary else BorshchevykTheme.colors.primary
+                                )
+                            }
+                        },
+                        error = {
+                            loadError = true
+                        }
+                    )
+                    
+                    if (!loadError) {
+                        Surface(
+                            shape = RoundedCornerShape(percent = 50),
+                            color = BorshchevykTheme.colors.surface.copy(alpha = 0.7f),
+                            modifier = Modifier.size(48.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Default.PlayArrow,
+                                    contentDescription = "Play Video",
+                                    tint = BorshchevykTheme.colors.onSurface,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
+                        }
+                    } else {
+                        FileAttachmentCard(attachment, isFromMe)
+                    }
+                }
             } else {
                 FileAttachmentCard(attachment, isFromMe)
             }

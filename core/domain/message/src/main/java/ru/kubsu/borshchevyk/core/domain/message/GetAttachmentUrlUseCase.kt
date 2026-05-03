@@ -17,9 +17,14 @@ class GetAttachmentUrlUseCase @Inject constructor(
      * Retrieves the URL for the specified attachment.
      *
      * @param attachmentId The unique identifier of the attachment.
+     * @param isThumbnail Whether to retrieve the thumbnail URL instead of the main URL.
      * @return The direct URL string pointing to the attachment resource.
      */
-    suspend operator fun invoke(attachmentId: String): String {
-        return mediaRepository.getAttachmentUrl(attachmentId)
+    suspend operator fun invoke(attachmentId: String, isThumbnail: Boolean = false): String {
+        return if (isThumbnail) {
+            mediaRepository.getAttachmentThumbnailUrl(attachmentId)
+        } else {
+            mediaRepository.getAttachmentUrl(attachmentId)
+        }
     }
 }

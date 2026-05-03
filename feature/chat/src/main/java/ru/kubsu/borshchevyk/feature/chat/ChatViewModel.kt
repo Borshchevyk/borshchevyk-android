@@ -113,7 +113,7 @@ class ChatViewModel @Inject constructor(
             is ChatIntent.PinMessage -> onPinMessage(intent.messageId)
             is ChatIntent.UnpinMessage -> onUnpinMessage(intent.messageId)
             is ChatIntent.ToggleReaction -> onToggleReaction(intent.messageId, intent.reaction)
-            is ChatIntent.ResolveAttachmentUrl -> resolveAttachmentUrl(intent.attachmentId)
+            is ChatIntent.ResolveAttachmentUrl -> resolveAttachmentUrl(intent.attachmentId, intent.isThumbnail)
             is ChatIntent.ResendMessage -> onResendMessage(intent.messageId)
             is ChatIntent.ForwardMessage -> onForwardMessage(intent.message)
             is ChatIntent.InitiateCall -> onInitiateCall()
@@ -406,14 +406,27 @@ class ChatViewModel @Inject constructor(
      * Resolves the actual download or display URL for an attachment.
      *
      * @param attachmentId The ID of the attachment to resolve.
+     * @param isThumbnail Optional flag to request a thumbnail.
      */
-    private fun resolveAttachmentUrl(attachmentId: String) {
+    private fun resolveAttachmentUrl(attachmentId: String, isThumbnail: Boolean = false) {
         val state = uiState.value as? ChatUiState.Content ?: return
-        if (state.feed.attachmentUrls.containsKey(attachmentId) || attachmentId.startsWith("temp_")) return
+        if (attachmentId.startsWith("temp_")) return
+        if (isThumbnail && state.feed.thumbnailUrls.containsKey(attachmentId)) return
+        if (!isThumbnail && state.feed.attachmentUrls.containsKey(attachmentId)) return
+        
+        val attachment = state.feed.messages.flatMap { it.attachments }.find { it.id == attachmentId }
+        
         viewModelScope.launch {
             try {
-                val url = attachmentUseCases.getAttachmentUrl(attachmentId)
-                dispatch(ChatStateAction.UpdateAttachmentUrl(attachmentId, url))
+                if (attachment?.type == DomainAttachmentType.VIDEO) {
+                    val mainUrl = attachmentUseCases.getAttachmentUrl(attachmentId, false)
+                    val thumbUrl = attachmentUseCases.getAttachmentUrl(attachmentId, true)
+                    dispatch(ChatStateAction.UpdateAttachmentUrl(attachmentId, mainUrl))
+                    dispatch(ChatStateAction.UpdateAttachmentUrl(attachmentId, thumbUrl, isThumbnail = true))
+                } else {
+                    val url = attachmentUseCases.getAttachmentUrl(attachmentId, isThumbnail)
+                    dispatch(ChatStateAction.UpdateAttachmentUrl(attachmentId, url, isThumbnail = isThumbnail))
+                }
             } catch (e: Exception) {
                 Log.w(TAG, "Attachment resolution failed: $attachmentId", e)
             }

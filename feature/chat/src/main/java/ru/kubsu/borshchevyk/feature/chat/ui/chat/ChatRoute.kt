@@ -93,7 +93,7 @@ fun ChatRoute(
             ) { padding ->
                 ChatScreen(
                     contentState = state,
-                    onResolveAttachmentUrl = { chatViewModel.handleIntent(ChatIntent.ResolveAttachmentUrl(it)) },
+                    onResolveAttachmentUrl = { id, isThumb -> chatViewModel.handleIntent(ChatIntent.ResolveAttachmentUrl(id, isThumb)) },
                     onPinToggle = { msg ->
                         chatViewModel.handleIntent(if (msg.isPinned) ChatIntent.UnpinMessage(msg.id) else ChatIntent.PinMessage(msg.id))
                     },
