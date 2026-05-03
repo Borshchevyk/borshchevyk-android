@@ -23,6 +23,14 @@ import ru.kubsu.borshchevyk.feature.profile.ProfileEffect
 import ru.kubsu.borshchevyk.feature.profile.ProfileIntent
 import ru.kubsu.borshchevyk.feature.profile.ProfileViewModel
 
+/**
+ * Entry point for the edit profile feature. Handles state observation, effect processing,
+ * and routing to the UI component.
+ *
+ * @param onBackClick Callback invoked when the user navigates back.
+ * @param modifier The modifier to be applied to the layout.
+ * @param viewModel The ViewModel that manages the state and logic for the profile feature.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EditProfileRoute(
@@ -74,8 +82,7 @@ fun EditProfileRoute(
     ) { padding ->
         EditProfileScreen(
             uiState = uiState,
-            onSave = { f, l, b -> viewModel.handleIntent(ProfileIntent.UpdateProfile(f, l, b)) },
-            onUpdateAvatar = { bytes, filename, type -> viewModel.handleIntent(ProfileIntent.UpdateAvatar(bytes, filename, type)) },
+            onIntent = viewModel::handleIntent,
             modifier = Modifier.padding(padding)
         )
     }

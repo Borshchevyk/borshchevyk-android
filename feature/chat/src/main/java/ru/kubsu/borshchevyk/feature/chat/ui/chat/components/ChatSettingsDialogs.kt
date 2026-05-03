@@ -23,7 +23,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import ru.kubsu.borshchevyk.core.model.domain.ChatMember
-import ru.kubsu.borshchevyk.core.model.dto.UpdatePermissionsRequest
 import ru.kubsu.borshchevyk.core.ui.theme.BorshchevykTheme
 
 @Composable
@@ -121,7 +120,7 @@ internal fun UpdatePermissionsDialog(
     currentUserId: String,
     canManagePermissions: Boolean,
     onDismiss: () -> Unit,
-    onConfirm: (String, UpdatePermissionsRequest) -> Unit,
+    onConfirm: (String, Boolean, Boolean, Boolean, Boolean) -> Unit,
     onKickUser: (String) -> Unit
 ) {
     var canSend by remember { mutableStateOf(member.canSendMessages) }
@@ -148,12 +147,10 @@ internal fun UpdatePermissionsDialog(
                 onClick = {
                     onConfirm(
                         member.userId,
-                        UpdatePermissionsRequest(
-                            canSendMessages = canSend,
-                            canDeleteMessages = canDelete,
-                            canInviteUsers = canInvite,
-                            canChangeInfo = canChangeInfo
-                        )
+                        canSend,
+                        canDelete,
+                        canInvite,
+                        canChangeInfo
                     )
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = BorshchevykTheme.colors.primary)

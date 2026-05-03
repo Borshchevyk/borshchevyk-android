@@ -19,6 +19,17 @@ import ru.kubsu.borshchevyk.feature.contacts.ContactsEffect
 import ru.kubsu.borshchevyk.feature.contacts.ContactsIntent
 import ru.kubsu.borshchevyk.feature.contacts.ContactsViewModel
 
+/**
+ * The entry point route for the contacts feature.
+ *
+ * This composable sets up the [ContactsViewModel], observes its state and effects, and applies
+ * the primary [Scaffold] for the contacts screen. It handles UI side effects such as showing
+ * toast error messages or navigating to a chat.
+ *
+ * @param onNavigateToChat Callback invoked to navigate to a specific chat screen by its ID.
+ * @param modifier The modifier to be applied to the route layout.
+ * @param viewModel The view model that manages the logic for this route.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ContactsRoute(

@@ -24,15 +24,22 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import io.livekit.android.room.participant.Participant
-import io.livekit.android.room.track.VideoTrack
 
+/**
+ * The main Compose entry point for an active video/audio call.
+ * This screen requests camera/microphone permissions, handles LiveKit video rendering,
+ * and delegates logic to the [CallViewModel].
+ *
+ * @param viewModel The [CallViewModel] handling the call state and logic.
+ * @param onNavigateBack Callback triggered when the call is ended or an unrecoverable error occurs.
+ */
 @Composable
 fun CallScreen(
     viewModel: CallViewModel = hiltViewModel(),
     onNavigateBack: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
     
     val permissionsLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
@@ -52,167 +59,197 @@ fun CallScreen(
                 Manifest.permission.CAMERA
             )
         )
+    }
+
+    LaunchedEffect(Unit) {
         viewModel.effect.collect { effect ->
             when (effect) {
                 is CallEffect.CallEnded -> onNavigateBack()
-                is CallEffect.ShowError -> {} // Handle error (e.g., Snackbar)
+                is CallEffect.ShowError -> {
+                    snackbarHostState.showSnackbar(
+                        message = effect.message,
+                        duration = SnackbarDuration.Long
+                    )
+                }
             }
         }
     }
 
-    when (val state = uiState) {
-        is CallUiState.Loading -> {
-            Box(modifier = Modifier.fillMaxSize().background(Color.Black), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
-                Text("Connecting...", color = Color.White, modifier = Modifier.padding(top = 48.dp))
-            }
-        }
-        is CallUiState.Error -> {
-            Box(modifier = Modifier.fillMaxSize().background(Color.Black), contentAlignment = Alignment.Center) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(state.message, color = Color.Red)
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Button(onClick = onNavigateBack) {
-                        Text("Go Back")
+    Scaffold(
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
+    ) { padding ->
+        Box(modifier = Modifier.padding(padding)) {
+            when (val state = uiState) {
+                is CallUiState.Loading -> {
+                    Box(modifier = Modifier.fillMaxSize().background(Color.Black), contentAlignment = Alignment.Center) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            CircularProgressIndicator()
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text("Connecting...", color = Color.White)
+                        }
                     }
                 }
-            }
-        }
-        is CallUiState.Active -> {
-            if (state.isMinimized) {
-                MinimizedCallBanner(
-                    state = state,
-                    onIntent = viewModel::handleIntent
-                )
-            } else {
-                ActiveCallContent(
-                    state = state,
-                    onIntent = viewModel::handleIntent
-                )
+                is CallUiState.Error -> {
+                    Box(modifier = Modifier.fillMaxSize().background(Color.Black), contentAlignment = Alignment.Center) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(24.dp)) {
+                            Text(state.message, color = Color.Red, style = MaterialTheme.typography.bodyLarge)
+                            Spacer(modifier = Modifier.height(24.dp))
+                            Button(onClick = onNavigateBack) {
+                                Text("Go Back")
+                            }
+                        }
+                    }
+                }
+                is CallUiState.Active -> {
+                    if (state.isMinimized) {
+                        MinimizedCallBanner(
+                            state = state,
+                            onIntent = viewModel::handleIntent
+                        )
+                    } else {
+                        ActiveCallContent(
+                            state = state,
+                            onIntent = viewModel::handleIntent
+                        )
+                    }
+                }
             }
         }
     }
 }
 
+/**
+ * Composable responsible for rendering the full-screen active call UI,
+ * including the remote video track, local video Picture-in-Picture (PiP), and control buttons.
+ *
+ * @param state The active [CallUiState.Active] state.
+ * @param onIntent Callback to dispatch [CallIntent]s to the ViewModel.
+ */
 @Composable
 private fun ActiveCallContent(
     state: CallUiState.Active,
     onIntent: (CallIntent) -> Unit
 ) {
-    var remoteParticipant by remember { mutableStateOf<Participant?>(null) }
-    var remoteVideoTrack by remember { mutableStateOf<VideoTrack?>(null) }
-    var localVideoTrack by remember { mutableStateOf<VideoTrack?>(null) }
-    var isRemoteAudioMuted by remember { mutableStateOf(false) }
-
-    LaunchedEffect(state.room) {
-        // Simple polling for participant updates, normally done via Room events
-        while (true) {
-            val participants = state.room.remoteParticipants
-            val firstRemote = participants.values.firstOrNull()
-            remoteParticipant = firstRemote
-            
-            val remotePub = firstRemote?.videoTrackPublications?.firstOrNull()?.first
-            remoteVideoTrack = if (remotePub?.muted == false) remotePub.track as? VideoTrack else null
-            
-            val localPub = state.room.localParticipant.videoTrackPublications.firstOrNull()?.first
-            localVideoTrack = if (localPub?.muted == false) localPub.track as? VideoTrack else null
-            
-            val remoteAudioPub = firstRemote?.audioTrackPublications?.firstOrNull()?.first
-            isRemoteAudioMuted = remoteAudioPub?.muted == true
-            
-            kotlinx.coroutines.delay(1000)
-        }
-    }
-    
-    Box(modifier = Modifier.fillMaxSize().background(Color.DarkGray)) {
-        if (remoteVideoTrack != null) {
+    Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
+        // Remote Video
+        if (state.remoteVideoTrack != null && !state.isRemoteVideoMuted) {
             io.livekit.android.compose.ui.VideoTrackView(
                 passedRoom = state.room,
-                videoTrack = remoteVideoTrack!!,
+                videoTrack = state.remoteVideoTrack,
                 modifier = Modifier.fillMaxSize()
             )
-            if (isRemoteAudioMuted) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(32.dp),
-                    contentAlignment = Alignment.TopEnd
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.MicOff,
-                        contentDescription = "Remote Mic Muted",
-                        tint = Color.Red,
-                        modifier = Modifier
-                            .size(32.dp)
-                            .background(Color.Black.copy(alpha = 0.5f), CircleShape)
-                            .padding(4.dp)
-                    )
-                }
-            }
         } else {
-            // Audio only or waiting
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                if (remoteParticipant != null) {
-                    Icon(
-                        imageVector = if (isRemoteAudioMuted) Icons.Filled.MicOff else Icons.Filled.Mic,
-                        contentDescription = null,
-                        modifier = Modifier.size(64.dp),
-                        tint = if (isRemoteAudioMuted) Color.Red else Color.White
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Surface(
+                        modifier = Modifier.size(120.dp),
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.primaryContainer
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = if (state.isRemoteMicMuted) Icons.Filled.MicOff else Icons.Filled.Mic,
+                                contentDescription = null,
+                                modifier = Modifier.size(48.dp),
+                                tint = if (state.isRemoteMicMuted) Color.Red else MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        text = state.remoteParticipantName ?: "Waiting for participant...",
+                        color = Color.White,
+                        style = MaterialTheme.typography.titleMedium
                     )
-                } else {
-                    Text("Waiting for others to join...", color = Color.White)
                 }
             }
         }
 
-        // Local video PIP (bottom right)
-        if (localVideoTrack != null && state.isCameraEnabled) {
-            io.livekit.android.compose.ui.VideoTrackView(
-                passedRoom = state.room,
-                videoTrack = localVideoTrack!!,
+        // Remote Status Indicators
+        if (state.isRemoteMicMuted && state.remoteVideoTrack != null) {
+            Box(
                 modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(bottom = 100.dp, end = 16.dp)
-                    .size(100.dp, 150.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(Color.LightGray)
-            )
+                    .fillMaxSize()
+                    .padding(16.dp),
+                contentAlignment = Alignment.TopEnd
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.MicOff,
+                    contentDescription = "Remote Mic Muted",
+                    tint = Color.Red,
+                    modifier = Modifier
+                        .size(32.dp)
+                        .background(Color.Black.copy(alpha = 0.5f), CircleShape)
+                        .padding(4.dp)
+                )
+            }
         }
 
-        // Controls (bottom)
-        Row(
+        // Local video PIP
+        if (state.localVideoTrack != null && state.isCameraEnabled) {
+            Card(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(top = 64.dp, end = 16.dp)
+                    .size(100.dp, 150.dp),
+                shape = RoundedCornerShape(12.dp),
+                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+            ) {
+                io.livekit.android.compose.ui.VideoTrackView(
+                    passedRoom = state.room,
+                    videoTrack = state.localVideoTrack,
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
+        }
+
+        // Controls
+        Surface(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .fillMaxWidth()
-                .padding(32.dp),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-            verticalAlignment = Alignment.CenterVertically
+                .fillMaxWidth(),
+            color = Color.Transparent
         ) {
-            ControlIconButton(
-                icon = if (state.isMicEnabled) Icons.Filled.Mic else Icons.Filled.MicOff,
-                onClick = { onIntent(CallIntent.ToggleMic) },
-                isActive = state.isMicEnabled
-            )
-            ControlIconButton(
-                icon = if (state.isCameraEnabled) Icons.Filled.Videocam else Icons.Filled.VideocamOff,
-                onClick = { onIntent(CallIntent.ToggleCamera) },
-                isActive = state.isCameraEnabled
-            )
-            ControlIconButton(
-                icon = Icons.Filled.CloseFullscreen,
-                onClick = { onIntent(CallIntent.ToggleMinimize) },
-                isActive = true
-            )
-            ControlIconButton(
-                icon = Icons.Filled.CallEnd,
-                onClick = { onIntent(CallIntent.EndCall) },
-                isActive = false,
-                isDestructive = true
-            )
+            Row(
+                modifier = Modifier
+                    .padding(bottom = 48.dp, start = 24.dp, end = 24.dp)
+                    .fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                ControlIconButton(
+                    icon = if (state.isMicEnabled) Icons.Filled.Mic else Icons.Filled.MicOff,
+                    onClick = { onIntent(CallIntent.ToggleMic) },
+                    isActive = state.isMicEnabled
+                )
+                ControlIconButton(
+                    icon = if (state.isCameraEnabled) Icons.Filled.Videocam else Icons.Filled.VideocamOff,
+                    onClick = { onIntent(CallIntent.ToggleCamera) },
+                    isActive = state.isCameraEnabled
+                )
+                ControlIconButton(
+                    icon = Icons.Filled.CloseFullscreen,
+                    onClick = { onIntent(CallIntent.ToggleMinimize) },
+                    isActive = true
+                )
+                ControlIconButton(
+                    icon = Icons.Filled.CallEnd,
+                    onClick = { onIntent(CallIntent.EndCall) },
+                    isActive = false,
+                    isDestructive = true
+                )
+            }
         }
     }
 }
 
+/**
+ * Composable responsible for rendering a minimized card banner for an active call.
+ * This is useful when the user wants to browse the app while remaining on the call.
+ *
+ * @param state The active [CallUiState.Active] state.
+ * @param onIntent Callback to dispatch [CallIntent]s to the ViewModel.
+ */
 @Composable
 private fun MinimizedCallBanner(
     state: CallUiState.Active,
@@ -226,49 +263,54 @@ private fun MinimizedCallBanner(
         Card(
             modifier = Modifier
                 .align(Alignment.TopEnd)
-                .width(200.dp),
+                .width(220.dp),
             shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            elevation = CardDefaults.cardElevation(defaultElevation = 12.dp)
         ) {
-            Column(modifier = Modifier.padding(8.dp)) {
+            Column(modifier = Modifier.padding(12.dp)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Active Call",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        text = state.remoteParticipantName ?: "Active Call",
+                        style = MaterialTheme.typography.labelLarge,
+                        maxLines = 1
                     )
                     IconButton(
                         onClick = { onIntent(CallIntent.ToggleMinimize) },
                         modifier = Modifier.size(24.dp)
                     ) {
-                        Icon(Icons.Filled.OpenInFull, contentDescription = "Expand", modifier = Modifier.size(16.dp))
+                        Icon(Icons.Filled.OpenInFull, contentDescription = "Expand", modifier = Modifier.size(18.dp))
                     }
                 }
                 
+                Spacer(modifier = Modifier.height(12.dp))
+
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                    modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceEvenly
                 ) {
                     IconButton(
                         onClick = { onIntent(CallIntent.ToggleMic) },
-                        modifier = Modifier.size(36.dp)
+                        modifier = Modifier.size(40.dp)
                     ) {
                         Icon(
                             if (state.isMicEnabled) Icons.Filled.Mic else Icons.Filled.MicOff,
                             contentDescription = "Mic",
-                            tint = if (state.isMicEnabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.error
+                            tint = if (state.isMicEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
                         )
                     }
                     IconButton(
                         onClick = { onIntent(CallIntent.EndCall) },
-                        modifier = Modifier.size(36.dp).clip(CircleShape).background(MaterialTheme.colorScheme.error)
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.error)
                     ) {
-                        Icon(Icons.Filled.CallEnd, contentDescription = "End", tint = MaterialTheme.colorScheme.onError, modifier = Modifier.size(16.dp))
+                        Icon(Icons.Filled.CallEnd, contentDescription = "End", tint = MaterialTheme.colorScheme.onError, modifier = Modifier.size(20.dp))
                     }
                 }
             }
@@ -276,6 +318,14 @@ private fun MinimizedCallBanner(
     }
 }
 
+/**
+ * A reusable circular icon button designed for the call control interface.
+ *
+ * @param icon The material icon to display.
+ * @param onClick The click listener.
+ * @param isActive Determines whether the toggle state is currently active.
+ * @param isDestructive Determines whether this is a destructive action (like ending a call).
+ */
 @Composable
 private fun ControlIconButton(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
@@ -284,19 +334,19 @@ private fun ControlIconButton(
     isDestructive: Boolean = false
 ) {
     val bgColor = when {
-        isDestructive -> Color.Red
+        isDestructive -> MaterialTheme.colorScheme.error
         isActive -> Color.White.copy(alpha = 0.2f)
         else -> Color.White
     }
     val tintColor = when {
-        isDestructive -> Color.White
+        isDestructive -> MaterialTheme.colorScheme.onError
         isActive -> Color.White
         else -> Color.Black
     }
 
     Box(
         modifier = Modifier
-            .size(56.dp)
+            .size(64.dp)
             .clip(CircleShape)
             .background(bgColor)
             .clickable { onClick() },
@@ -306,7 +356,7 @@ private fun ControlIconButton(
             imageVector = icon,
             contentDescription = null,
             tint = tintColor,
-            modifier = Modifier.size(28.dp)
+            modifier = Modifier.size(32.dp)
         )
     }
 }

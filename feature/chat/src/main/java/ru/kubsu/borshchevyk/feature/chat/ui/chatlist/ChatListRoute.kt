@@ -33,6 +33,16 @@ import ru.kubsu.borshchevyk.feature.chat.ChatListViewModel
 import ru.kubsu.borshchevyk.feature.chat.ui.chatlist.components.CreateGroupChatDialog
 import ru.kubsu.borshchevyk.feature.chat.ui.chatlist.components.JoinChatDialog
 
+/**
+ * Route for the Chat List screen. Handles ViewModel interaction and navigation events.
+ *
+ * @param forwardPayloadJson JSON representation of the payload to forward, if applicable.
+ * @param onCancelForward Callback invoked when forwarding is canceled.
+ * @param onChatClick Callback invoked when a chat is selected.
+ * @param onSearchClick Callback invoked when the search action is triggered.
+ * @param modifier The modifier to be applied to the layout.
+ * @param viewModel The view model managing the state for the chat list screen.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatListRoute(

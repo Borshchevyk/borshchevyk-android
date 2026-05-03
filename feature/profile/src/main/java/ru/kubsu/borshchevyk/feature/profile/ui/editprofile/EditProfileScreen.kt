@@ -31,6 +31,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -42,19 +43,29 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
+import coil.compose.SubcomposeAsyncImage
 import ru.kubsu.borshchevyk.core.ui.theme.BorshchevykTheme
+import ru.kubsu.borshchevyk.feature.profile.ProfileIntent
 import ru.kubsu.borshchevyk.feature.profile.ProfileUiState
 
+/**
+ * Displays the edit profile screen, allowing the user to update their personal information
+ * such as first name, last name, bio, and avatar.
+ *
+ * @param uiState The current state of the profile UI, containing user data and loading statuses.
+ * @param onIntent Callback for user actions (e.g., updating profile, changing avatar).
+ * @param modifier The modifier to be applied to the layout.
+ */
 @Composable
 internal fun EditProfileScreen(
     uiState: ProfileUiState,
-    onSave: (String, String, String) -> Unit,
-    onUpdateAvatar: (ByteArray, String, String) -> Unit,
+    onIntent: (ProfileIntent) -> Unit,
     modifier: Modifier = Modifier
 ) {
     var firstName by rememberSaveable { mutableStateOf(uiState.user?.firstName ?: "") }
     var lastName by rememberSaveable { mutableStateOf(uiState.user?.lastName ?: "") }
     var bio by rememberSaveable { mutableStateOf(uiState.user?.bio ?: "") }
+    
     val context = LocalContext.current
 
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
@@ -70,7 +81,7 @@ internal fun EditProfileScreen(
             val mimeType = contentResolver.getType(uri) ?: "image/jpeg"
             val bytes = contentResolver.openInputStream(uri)?.use { it.readBytes() }
             if (bytes != null) {
-                onUpdateAvatar(bytes, name, mimeType)
+                onIntent(ProfileIntent.UpdateAvatar(bytes, name, mimeType))
             }
         }
     }
@@ -87,15 +98,22 @@ internal fun EditProfileScreen(
                 .size(120.dp)
                 .clip(CircleShape)
                 .background(BorshchevykTheme.colors.surfaceVariant)
-                .clickable { launcher.launch("image/*") },
+                .clickable { if (!uiState.isUpdatingAvatar) launcher.launch("image/*") },
             contentAlignment = Alignment.Center
         ) {
-            if (!uiState.user?.avatarUrl.isNullOrBlank()) {
-                AsyncImage(
-                    model = uiState.user?.avatarUrl,
+            val avatarUrl = uiState.user?.avatarUrl
+            if (!avatarUrl.isNullOrBlank()) {
+                SubcomposeAsyncImage(
+                    model = avatarUrl,
                     contentDescription = "Avatar",
                     modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop
+                    contentScale = ContentScale.Crop,
+                    loading = {
+                        CircularProgressIndicator(
+                            modifier = Modifier.padding(32.dp),
+                            color = BorshchevykTheme.colors.primary
+                        )
+                    }
                 )
             }
             
@@ -105,7 +123,7 @@ internal fun EditProfileScreen(
                     .background(BorshchevykTheme.colors.background.copy(alpha = 0.4f)),
                 contentAlignment = Alignment.Center
             ) {
-                if (uiState.isLoading) {
+                if (uiState.isUpdatingAvatar) {
                     CircularProgressIndicator(color = BorshchevykTheme.colors.primary)
                 } else {
                     Icon(
@@ -150,7 +168,8 @@ internal fun EditProfileScreen(
             onValueChange = { firstName = it },
             label = { Text("First Name") },
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(12.dp)
+            shape = RoundedCornerShape(12.dp),
+            singleLine = true
         )
         Spacer(modifier = Modifier.height(16.dp))
         OutlinedTextField(
@@ -158,7 +177,8 @@ internal fun EditProfileScreen(
             onValueChange = { lastName = it },
             label = { Text("Last Name") },
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(12.dp)
+            shape = RoundedCornerShape(12.dp),
+            singleLine = true
         )
         Spacer(modifier = Modifier.height(16.dp))
         OutlinedTextField(
@@ -171,14 +191,19 @@ internal fun EditProfileScreen(
         )
         Spacer(modifier = Modifier.height(32.dp))
         Button(
-            onClick = { onSave(firstName, lastName, bio) },
+            onClick = { onIntent(ProfileIntent.UpdateProfile(firstName, lastName, bio)) },
             modifier = Modifier.fillMaxWidth().height(56.dp),
+            enabled = !uiState.isLoading,
             colors = ButtonDefaults.buttonColors(containerColor = BorshchevykTheme.colors.primary),
             shape = RoundedCornerShape(16.dp)
         ) {
-            Icon(Icons.Default.Check, contentDescription = null)
-            Spacer(modifier = Modifier.width(8.dp))
-            Text("Save Changes")
+            if (uiState.isLoading) {
+                CircularProgressIndicator(color = BorshchevykTheme.colors.onPrimary, modifier = Modifier.size(24.dp))
+            } else {
+                Icon(Icons.Default.Check, contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Save Changes")
+            }
         }
     }
 }

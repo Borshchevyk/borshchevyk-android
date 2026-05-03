@@ -18,6 +18,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 
+/**
+ * A persistent UI component designed to be displayed on top of other screens
+ * when an incoming call is received.
+ * Observes the [IncomingCallViewModel] to detect pending calls.
+ *
+ * @param viewModel The [IncomingCallViewModel] injected by Hilt.
+ * @param onNavigateToCall Callback triggered when the call is accepted, providing the callId.
+ */
 @Composable
 fun IncomingCallBanner(
     viewModel: IncomingCallViewModel = hiltViewModel(),
@@ -50,7 +58,7 @@ fun IncomingCallBanner(
                             color = MaterialTheme.colorScheme.onPrimaryContainer
                         )
                         Text(
-                            text = callEvent.initiator?.firstName ?: "Unknown User",
+                            text = "Incoming call...",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onPrimaryContainer
                         )

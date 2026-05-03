@@ -26,6 +26,16 @@ import androidx.compose.ui.unit.dp
 import ru.kubsu.borshchevyk.core.model.domain.Contact
 import ru.kubsu.borshchevyk.core.ui.theme.BorshchevykTheme
 
+/**
+ * A Jetpack Compose component that displays a single contact item.
+ *
+ * This component renders the contact's avatar (or initial), display name, and a delete button.
+ * It provides callbacks for clicking the entire item or specifically the delete button.
+ *
+ * @param contact The contact information to display.
+ * @param onClick Callback invoked when the contact item is clicked.
+ * @param onDeleteClick Callback invoked when the delete icon is clicked.
+ */
 @Composable
 internal fun ContactItem(
     contact: Contact,

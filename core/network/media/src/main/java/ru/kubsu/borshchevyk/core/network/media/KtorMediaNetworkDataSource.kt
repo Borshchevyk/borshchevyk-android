@@ -2,7 +2,6 @@ package ru.kubsu.borshchevyk.core.network.media
 
 import android.util.Log
 import io.ktor.client.HttpClient
-import io.ktor.client.call.body
 import io.ktor.client.request.delete
 import io.ktor.client.request.forms.MultiPartFormDataContent
 import io.ktor.client.request.forms.formData
@@ -16,12 +15,14 @@ import io.ktor.http.HttpHeaders
 import io.ktor.http.contentType
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
-import ru.kubsu.borshchevyk.core.model.dto.AttachmentResponse
-import ru.kubsu.borshchevyk.core.model.dto.AttachmentUrlResult
-import ru.kubsu.borshchevyk.core.model.dto.RequestUploadUrlRequest
-import ru.kubsu.borshchevyk.core.model.dto.UploadUrlResult
-import ru.kubsu.borshchevyk.core.model.dto.ValidateAttachmentsRequest
-import ru.kubsu.borshchevyk.core.model.dto.ValidateAttachmentsResponse
+import ru.kubsu.borshchevyk.core.network.client.NetworkResult
+import ru.kubsu.borshchevyk.core.network.dto.AttachmentResponse
+import ru.kubsu.borshchevyk.core.network.dto.AttachmentUrlResult
+import ru.kubsu.borshchevyk.core.network.dto.RequestUploadUrlRequest
+import ru.kubsu.borshchevyk.core.network.dto.UploadUrlResult
+import ru.kubsu.borshchevyk.core.network.dto.ValidateAttachmentsRequest
+import ru.kubsu.borshchevyk.core.network.dto.ValidateAttachmentsResponse
+import ru.kubsu.borshchevyk.core.network.client.safeRequest
 import ru.kubsu.borshchevyk.core.network.di.IoDispatcher
 import javax.inject.Inject
 
@@ -32,102 +33,128 @@ class KtorMediaNetworkDataSource @Inject constructor(
 
     private val TAG = "MediaNetworkDataSource"
 
-    override suspend fun uploadAvatar(fileBytes: ByteArray, filename: String, contentType: String): AttachmentUrlResult {
+    override suspend fun uploadAvatar(fileBytes: ByteArray, filename: String, contentType: String): NetworkResult<AttachmentUrlResult> {
         return withContext(ioDispatcher) {
-            httpClient.post("api/v1/media/upload/avatar") {
-                setBody(
-                    MultiPartFormDataContent(
-                        formData {
-                            append("file", fileBytes, Headers.build {
-                                append(HttpHeaders.ContentType, contentType)
-                                append(HttpHeaders.ContentDisposition, "filename=\"$filename\"")
-                            })
-                        }
+            safeRequest {
+                httpClient.post("api/v1/media/upload/avatar") {
+                    setBody(
+                        MultiPartFormDataContent(
+                            formData {
+                                append("file", fileBytes, Headers.build {
+                                    append(HttpHeaders.ContentType, contentType)
+                                    append(HttpHeaders.ContentDisposition, "filename=\"$filename\"")
+                                })
+                            }
+                        )
                     )
-                )
-            }.body()
-        }
-    }
-
-    override suspend fun uploadVoice(fileBytes: ByteArray, duration: Double): AttachmentResponse {
-        return withContext(ioDispatcher) {
-            httpClient.post("api/v1/media/upload/voice") {
-                setBody(
-                    MultiPartFormDataContent(
-                        formData {
-                            append("duration", duration.toString())
-                            append("file", fileBytes, Headers.build {
-                                append(HttpHeaders.ContentType, "audio/ogg")
-                                append(HttpHeaders.ContentDisposition, "filename=\"voice.ogg\"")
-                            })
-                        }
-                    )
-                )
-            }.body()
-        }
-    }
-
-    override suspend fun uploadCircle(fileBytes: ByteArray, duration: Double): AttachmentResponse {
-        return withContext(ioDispatcher) {
-            httpClient.post("api/v1/media/upload/circle") {
-                setBody(
-                    MultiPartFormDataContent(
-                        formData {
-                            append("duration", duration.toString())
-                            append("file", fileBytes, Headers.build {
-                                append(HttpHeaders.ContentType, "video/mp4")
-                                append(HttpHeaders.ContentDisposition, "filename=\"circle.mp4\"")
-                            })
-                        }
-                    )
-                )
-            }.body()
-        }
-    }
-
-    override suspend fun requestUploadUrl(request: RequestUploadUrlRequest): UploadUrlResult {
-        Log.d(TAG, "Requesting upload URL for: ${request.originalFilename}, type: ${request.type}")
-        return withContext(ioDispatcher) {
-            httpClient.post("api/v1/media/upload-url") {
-                setBody(request)
-            }.body()
-        }
-    }
-
-    override suspend fun uploadToS3(url: String, fileBytes: ByteArray, contentType: String) {
-        Log.d(TAG, "Uploading file to S3: size ${fileBytes.size}, content-type: $contentType")
-        return withContext(ioDispatcher) {
-            httpClient.put(url) {
-                contentType(ContentType.parse(contentType))
-                setBody(fileBytes)
+                }
             }
         }
     }
 
-    override suspend fun completeUpload(attachmentId: String): AttachmentResponse {
+    override suspend fun uploadVoice(fileBytes: ByteArray, duration: Double): NetworkResult<AttachmentResponse> {
+        return withContext(ioDispatcher) {
+            safeRequest {
+                httpClient.post("api/v1/media/upload/voice") {
+                    setBody(
+                        MultiPartFormDataContent(
+                            formData {
+                                append("duration", duration.toString())
+                                append("file", fileBytes, Headers.build {
+                                    append(HttpHeaders.ContentType, "audio/ogg")
+                                    append(HttpHeaders.ContentDisposition, "filename=\"voice.ogg\"")
+                                })
+                            }
+                        )
+                    )
+                }
+            }
+        }
+    }
+
+    override suspend fun uploadCircle(fileBytes: ByteArray, duration: Double): NetworkResult<AttachmentResponse> {
+        return withContext(ioDispatcher) {
+            safeRequest {
+                httpClient.post("api/v1/media/upload/circle") {
+                    setBody(
+                        MultiPartFormDataContent(
+                            formData {
+                                append("duration", duration.toString())
+                                append("file", fileBytes, Headers.build {
+                                    append(HttpHeaders.ContentType, "video/mp4")
+                                    append(HttpHeaders.ContentDisposition, "filename=\"circle.mp4\"")
+                                })
+                            }
+                        )
+                    )
+                }
+            }
+        }
+    }
+
+    override suspend fun requestUploadUrl(request: RequestUploadUrlRequest): NetworkResult<UploadUrlResult> {
+        Log.d(TAG, "Requesting upload URL for: ${request.originalFilename}, type: ${request.type}")
+        return withContext(ioDispatcher) {
+            safeRequest {
+                httpClient.post("api/v1/media/upload-url") {
+                    setBody(request)
+                }
+            }
+        }
+    }
+
+    override suspend fun uploadToS3(url: String, fileBytes: ByteArray, contentType: String): NetworkResult<Unit> {
+        Log.d(TAG, "Uploading file to S3: size ${fileBytes.size}, content-type: $contentType")
+        return withContext(ioDispatcher) {
+            safeRequest {
+                httpClient.put(url) {
+                    contentType(ContentType.parse(contentType))
+                    setBody(fileBytes)
+                }
+            }
+        }
+    }
+
+    override suspend fun completeUpload(attachmentId: String): NetworkResult<AttachmentResponse> {
         Log.d(TAG, "Completing upload for attachment: $attachmentId")
         return withContext(ioDispatcher) {
-            httpClient.put("api/v1/media/$attachmentId/complete").body()
+            safeRequest {
+                httpClient.put("api/v1/media/$attachmentId/complete")
+            }
         }
     }
 
-    override suspend fun getAttachmentUrl(attachmentId: String): AttachmentUrlResult {
+    override suspend fun getAttachmentUrl(attachmentId: String): NetworkResult<AttachmentUrlResult> {
         return withContext(ioDispatcher) {
-            httpClient.get("api/v1/media/$attachmentId/url").body()
+            safeRequest {
+                httpClient.get("api/v1/media/$attachmentId/url")
+            }
         }
     }
 
-    override suspend fun deleteAttachment(attachmentId: String) {
+    override suspend fun getAttachmentThumbnailUrl(attachmentId: String): NetworkResult<AttachmentUrlResult> {
         return withContext(ioDispatcher) {
-            httpClient.delete("api/v1/media/$attachmentId")
+            safeRequest {
+                httpClient.get("api/v1/media/$attachmentId/thumbnail-url")
+            }
         }
     }
 
-    override suspend fun validateAttachments(request: ValidateAttachmentsRequest): ValidateAttachmentsResponse {
+    override suspend fun deleteAttachment(attachmentId: String): NetworkResult<Unit> {
         return withContext(ioDispatcher) {
-            httpClient.post("api/v1/media/validate") {
-                setBody(request)
-            }.body()
+            safeRequest {
+                httpClient.delete("api/v1/media/$attachmentId")
+            }
+        }
+    }
+
+    override suspend fun validateAttachments(request: ValidateAttachmentsRequest): NetworkResult<ValidateAttachmentsResponse> {
+        return withContext(ioDispatcher) {
+            safeRequest {
+                httpClient.post("api/v1/media/validate") {
+                    setBody(request)
+                }
+            }
         }
     }
 }

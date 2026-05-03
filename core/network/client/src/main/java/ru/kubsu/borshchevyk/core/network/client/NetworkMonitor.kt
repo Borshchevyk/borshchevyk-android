@@ -17,10 +17,21 @@ import kotlinx.coroutines.flow.conflate
 import javax.inject.Inject
 import javax.inject.Singleton
 
+/**
+ * Interface for monitoring the device's network connectivity status.
+ */
 interface NetworkMonitor {
+    /**
+     * A continuous stream representing whether the device is currently connected to the internet.
+     */
     val isOnline: Flow<Boolean>
 }
 
+/**
+ * Android-specific implementation of [NetworkMonitor] using [ConnectivityManager].
+ *
+ * @property context The application context required to access system services.
+ */
 @Singleton
 class ConnectivityNetworkMonitor @Inject constructor(
     @ApplicationContext private val context: Context
@@ -56,9 +67,15 @@ class ConnectivityNetworkMonitor @Inject constructor(
     }.conflate()
 }
 
+/**
+ * Dependency injection module for providing the [NetworkMonitor] instance.
+ */
 @Module
 @InstallIn(SingletonComponent::class)
 interface NetworkMonitorModule {
+    /**
+     * Binds the [ConnectivityNetworkMonitor] implementation to the [NetworkMonitor] interface.
+     */
     @Binds
     @Singleton
     fun bindNetworkMonitor(impl: ConnectivityNetworkMonitor): NetworkMonitor

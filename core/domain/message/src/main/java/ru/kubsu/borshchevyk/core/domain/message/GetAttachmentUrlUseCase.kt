@@ -2,10 +2,29 @@ package ru.kubsu.borshchevyk.core.domain.message
 
 import javax.inject.Inject
 
+/**
+ * Use case for resolving the direct URL of a stored attachment.
+ *
+ * This use case fetches the fully qualified URL required to download or display
+ * a given attachment (e.g., an image, video, or document) stored on the server.
+ *
+ * @property mediaRepository The repository responsible for media operations.
+ */
 class GetAttachmentUrlUseCase @Inject constructor(
     private val mediaRepository: MediaRepository
 ) {
-    suspend operator fun invoke(attachmentId: String): String {
-        return mediaRepository.getAttachmentUrl(attachmentId)
+    /**
+     * Retrieves the URL for the specified attachment.
+     *
+     * @param attachmentId The unique identifier of the attachment.
+     * @param isThumbnail Whether to retrieve the thumbnail URL instead of the main URL.
+     * @return The direct URL string pointing to the attachment resource.
+     */
+    suspend operator fun invoke(attachmentId: String, isThumbnail: Boolean = false): String {
+        return if (isThumbnail) {
+            mediaRepository.getAttachmentThumbnailUrl(attachmentId)
+        } else {
+            mediaRepository.getAttachmentUrl(attachmentId)
+        }
     }
 }

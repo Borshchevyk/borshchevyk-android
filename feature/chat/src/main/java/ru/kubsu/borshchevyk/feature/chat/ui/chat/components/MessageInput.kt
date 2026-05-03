@@ -57,6 +57,19 @@ import ru.kubsu.borshchevyk.core.model.domain.Message
 import ru.kubsu.borshchevyk.core.ui.theme.BorshchevykTheme
 import ru.kubsu.borshchevyk.feature.chat.AttachmentFile
 
+/**
+ * Input component for typing and sending messages, including text, voice, and circle videos.
+ *
+ * @param editingMessage The message currently being edited, if any.
+ * @param isSending Whether a message is currently being sent.
+ * @param onSendMessage Callback invoked when a text message with optional attachments is sent.
+ * @param onSendVoice Callback invoked when a voice message is sent.
+ * @param onSendCircle Callback invoked when a circle video message is sent.
+ * @param onEditMessage Callback invoked when an existing message is edited.
+ * @param onCancelEdit Callback invoked when message editing is canceled.
+ * @param onTyping Callback invoked when the user is typing.
+ * @param forwardPayload The payload of the message being forwarded, if any.
+ */
 @Composable
 internal fun MessageInput(
     editingMessage: Message?,
@@ -78,6 +91,12 @@ internal fun MessageInput(
     var mediaRecorder by remember { mutableStateOf<android.media.MediaRecorder?>(null) }
     var voiceFile by remember { mutableStateOf<java.io.File?>(null) }
 
+    /**
+     * Extracts the duration in seconds and the raw byte array from a given media URI.
+     *
+     * @param uri The URI of the media file to process.
+     * @return A pair containing the byte array of the file and its duration in seconds.
+     */
     fun extractDurationAndBytes(uri: android.net.Uri): Pair<ByteArray?, Double> {
         var duration = 0.0
         var bytes: ByteArray? = null
@@ -141,6 +160,26 @@ internal fun MessageInput(
         }
     }
 
+    val circlePermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val cameraGranted = permissions[android.Manifest.permission.CAMERA] ?: false
+        val audioGranted = permissions[android.Manifest.permission.RECORD_AUDIO] ?: false
+        if (cameraGranted && audioGranted) {
+            val values = android.content.ContentValues().apply {
+                put(android.provider.MediaStore.Video.Media.DISPLAY_NAME, "circle_${System.currentTimeMillis()}.mp4")
+                put(android.provider.MediaStore.Video.Media.MIME_TYPE, "video/mp4")
+            }
+            val uri = context.contentResolver.insert(android.provider.MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values)
+            circleUri.value = uri
+            if (uri != null) {
+                circleCaptureLauncher.launch(uri)
+            }
+        } else {
+            android.widget.Toast.makeText(context, "Permissions required for video recording", android.widget.Toast.LENGTH_SHORT).show()
+        }
+    }
+
     val filePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetMultipleContents()
     ) { uris ->
@@ -177,51 +216,17 @@ internal fun MessageInput(
     ) {
         Column {
             if (forwardPayload != null) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().background(BorshchevykTheme.colors.primaryContainer).padding(horizontal = 16.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "Forwarding from ${forwardPayload.authorName}", 
-                        style = BorshchevykTheme.typography.bodyMedium, 
-                        color = BorshchevykTheme.colors.onPrimaryContainer
-                    )
-                }
+                ForwardPayloadBanner(forwardPayload)
             }
 
             if (editingMessage != null) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().background(BorshchevykTheme.colors.surfaceVariant).padding(horizontal = 16.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(text = "Editing message", style = BorshchevykTheme.typography.bodyMedium, color = BorshchevykTheme.colors.primary)
-                    IconButton(onClick = onCancelEdit, modifier = Modifier.size(24.dp)) {
-                        Icon(Icons.Default.Close, contentDescription = "Cancel edit", tint = BorshchevykTheme.colors.onSurfaceVariant)
-                    }
-                }
+                EditingMessageBanner(onCancelEdit)
             }
 
-            if (selectedAttachments.isNotEmpty()) {
-                Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
-                    selectedAttachments.forEach { attachment ->
-                        Box(modifier = Modifier.size(60.dp).padding(end = 8.dp).clip(RoundedCornerShape(8.dp)).background(BorshchevykTheme.colors.surfaceVariant)) {
-                            if (attachment.contentType.startsWith("image/")) {
-                                AsyncImage(model = attachment.uri, contentDescription = "Preview", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
-                            } else {
-                                Icon(Icons.Default.AttachFile, contentDescription = "File", tint = BorshchevykTheme.colors.onSurfaceVariant, modifier = Modifier.align(Alignment.Center))
-                            }
-                            IconButton(
-                                onClick = { selectedAttachments.remove(attachment) },
-                                modifier = Modifier.size(20.dp).align(Alignment.TopEnd).background(BorshchevykTheme.colors.error, CircleShape)
-                            ) {
-                                Icon(Icons.Default.Close, contentDescription = "Remove", tint = BorshchevykTheme.colors.onError, modifier = Modifier.size(12.dp))
-                            }
-                        }
-                    }
-                }
-            }
+            AttachmentPreviewRow(
+                attachments = selectedAttachments.toList(),
+                onRemoveAttachment = { selectedAttachments.remove(it) }
+            )
 
             Row(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.Bottom) {
                 if (isRecordingVoice) {
@@ -240,15 +245,12 @@ internal fun MessageInput(
                         Icon(Icons.Default.AttachFile, contentDescription = "Attach file", tint = BorshchevykTheme.colors.primary)
                     }
                     IconButton(onClick = { 
-                        val values = android.content.ContentValues().apply {
-                            put(android.provider.MediaStore.Video.Media.DISPLAY_NAME, "circle_${System.currentTimeMillis()}.mp4")
-                            put(android.provider.MediaStore.Video.Media.MIME_TYPE, "video/mp4")
-                        }
-                        val uri = context.contentResolver.insert(android.provider.MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values)
-                        circleUri.value = uri
-                        if (uri != null) {
-                            circleCaptureLauncher.launch(uri)
-                        }
+                        circlePermissionLauncher.launch(
+                            arrayOf(
+                                android.Manifest.permission.CAMERA,
+                                android.Manifest.permission.RECORD_AUDIO
+                            )
+                        )
                     }, modifier = Modifier.padding(bottom = 4.dp, end = 4.dp)) {
                         Icon(Icons.Default.Videocam, contentDescription = "Record Circle", tint = BorshchevykTheme.colors.primary)
                     }

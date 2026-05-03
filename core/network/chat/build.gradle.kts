@@ -20,7 +20,7 @@ android {
 dependencies {
 
     implementation(project(":core:model"))
-    implementation(project(":core:network:client"))
+    api(project(":core:network:client"))
     implementation(libs.ktor.client.core)
     implementation(libs.kotlinx.coroutines.core)
 

@@ -19,10 +19,13 @@ android {
 dependencies {
     implementation(project(":core:model"))
     implementation(project(":core:domain:message"))
+    implementation(project(":core:data:chat"))
     implementation(project(":core:network:client"))
     implementation(project(":core:network:message"))
     implementation(project(":core:network:media"))
     implementation(project(":core:network:websocket"))
+    
+    implementation(project(":core:database"))
     
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.hilt.android)

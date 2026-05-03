@@ -1,15 +1,16 @@
 package ru.kubsu.borshchevyk.core.network.user
 
 import io.ktor.client.HttpClient
-import io.ktor.client.call.body
 import io.ktor.client.request.delete
 import io.ktor.client.request.get
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
-import ru.kubsu.borshchevyk.core.model.dto.AddContactRequest
-import ru.kubsu.borshchevyk.core.model.dto.ContactResponse
+import ru.kubsu.borshchevyk.core.network.client.NetworkResult
+import ru.kubsu.borshchevyk.core.network.dto.AddContactRequest
+import ru.kubsu.borshchevyk.core.network.dto.ContactResponse
+import ru.kubsu.borshchevyk.core.network.client.safeRequest
 import ru.kubsu.borshchevyk.core.network.di.IoDispatcher
 import javax.inject.Inject
 
@@ -18,23 +19,29 @@ class KtorContactNetworkDataSource @Inject constructor(
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher
 ) : ContactNetworkDataSource {
 
-    override suspend fun getContacts(): List<ContactResponse> {
+    override suspend fun getContacts(): NetworkResult<List<ContactResponse>> {
         return withContext(ioDispatcher) {
-            httpClient.get("api/v1/contacts").body()
+            safeRequest {
+                httpClient.get("api/v1/contacts")
+            }
         }
     }
 
-    override suspend fun addContact(request: AddContactRequest): ContactResponse {
+    override suspend fun addContact(request: AddContactRequest): NetworkResult<ContactResponse> {
         return withContext(ioDispatcher) {
-            httpClient.post("api/v1/contacts") {
-                setBody(request)
-            }.body()
+            safeRequest {
+                httpClient.post("api/v1/contacts") {
+                    setBody(request)
+                }
+            }
         }
     }
 
-    override suspend fun deleteContact(contactUserId: String) {
+    override suspend fun deleteContact(contactUserId: String): NetworkResult<Unit> {
         return withContext(ioDispatcher) {
-            httpClient.delete("api/v1/contacts/$contactUserId")
+            safeRequest {
+                httpClient.delete("api/v1/contacts/$contactUserId")
+            }
         }
     }
 }

@@ -10,6 +10,11 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import ru.kubsu.borshchevyk.core.network.client.TokenProvider
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -23,7 +28,8 @@ val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "au
  * Provides access to locally persisted authentication and identity data.
  *
  * Utilizes Jetpack DataStore to store non-cryptographic secrets and the encrypted
- * (AES-wrapped) form of the user's RSA private key.
+ * (AES-wrapped) form of the user's RSA private key. Also serves as a [TokenProvider]
+ * for the network layer.
  *
  * @property context the application context required for DataStore initialization
  */
@@ -35,35 +41,78 @@ class AuthPreferences @Inject constructor(@ApplicationContext private val contex
     private val TAG = stringPreferencesKey("tag")
     private val LOCAL_WRAPPED_PRIVATE_KEY = stringPreferencesKey("local_wrapped_private_key")
 
+    @Volatile
+    private var cachedAccessToken: String? = null
+
+    private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+
+    init {
+        context.dataStore.data
+            .map { it[ACCESS_TOKEN] }
+            .onEach { cachedAccessToken = it }
+            .launchIn(scope)
+    }
+
     /** Flow emitting the current JWT access token, or null if unauthenticated. */
     val accessToken: Flow<String?> = context.dataStore.data.map { it[ACCESS_TOKEN] }
-    
+
     /** Flow emitting the currently logged-in user UUID. */
     val userId: Flow<String?> = context.dataStore.data.map { it[USER_ID] }
-    
+
     /** Flow emitting the current user's tag/username. */
     val tag: Flow<String?> = context.dataStore.data.map { it[TAG] }
-    
+
     /** Flow emitting the Base64-encoded, AES-wrapped RSA private key. */
     val localWrappedPrivateKey: Flow<String?> = context.dataStore.data.map { it[LOCAL_WRAPPED_PRIVATE_KEY] }
 
+    /**
+     * Retrieves the current JWT access token asynchronously.
+     *
+     * @return The access token string, or null if not found.
+     */
     override suspend fun getAccessToken(): String? {
         return context.dataStore.data.map { it[ACCESS_TOKEN] }.first()
     }
 
+    /**
+     * Retrieves the cached JWT access token synchronously.
+     *
+     * Useful for interceptors that cannot cleanly use suspend functions.
+     *
+     * @return The cached access token string, or null if not found.
+     */
+    override fun getAccessTokenSync(): String? {
+        return cachedAccessToken
+    }
+
+    /**
+     * Retrieves the current refresh token asynchronously.
+     *
+     * @return The refresh token string, or null if not found.
+     */
     override suspend fun getRefreshToken(): String? {
         return context.dataStore.data.map { it[REFRESH_TOKEN] }.first()
     }
 
+    /**
+     * Clears all persisted tokens from the DataStore.
+     * Typically used during a logout operation.
+     */
     override suspend fun clearTokens() {
         context.dataStore.edit { prefs ->
-            prefs.clear()
+            prefs.remove(ACCESS_TOKEN)
+            prefs.remove(REFRESH_TOKEN)
         }
     }
 
+    /**
+     * Clears all persisted user identity data from the DataStore.
+     */
     suspend fun clearIdentity() {
         context.dataStore.edit { prefs ->
-            prefs.clear()
+            prefs.remove(USER_ID)
+            prefs.remove(TAG)
+            prefs.remove(LOCAL_WRAPPED_PRIVATE_KEY)
         }
     }
 

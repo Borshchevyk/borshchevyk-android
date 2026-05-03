@@ -21,6 +21,12 @@ import androidx.compose.ui.unit.dp
 import ru.kubsu.borshchevyk.core.model.domain.User
 import ru.kubsu.borshchevyk.core.ui.theme.BorshchevykTheme
 
+/**
+ * Composable that represents a single user or chat entry in the search results list.
+ *
+ * @param user The [User] data to display, which can also represent a public chat.
+ * @param onClick Callback triggered when this item is clicked.
+ */
 @Composable
 internal fun UserSearchItem(
     user: User,

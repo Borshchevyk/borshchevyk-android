@@ -11,6 +11,19 @@ android {
     defaultConfig {
         minSdk = 29
     }
+    buildFeatures {
+        buildConfig = true
+    }
+    buildTypes {
+        debug {
+            buildConfigField("String", "BASE_URL", "\"https://borshchevik.su/\"")
+            buildConfigField("long", "TIMEOUT_MILLIS", "60000L")
+        }
+        release {
+            buildConfigField("String", "BASE_URL", "\"https://borshchevik.su/\"")
+            buildConfigField("long", "TIMEOUT_MILLIS", "60000L")
+        }
+    }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11

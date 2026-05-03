@@ -9,7 +9,7 @@ import javax.inject.Inject
  * the password by decrypting it, satisfying the server's cryptographic
  * challenge, and storing the resulting tokens.
  *
- * @property authRepository the repository handling domain logic
+ * @property authRepository The repository handling authentication and user identity data.
  */
 class LoginOnlineUseCase @Inject constructor(
     private val authRepository: AuthRepository
@@ -17,9 +17,9 @@ class LoginOnlineUseCase @Inject constructor(
     /**
      * Executes the online login process.
      *
-     * @param email the user's email address
-     * @param password the user's plaintext password
-     * @return a [Result] containing the server-assigned UUID on success
+     * @param email The user's email address.
+     * @param password The user's plaintext password.
+     * @return A [Result] containing the server-assigned UUID on success.
      */
     suspend operator fun invoke(email: String, password: String): Result<String> = runCatching {
         authRepository.loginOnline(email, password)

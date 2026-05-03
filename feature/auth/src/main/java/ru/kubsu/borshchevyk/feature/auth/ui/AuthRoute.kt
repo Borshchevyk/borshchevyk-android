@@ -15,6 +15,14 @@ import ru.kubsu.borshchevyk.feature.auth.AuthEffect
 import ru.kubsu.borshchevyk.feature.auth.AuthIntent
 import ru.kubsu.borshchevyk.feature.auth.AuthViewModel
 
+/**
+ * The top-level Compose entry point for the Authentication feature.
+ * Connects the [AuthViewModel] to the [AuthScreen] and handles side-effects like navigation and toasts.
+ *
+ * @param onAuthSuccess Callback triggered when authentication (login or registration) succeeds.
+ * @param modifier The [Modifier] to apply to the root layout.
+ * @param viewModel The [AuthViewModel] providing the state and handling logic, injected by Hilt.
+ */
 @Composable
 fun AuthRoute(
     onAuthSuccess: () -> Unit,
@@ -46,7 +54,7 @@ fun AuthRoute(
         modifier = modifier
     ) { padding ->
         AuthScreen(
-            isLoading = uiState.isLoading,
+            uiState = uiState,
             onIntent = { intent -> viewModel.handleIntent(intent) },
             modifier = Modifier.padding(padding)
         )

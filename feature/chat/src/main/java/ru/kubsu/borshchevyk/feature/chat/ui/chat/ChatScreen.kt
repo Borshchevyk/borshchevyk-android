@@ -18,9 +18,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import ru.kubsu.borshchevyk.core.model.domain.Message
+import ru.kubsu.borshchevyk.core.model.domain.Attachment
 import ru.kubsu.borshchevyk.feature.chat.ChatIntent
 import ru.kubsu.borshchevyk.feature.chat.ChatUiState
 import ru.kubsu.borshchevyk.feature.chat.ui.chat.components.CommentsDialog
+import ru.kubsu.borshchevyk.feature.chat.ui.chat.components.MediaViewerDialog
 import ru.kubsu.borshchevyk.feature.chat.ui.chat.components.MessageBubble
 import ru.kubsu.borshchevyk.feature.chat.ui.chat.components.PinnedMessagesBanner
 import ru.kubsu.borshchevyk.feature.chat.ui.chat.components.ReadersDialog
@@ -28,7 +30,7 @@ import ru.kubsu.borshchevyk.feature.chat.ui.chat.components.ReadersDialog
 @Composable
 internal fun ChatScreen(
     contentState: ChatUiState.Content,
-    onResolveAttachmentUrl: (String) -> Unit,
+    onResolveAttachmentUrl: (String, Boolean) -> Unit,
     onPinToggle: (Message) -> Unit,
     onReactionToggle: (String, String) -> Unit,
     onEdit: (Message) -> Unit,
@@ -41,6 +43,7 @@ internal fun ChatScreen(
 ) {
     var messageIdForReaders by remember { mutableStateOf<String?>(null) }
     var messageIdForComments by remember { mutableStateOf<String?>(null) }
+    var selectedAttachment by remember { mutableStateOf<Attachment?>(null) }
     val listState = rememberLazyListState()
 
     val firstMessageId = contentState.feed.messages.firstOrNull()?.id
@@ -73,7 +76,9 @@ internal fun ChatScreen(
                     isFromMe = message.authorId == contentState.context.currentUserId,
                     currentUserId = contentState.context.currentUserId,
                     attachmentUrls = contentState.feed.attachmentUrls,
+                    thumbnailUrls = contentState.feed.thumbnailUrls,
                     onResolveAttachmentUrl = onResolveAttachmentUrl,
+                    onAttachmentClick = { selectedAttachment = it },
                     onPinToggle = { onPinToggle(message) },
                     onReactionToggle = { reaction -> onReactionToggle(message.id, reaction) },
                     onEdit = { onEdit(message) },
@@ -110,6 +115,16 @@ internal fun ChatScreen(
         CommentsDialog(
             comments = contentState.feed.commentsByMessageId[messageIdForComments],
             onDismiss = { messageIdForComments = null }
+        )
+    }
+
+    if (selectedAttachment != null) {
+        MediaViewerDialog(
+            attachment = selectedAttachment!!,
+            attachmentUrls = contentState.feed.attachmentUrls,
+            thumbnailUrls = contentState.feed.thumbnailUrls,
+            onResolveAttachmentUrl = onResolveAttachmentUrl,
+            onDismiss = { selectedAttachment = null }
         )
     }
 }

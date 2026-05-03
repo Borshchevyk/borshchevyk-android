@@ -23,6 +23,14 @@ import ru.kubsu.borshchevyk.feature.profile.ProfileEffect
 import ru.kubsu.borshchevyk.feature.profile.ProfileIntent
 import ru.kubsu.borshchevyk.feature.profile.ProfileViewModel
 
+/**
+ * Entry point for the edit privacy feature. Handles state observation, effect processing,
+ * and routing to the UI component.
+ *
+ * @param onBackClick Callback invoked when the user navigates back.
+ * @param modifier The modifier to be applied to the layout.
+ * @param viewModel The ViewModel that manages the state and logic for the profile feature.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EditPrivacyRoute(
@@ -74,7 +82,7 @@ fun EditPrivacyRoute(
     ) { padding ->
         EditPrivacyScreen(
             uiState = uiState,
-            onUpdate = { viewModel.handleIntent(ProfileIntent.UpdatePrivacy(it)) },
+            onIntent = viewModel::handleIntent,
             modifier = Modifier.padding(padding)
         )
     }

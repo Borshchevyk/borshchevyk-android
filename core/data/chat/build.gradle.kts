@@ -20,6 +20,9 @@ dependencies {
     implementation(project(":core:model"))
     implementation(project(":core:domain:chat"))
     implementation(project(":core:network:chat"))
+    implementation(project(":core:network:client"))
+    
+    implementation(project(":core:database"))
     
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.hilt.android)
