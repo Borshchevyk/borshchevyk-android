@@ -11,5 +11,5 @@ import javax.inject.Singleton
 interface NetworkMessageModule {
     @Binds
     @Singleton
-    fun bindMessageNetworkDataSource(impl: KtorMessageNetworkDataSource): MessageNetworkDataSource
+    fun bindMessageNetworkDataSource(impl: ProxyMessageNetworkDataSource): MessageNetworkDataSource
 }
