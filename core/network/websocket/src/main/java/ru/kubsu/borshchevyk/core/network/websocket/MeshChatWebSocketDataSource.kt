@@ -20,6 +20,8 @@ import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 
+import ru.kubsu.borshchevyk.core.network.dto.MeshMessagePayload
+
 @Singleton
 class MeshChatWebSocketDataSource @Inject constructor(
     private val gossipProtocol: MeshGossipProtocol,
@@ -30,12 +32,12 @@ class MeshChatWebSocketDataSource @Inject constructor(
         return gossipProtocol.incomingEnvelopes
             .filter { it.action == "SEND_MESSAGE" }
             .map { envelope ->
-                val request = json.decodeFromString<SendMessageRequest>(envelope.payload)
+                val meshPayload = json.decodeFromString<MeshMessagePayload>(envelope.payload)
                 NotificationDto.MessageDto(
                     id = envelope.envelopeId,
-                    chat = ShortChatDto(id = envelope.originEndpointId, name = "Mesh Chat"),
+                    chat = ShortChatDto(id = meshPayload.chatId, name = "Mesh Chat"),
                     author = ShortUserDto(id = envelope.originEndpointId, firstName = "Mesh User"),
-                    text = request.text,
+                    text = meshPayload.request.text,
                     createdAt = Instant.now().toString(),
                     status = "DELIVERED"
                 )

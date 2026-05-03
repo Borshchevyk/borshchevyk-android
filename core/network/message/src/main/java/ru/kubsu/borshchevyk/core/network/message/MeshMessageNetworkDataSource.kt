@@ -10,31 +10,37 @@ import ru.kubsu.borshchevyk.core.network.di.IoDispatcher
 import ru.kubsu.borshchevyk.core.network.dto.EditMessageRequest
 import ru.kubsu.borshchevyk.core.network.dto.EnrichedUserResponse
 import ru.kubsu.borshchevyk.core.network.dto.MeshEnvelope
+import ru.kubsu.borshchevyk.core.network.mesh.MeshEnvelope as GossipEnvelope
+import ru.kubsu.borshchevyk.core.network.dto.MeshMessagePayload
 import ru.kubsu.borshchevyk.core.network.dto.MessageResponse
 import ru.kubsu.borshchevyk.core.network.dto.SendMessageRequest
 import ru.kubsu.borshchevyk.core.network.dto.ShortChatDto
 import ru.kubsu.borshchevyk.core.network.dto.ShortUserDto
+import ru.kubsu.borshchevyk.core.network.mesh.MeshGossipProtocol
 import java.time.Instant
 import java.util.UUID
 import javax.inject.Inject
 
 class MeshMessageNetworkDataSource @Inject constructor(
     private val json: Json,
+    private val gossipProtocol: MeshGossipProtocol,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher
 ) : MessageNetworkDataSource {
 
     override suspend fun sendMessage(chatId: String, request: SendMessageRequest): NetworkResult<MessageResponse> {
         return withContext(ioDispatcher) {
-            val payload = json.encodeToString(request)
-            val envelope = MeshEnvelope(
+            val meshPayload = MeshMessagePayload(chatId, request)
+            val payloadString = json.encodeToString(meshPayload)
+            val envelope = GossipEnvelope(
+                envelopeId = UUID.randomUUID().toString(),
+                originEndpointId = "", // Filled by GossipProtocol
                 action = "SEND_MESSAGE",
-                payload = payload
+                payload = payloadString
             )
-            // Here we would use Nearby Connections to broadcast `envelope`.
-            // For now, simulate an optimistic response.
+            gossipProtocol.broadcast(envelope)
             
             val response = MessageResponse(
-                id = UUID.randomUUID().toString(),
+                id = envelope.envelopeId,
                 chat = ShortChatDto(id = chatId, name = "Mesh Chat"),
                 author = ShortUserDto(id = "self", firstName = "Me"),
                 text = request.text,
