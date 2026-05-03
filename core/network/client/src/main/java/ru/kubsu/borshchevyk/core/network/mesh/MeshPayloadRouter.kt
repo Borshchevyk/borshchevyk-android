@@ -26,6 +26,7 @@ class MeshPayloadRouter @Inject constructor(
     val payloadCallback = object : PayloadCallback() {
         override fun onPayloadReceived(endpointId: String, payload: Payload) {
             _incomingPayloads.tryEmit(ReceivedPayload(endpointId, payload))
+            // Media manager could listen to the shared flow instead of direct call to keep decoupling.
         }
 
         override fun onPayloadTransferUpdate(endpointId: String, update: PayloadTransferUpdate) {
