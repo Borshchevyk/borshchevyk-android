@@ -1,5 +1,6 @@
 package ru.kubsu.borshchevyk.feature.chat
 
+import android.os.Build
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -13,15 +14,20 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import ru.kubsu.borshchevyk.core.domain.chat.CreateGroupChatUseCase
 import ru.kubsu.borshchevyk.core.domain.chat.CreatePrivateChatUseCase
-import ru.kubsu.borshchevyk.core.domain.chat.ObserveUserChatsUseCase
-import ru.kubsu.borshchevyk.core.domain.chat.SyncUserChatsUseCase
 import ru.kubsu.borshchevyk.core.domain.chat.JoinChatUseCase
+import ru.kubsu.borshchevyk.core.domain.chat.ObserveUserChatsUseCase
 import ru.kubsu.borshchevyk.core.domain.chat.PinChatUseCase
+import ru.kubsu.borshchevyk.core.domain.chat.SyncUserChatsUseCase
 import ru.kubsu.borshchevyk.core.domain.chat.UnpinChatUseCase
 import ru.kubsu.borshchevyk.core.domain.message.ConnectWebSocketUseCase
+import ru.kubsu.borshchevyk.core.domain.message.DisconnectWebSocketUseCase
 import ru.kubsu.borshchevyk.core.domain.message.ObserveGlobalChatEventsUseCase
 import ru.kubsu.borshchevyk.core.domain.message.ObserveNewMessagesUseCase
+import ru.kubsu.borshchevyk.core.domain.auth.GetTagUseCase
 import ru.kubsu.borshchevyk.core.model.domain.Chat
+import ru.kubsu.borshchevyk.core.network.client.NetworkMode
+import ru.kubsu.borshchevyk.core.network.client.TransportModeManager
+import ru.kubsu.borshchevyk.core.network.mesh.MeshConnectionManager
 import javax.inject.Inject
 
 /**
@@ -34,7 +40,9 @@ import javax.inject.Inject
 data class ChatListUiState(
     val chats: List<Chat> = emptyList(),
     val isLoading: Boolean = false,
-    val error: String? = null
+    val error: String? = null,
+    val networkMode: NetworkMode = NetworkMode.GLOBAL,
+    val connectedPeersCount: Int = 0
 )
 
 /**
@@ -53,11 +61,16 @@ class ChatListViewModel @Inject constructor(
     private val observeGlobalChatEventsUseCase: ObserveGlobalChatEventsUseCase,
     private val joinChatUseCase: JoinChatUseCase,
     private val pinChatUseCase: PinChatUseCase,
-    private val unpinChatUseCase: UnpinChatUseCase
+    private val unpinChatUseCase: UnpinChatUseCase,
+    private val transportModeManager: TransportModeManager,
+    private val meshConnectionManager: MeshConnectionManager,
+    private val disconnectWebSocketUseCase: DisconnectWebSocketUseCase,
+    private val getTagUseCase: GetTagUseCase
 ) : ViewModel() {
 
     private val TAG = "ChatListViewModel"
     private val _uiState = MutableStateFlow(ChatListUiState(isLoading = true))
+    private var currentUserName = Build.MODEL
     
     /**
      * A state flow representing the current UI state of the chat list.
@@ -68,6 +81,46 @@ class ChatListViewModel @Inject constructor(
         observeChats()
         loadChats()
         connectAndObserveWebSockets()
+        observeNetworkModeAndPeers()
+        observeUser()
+    }
+
+    private fun observeUser() {
+        getTagUseCase().onEach { tag ->
+            if (!tag.isNullOrBlank()) {
+                currentUserName = tag
+            }
+        }.launchIn(viewModelScope)
+    }
+
+    private fun observeNetworkModeAndPeers() {
+        transportModeManager.networkMode.onEach { mode ->
+            _uiState.update { it.copy(networkMode = mode) }
+        }.launchIn(viewModelScope)
+
+        meshConnectionManager.connectedEndpoints.onEach { endpoints ->
+            _uiState.update { it.copy(connectedPeersCount = endpoints.size) }
+        }.launchIn(viewModelScope)
+    }
+
+    fun toggleNetworkMode() {
+        viewModelScope.launch {
+            val currentMode = _uiState.value.networkMode
+            if (currentMode == NetworkMode.GLOBAL) {
+                // Switch to MESH
+                transportModeManager.setMode(NetworkMode.MESH)
+                try { disconnectWebSocketUseCase() } catch (e: Exception) { Log.e(TAG, "Failed to disconnect WS", e) }
+                meshConnectionManager.startAdvertising(currentUserName)
+                meshConnectionManager.startDiscovery()
+            } else {
+                // Switch to GLOBAL
+                transportModeManager.setMode(NetworkMode.GLOBAL)
+                meshConnectionManager.stopAdvertising()
+                meshConnectionManager.stopDiscovery()
+                meshConnectionManager.stopAllEndpoints()
+                try { connectWebSocketUseCase() } catch (e: Exception) { Log.e(TAG, "Failed to connect WS", e) }
+            }
+        }
     }
 
     /**

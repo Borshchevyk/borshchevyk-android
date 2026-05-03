@@ -2,19 +2,25 @@ package ru.kubsu.borshchevyk.feature.chat.ui.chatlist
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.GroupAdd
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Wifi
+import androidx.compose.material.icons.filled.WifiOff
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -28,6 +34,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import ru.kubsu.borshchevyk.core.network.client.NetworkMode
 import ru.kubsu.borshchevyk.core.ui.theme.BorshchevykTheme
 import ru.kubsu.borshchevyk.feature.chat.ChatListViewModel
 import ru.kubsu.borshchevyk.feature.chat.ui.chatlist.components.CreateGroupChatDialog
@@ -90,6 +97,33 @@ fun ChatListRoute(
                         ) 
                     },
                     actions = {
+                        if (uiState.networkMode == NetworkMode.MESH) {
+                            Text(
+                                text = "${uiState.connectedPeersCount} peers",
+                                style = BorshchevykTheme.typography.bodyMedium,
+                                color = BorshchevykTheme.colors.primary,
+                                modifier = Modifier.align(Alignment.CenterVertically)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                        }
+                        Switch(
+                            checked = uiState.networkMode == NetworkMode.MESH,
+                            onCheckedChange = { viewModel.toggleNetworkMode() },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = BorshchevykTheme.colors.primary,
+                                checkedTrackColor = BorshchevykTheme.colors.primaryContainer,
+                                uncheckedThumbColor = BorshchevykTheme.colors.onSurfaceVariant,
+                                uncheckedTrackColor = BorshchevykTheme.colors.surfaceVariant
+                            ),
+                            thumbContent = {
+                                Icon(
+                                    imageVector = if (uiState.networkMode == NetworkMode.GLOBAL) Icons.Default.Wifi else Icons.Default.WifiOff,
+                                    contentDescription = "Network Mode",
+                                    modifier = Modifier.padding(2.dp)
+                                )
+                            },
+                            modifier = Modifier.padding(end = 8.dp)
+                        )
                         IconButton(onClick = onSearchClick) {
                             Icon(
                                 Icons.Default.Search,
