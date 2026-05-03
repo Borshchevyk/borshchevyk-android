@@ -46,16 +46,24 @@ import ru.kubsu.borshchevyk.core.model.domain.ChatMemberRole
 import ru.kubsu.borshchevyk.core.network.dto.UpdatePermissionsRequest
 import ru.kubsu.borshchevyk.core.ui.theme.BorshchevykTheme
 import ru.kubsu.borshchevyk.feature.chat.ChatSettingsUiState
+import ru.kubsu.borshchevyk.feature.chat.ChatSharedMediaUiState
+import ru.kubsu.borshchevyk.feature.chat.MediaType
+import ru.kubsu.borshchevyk.core.model.domain.Message
 import ru.kubsu.borshchevyk.feature.chat.ui.chat.components.AddContactDialog
 import ru.kubsu.borshchevyk.feature.chat.ui.chat.components.ClearHistoryDialog
 import ru.kubsu.borshchevyk.feature.chat.ui.chat.components.DeleteChatDialog
 import ru.kubsu.borshchevyk.feature.chat.ui.chat.components.UpdateChatInfoDialog
 import ru.kubsu.borshchevyk.feature.chat.ui.chat.components.UpdatePermissionsDialog
+import ru.kubsu.borshchevyk.feature.chat.ui.chat.components.ChatSharedMediaSection
 
 /**
  * Screen displaying the settings for a specific chat.
  *
  * @param uiState The current UI state of the chat settings.
+ * @param sharedMediaUiState The UI state for shared media.
+ * @param onTabSelected Callback invoked when a media tab is selected.
+ * @param onLoadNextPage Callback invoked to load next page of media.
+ * @param onMessageClick Callback invoked when a media message is clicked.
  * @param onBackClick Callback invoked when the user navigates back.
  * @param onShowInviteSearch Callback invoked to show the user invite search screen.
  * @param onGenerateLink Callback invoked to generate an invite link for the group chat.
@@ -72,6 +80,11 @@ import ru.kubsu.borshchevyk.feature.chat.ui.chat.components.UpdatePermissionsDia
 @Composable
 internal fun ChatSettingsScreen(
     uiState: ChatSettingsUiState,
+    sharedMediaUiState: ChatSharedMediaUiState,
+    onTabSelected: (MediaType) -> Unit,
+    onLoadNextPage: () -> Unit,
+    onMessageClick: (Message) -> Unit,
+    onResolveSharedMediaUrl: (String, Boolean) -> Unit,
     onBackClick: () -> Unit,
     onShowInviteSearch: () -> Unit,
     onGenerateLink: () -> Unit,
@@ -123,6 +136,19 @@ internal fun ChatSettingsScreen(
                     onShowAddContact = { showAddContactDialog = true },
                     onRemoveContact = onRemoveContact
                 )
+            }
+            
+            item {
+                ChatSharedMediaSection(
+                    uiState = sharedMediaUiState,
+                    onTabSelected = onTabSelected,
+                    onLoadNextPage = onLoadNextPage,
+                    onMessageClick = onMessageClick,
+                    onResolveUrl = onResolveSharedMediaUrl
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                Text("Members (${uiState.members.size})", style = BorshchevykTheme.typography.titleMedium, color = BorshchevykTheme.colors.onSurface)
+                Spacer(modifier = Modifier.height(8.dp))
             }
             
             items(uiState.members) { member ->
@@ -318,8 +344,6 @@ private fun ChatSettingsHeader(
 
         Spacer(modifier = Modifier.height(16.dp))
     }
-    Text("Members (${uiState.members.size})", style = BorshchevykTheme.typography.titleMedium, color = BorshchevykTheme.colors.onSurface)
-    Spacer(modifier = Modifier.height(8.dp))
 }
 
 /**

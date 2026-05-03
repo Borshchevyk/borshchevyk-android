@@ -40,6 +40,17 @@ interface MessageNetworkDataSource {
     suspend fun loadChatHistory(chatId: String, page: Int, size: Int): NetworkResult<List<MessageResponse>>
 
     /**
+     * Retrieves a paginated list of messages containing attachments of a specific category.
+     *
+     * @param chatId The ID of the chat.
+     * @param type The attachment type category (e.g. PHOTO, VIDEO, DOCUMENT, VOICE, CIRCLE).
+     * @param page The zero-based page index.
+     * @param size The requested number of messages per page.
+     * @return A [NetworkResult] containing a list of [MessageResponse].
+     */
+    suspend fun loadChatAttachments(chatId: String, type: String, page: Int, size: Int): NetworkResult<List<MessageResponse>>
+
+    /**
      * Deletes a specific message.
      *
      * @param chatId The ID of the chat.

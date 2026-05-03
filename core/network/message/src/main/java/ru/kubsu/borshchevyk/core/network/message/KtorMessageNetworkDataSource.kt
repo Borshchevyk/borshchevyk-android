@@ -54,6 +54,18 @@ class KtorMessageNetworkDataSource @Inject constructor(
         }
     }
 
+    override suspend fun loadChatAttachments(chatId: String, type: String, page: Int, size: Int): NetworkResult<List<MessageResponse>> {
+        return withContext(ioDispatcher) {
+            safeRequest {
+                httpClient.get("api/v1/chats/$chatId/messages/attachments") {
+                    parameter("type", type)
+                    parameter("page", page)
+                    parameter("size", size)
+                }
+            }
+        }
+    }
+
     override suspend fun deleteMessage(chatId: String, messageId: String, forAll: Boolean): NetworkResult<Unit> {
         return withContext(ioDispatcher) {
             safeRequest {

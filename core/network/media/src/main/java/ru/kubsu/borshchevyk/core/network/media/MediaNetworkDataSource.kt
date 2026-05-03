@@ -75,6 +75,14 @@ interface MediaNetworkDataSource {
     suspend fun getAttachmentUrl(attachmentId: String): NetworkResult<AttachmentUrlResult>
 
     /**
+     * Requests a direct, pre-signed thumbnail URL for a given attachment.
+     *
+     * @param attachmentId The ID of the attachment.
+     * @return A [NetworkResult] containing the [AttachmentUrlResult].
+     */
+    suspend fun getAttachmentThumbnailUrl(attachmentId: String): NetworkResult<AttachmentUrlResult>
+
+    /**
      * Deletes an uploaded attachment.
      *
      * @param attachmentId The ID of the attachment to delete.

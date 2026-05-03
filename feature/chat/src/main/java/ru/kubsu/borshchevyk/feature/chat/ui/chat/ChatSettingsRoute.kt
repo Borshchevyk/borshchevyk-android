@@ -6,6 +6,7 @@ import androidx.compose.runtime.getValue
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import ru.kubsu.borshchevyk.feature.chat.ChatSettingsViewModel
+import ru.kubsu.borshchevyk.feature.chat.ChatSharedMediaViewModel
 
 /**
  * Route for the Chat Settings screen. Manages ViewModel interaction and state observation.
@@ -16,6 +17,7 @@ import ru.kubsu.borshchevyk.feature.chat.ChatSettingsViewModel
  * @param selectedUserIdToInvite The ID of the user selected to be invited, if any.
  * @param onInviteConsumed Callback invoked when the invite action has been consumed.
  * @param viewModel The view model managing the chat settings state.
+ * @param sharedMediaViewModel The view model managing the shared media state.
  */
 @Composable
 fun ChatSettingsRoute(
@@ -24,9 +26,11 @@ fun ChatSettingsRoute(
     onNavigateToInviteSearch: () -> Unit,
     selectedUserIdToInvite: String?,
     onInviteConsumed: () -> Unit,
-    viewModel: ChatSettingsViewModel = hiltViewModel()
+    viewModel: ChatSettingsViewModel = hiltViewModel(),
+    sharedMediaViewModel: ChatSharedMediaViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val sharedMediaUiState by sharedMediaViewModel.uiState.collectAsStateWithLifecycle()
 
     LaunchedEffect(uiState.isChatDeleted) {
         if (uiState.isChatDeleted) {
@@ -43,6 +47,11 @@ fun ChatSettingsRoute(
 
     ChatSettingsScreen(
         uiState = uiState,
+        sharedMediaUiState = sharedMediaUiState,
+        onTabSelected = sharedMediaViewModel::selectTab,
+        onLoadNextPage = sharedMediaViewModel::loadNextPage,
+        onMessageClick = { /* Navigate to message if needed */ },
+        onResolveSharedMediaUrl = sharedMediaViewModel::resolveUrl,
         onBackClick = onBackClick,
         onShowInviteSearch = { onNavigateToInviteSearch() },
         onGenerateLink = viewModel::onGenerateInviteLink,

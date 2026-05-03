@@ -151,6 +151,15 @@ class MediaRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun getAttachmentThumbnailUrl(attachmentId: String): String {
+        val url = networkDataSource.getAttachmentThumbnailUrl(attachmentId).getOrThrow().url
+        return if (url.startsWith("http")) {
+            url
+        } else {
+            "${NetworkConstants.BASE_URL}${if (url.startsWith("/")) "" else "/"}$url"
+        }
+    }
+
     /**
      * Deletes an attachment from the server and storage.
      *

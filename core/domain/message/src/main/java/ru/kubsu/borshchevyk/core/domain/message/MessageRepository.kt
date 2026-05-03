@@ -61,6 +61,17 @@ interface MessageRepository {
     suspend fun syncChatHistory(chatId: String, page: Int = 0, size: Int = 50)
 
     /**
+     * Retrieves a paginated list of messages containing attachments of a specific category from the remote server.
+     *
+     * @param chatId The unique identifier of the chat.
+     * @param type The attachment type category (e.g. PHOTO, VIDEO, FILE, VOICE, CIRCLE).
+     * @param page The pagination page index.
+     * @param size The number of messages per page.
+     * @return A list of [Message] objects containing the requested attachments.
+     */
+    suspend fun loadChatAttachments(chatId: String, type: String, page: Int = 0, size: Int = 50): List<Message>
+
+    /**
      * Establishes a WebSocket connection for real-time messaging and events.
      */
     suspend fun connectWebSocket()

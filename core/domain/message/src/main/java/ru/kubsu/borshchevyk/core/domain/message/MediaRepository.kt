@@ -90,6 +90,14 @@ interface MediaRepository {
     suspend fun getAttachmentUrl(attachmentId: String): String
 
     /**
+     * Retrieves the direct download or display URL for a given attachment's thumbnail.
+     *
+     * @param attachmentId The unique identifier of the attachment.
+     * @return The fully qualified URL string for accessing the attachment's thumbnail.
+     */
+    suspend fun getAttachmentThumbnailUrl(attachmentId: String): String
+
+    /**
      * Deletes an attachment permanently from the storage service.
      *
      * @param attachmentId The unique identifier of the attachment to be deleted.

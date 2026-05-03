@@ -132,6 +132,14 @@ class KtorMediaNetworkDataSource @Inject constructor(
         }
     }
 
+    override suspend fun getAttachmentThumbnailUrl(attachmentId: String): NetworkResult<AttachmentUrlResult> {
+        return withContext(ioDispatcher) {
+            safeRequest {
+                httpClient.get("api/v1/media/$attachmentId/thumbnail-url")
+            }
+        }
+    }
+
     override suspend fun deleteAttachment(attachmentId: String): NetworkResult<Unit> {
         return withContext(ioDispatcher) {
             safeRequest {

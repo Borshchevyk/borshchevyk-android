@@ -135,6 +135,21 @@ class MessageRepositoryImpl @Inject constructor(
     }
 
     /**
+     * Retrieves a paginated list of messages containing attachments of a specific category from the remote server.
+     *
+     * @param chatId The ID of the chat.
+     * @param type The attachment type category.
+     * @param page The page number to fetch.
+     * @param size The number of items per page.
+     * @return A list of [Message] objects.
+     */
+    override suspend fun loadChatAttachments(chatId: String, type: String, page: Int, size: Int): List<Message> {
+        return withContext(ioDispatcher) {
+            networkDataSource.loadChatAttachments(chatId, type, page, size).getOrThrow().map { it.toDomain() }
+        }
+    }
+
+    /**
      * Establishes a WebSocket connection for real-time chat updates.
      */
     override suspend fun connectWebSocket() {
