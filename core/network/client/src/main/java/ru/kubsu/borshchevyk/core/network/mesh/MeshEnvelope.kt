@@ -9,7 +9,8 @@ data class MeshEnvelope(
     val envelopeId: String,
     val originEndpointId: String,
     val action: String,
-    val payload: String
+    val payload: String,
+    val signature: String? = null
 ) {
     fun toByteArray(): ByteArray {
         return Json.encodeToString(this).toByteArray(Charsets.UTF_8)

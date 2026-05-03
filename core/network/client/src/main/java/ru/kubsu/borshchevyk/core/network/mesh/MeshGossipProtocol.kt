@@ -18,7 +18,8 @@ import javax.inject.Singleton
 @Singleton
 class MeshGossipProtocol @Inject constructor(
     private val payloadRouter: MeshPayloadRouter,
-    private val connectionManager: MeshConnectionManager
+    private val connectionManager: MeshConnectionManager,
+    private val signatureService: MeshSignatureService
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val TAG = "MeshGossipProtocol"
@@ -86,7 +87,10 @@ class MeshGossipProtocol @Inject constructor(
 
     fun broadcast(envelope: MeshEnvelope) {
         scope.launch {
-            processEnvelope(envelope, senderEndpointId = null)
+            val dataToSign = envelope.payload.toByteArray(Charsets.UTF_8)
+            val signature = signatureService.signData(dataToSign)
+            val signedEnvelope = envelope.copy(signature = signature)
+            processEnvelope(signedEnvelope, senderEndpointId = null)
         }
     }
 }
