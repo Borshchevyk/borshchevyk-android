@@ -3,6 +3,7 @@ package ru.kubsu.borshchevyk.core.network.websocket
 import android.util.Log
 import io.ktor.client.HttpClient
 import io.ktor.client.plugins.websocket.WebSockets
+import io.ktor.client.plugins.websocket.pingInterval
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -12,6 +13,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
@@ -21,6 +23,7 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import org.hildan.krossbow.stomp.StompClient
 import org.hildan.krossbow.stomp.StompSession
+import org.hildan.krossbow.stomp.config.HeartBeat
 import org.hildan.krossbow.stomp.sendText
 import org.hildan.krossbow.stomp.subscribeText
 import org.hildan.krossbow.websocket.ktor.KtorWebSocketClient
@@ -30,103 +33,124 @@ import ru.kubsu.borshchevyk.core.network.dto.ReactionEvent
 import ru.kubsu.borshchevyk.core.network.dto.ReadReceiptEvent
 import ru.kubsu.borshchevyk.core.network.dto.TypingEvent
 import ru.kubsu.borshchevyk.core.network.client.NetworkConstants
+import ru.kubsu.borshchevyk.core.network.client.NetworkMonitor
 import ru.kubsu.borshchevyk.core.network.client.TokenProvider
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.math.min
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.seconds
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 
 @Singleton
 class KrossbowWebSocketDataSource @Inject constructor(
     private val json: Json,
-    private val tokenProvider: TokenProvider
+    private val tokenProvider: TokenProvider,
+    private val networkMonitor: NetworkMonitor
 ) : WebSocketDataSource {
 
     private val TAG = "WebSocketDataSource"
 
     private val httpClient = HttpClient {
-        install(WebSockets)
+        install(WebSockets) {
+            pingInterval = 15.seconds
+        }
     }
 
-    private val stompClient = StompClient(KtorWebSocketClient(httpClient))
+    private val stompClient = StompClient(KtorWebSocketClient(httpClient)) {
+        heartBeat = HeartBeat(10.seconds, 10.seconds)
+    }
     private val _session = MutableStateFlow<StompSession?>(null)
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var connectionJob: Job? = null
-    private var isIntentionalDisconnect = false
+    private val _shouldBeConnected = MutableStateFlow(false)
 
     private val sharedFlows = ConcurrentHashMap<String, Flow<String>>()
 
     override suspend fun connect() {
+        _shouldBeConnected.value = true
         if (connectionJob?.isActive == true) {
             Log.d(TAG, "Connect requested, but reconnect loop is already active.")
             return
         }
-        isIntentionalDisconnect = false
 
         connectionJob = scope.launch {
-            var attempt = 0
-            while (isActive && !isIntentionalDisconnect) {
-                val token = tokenProvider.getAccessToken()
-                if (token == null) {
-                    Log.e(TAG, "Cannot connect to WebSocket: Access token is null. Retrying in 5s...")
-                    delay(5000)
-                    continue
-                }
-
-                try {
-                    Log.d(TAG, "Connecting to STOMP WebSocket (attempt ${attempt + 1})...")
-                    val session = stompClient.connect(
-                        url = NetworkConstants.WS_URL,
-                        customStompConnectHeaders = mapOf("Authorization" to "Bearer $token")
-                    )
-                    _session.value = session
-                    Log.i(TAG, "Successfully connected to STOMP WebSocket.")
-                    attempt = 0 // reset on success
-
-                    try {
-                        // Collect a subscription to block the coroutine until the session closes or fails
-                        session.subscribeText("/user/queue/errors").collect {
-                            Log.e(TAG, "Received STOMP error from server: $it")
+            combine(networkMonitor.isOnline, _shouldBeConnected) { isOnline, shouldReconnect ->
+                isOnline && shouldReconnect
+            }.collectLatest { canConnect ->
+                if (canConnect) {
+                    var attempt = 0
+                    while (isActive && _shouldBeConnected.value) {
+                        val token = tokenProvider.getAccessToken()
+                        if (token == null) {
+                            Log.e(TAG, "Cannot connect to WebSocket: Access token is null. Retrying in 5s...")
+                            delay(5000)
+                            continue
                         }
-                    } catch (e: Exception) {
-                        if (e is kotlinx.coroutines.CancellationException) throw e
-                        val msg = e.message ?: ""
-                        if (e is java.net.SocketException || e.cause is java.net.SocketException || msg.contains("Connection abort")) {
-                            Log.d(TAG, "STOMP Session ended normally or connection aborted: $msg")
-                        } else {
-                            Log.w(TAG, "STOMP Session ended/failed", e)
+
+                        try {
+                            Log.d(TAG, "Connecting to STOMP WebSocket (attempt ${attempt + 1})...")
+                            val session = stompClient.connect(
+                                url = NetworkConstants.WS_URL,
+                                customStompConnectHeaders = mapOf("Authorization" to "Bearer $token")
+                            )
+                            _session.value = session
+                            Log.i(TAG, "Successfully connected to STOMP WebSocket.")
+                            attempt = 0 // reset on success
+
+                            try {
+                                // Collect a subscription to block the coroutine until the session closes or fails
+                                session.subscribeText("/user/queue/errors").collect {
+                                    Log.e(TAG, "Received STOMP error from server: $it")
+                                }
+                            } catch (e: Exception) {
+                                if (e is kotlinx.coroutines.CancellationException) throw e
+                                val msg = e.message ?: ""
+                                if (e is java.net.SocketException || e.cause is java.net.SocketException || msg.contains("Connection abort")) {
+                                    Log.d(TAG, "STOMP Session ended normally or connection aborted: $msg")
+                                } else {
+                                    Log.w(TAG, "STOMP Session ended/failed", e)
+                                }
+                            }
+
+                        } catch (e: Exception) {
+                            if (e is kotlinx.coroutines.CancellationException) throw e
+                            val msg = e.message ?: ""
+                            if (e is java.net.SocketException || e.cause is java.net.SocketException || msg.contains("Connection abort") || msg.contains("Connection refused")) {
+                                Log.d(TAG, "Failed to connect to STOMP WebSocket (Network error): $msg")
+                            } else {
+                                Log.w(TAG, "Failed to connect to STOMP WebSocket", e)
+                            }
                         }
+
+                        _session.value = null
+
+                        if (!_shouldBeConnected.value) {
+                            Log.d(TAG, "Intentional disconnect, stopping reconnect loop.")
+                            break
+                        }
+
+                        attempt++
+                        val backoff = min(30000L, 1000L * (1L shl min(attempt, 5)))
+                        Log.d(TAG, "Reconnecting in $backoff ms...")
+                        delay(backoff)
                     }
-
-                } catch (e: Exception) {
-                    if (e is kotlinx.coroutines.CancellationException) throw e
-                    val msg = e.message ?: ""
-                    if (e is java.net.SocketException || e.cause is java.net.SocketException || msg.contains("Connection abort") || msg.contains("Connection refused")) {
-                        Log.d(TAG, "Failed to connect to STOMP WebSocket (Network error): $msg")
-                    } else {
-                        Log.w(TAG, "Failed to connect to STOMP WebSocket", e)
-                    }
+                } else {
+                    Log.d(TAG, "Network offline or disconnected, closing session.")
+                    _session.value?.disconnect()
+                    _session.value = null
                 }
-
-                _session.value = null
-
-                if (isIntentionalDisconnect) {
-                    Log.d(TAG, "Intentional disconnect, stopping reconnect loop.")
-                    break
-                }
-
-                attempt++
-                val backoff = min(30000L, 1000L * (1L shl min(attempt, 5)))
-                Log.d(TAG, "Reconnecting in $backoff ms...")
-                delay(backoff)
             }
         }
     }
 
     override suspend fun disconnect() {
         Log.d(TAG, "Disconnecting WebSocket.")
-        isIntentionalDisconnect = true
+        _shouldBeConnected.value = false
         connectionJob?.cancel()
         connectionJob = null
         try {
