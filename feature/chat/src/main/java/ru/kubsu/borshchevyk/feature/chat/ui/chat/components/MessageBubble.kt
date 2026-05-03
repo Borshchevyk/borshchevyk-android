@@ -55,6 +55,7 @@ internal fun MessageBubble(
     attachmentUrls: Map<String, String>,
     thumbnailUrls: Map<String, String>,
     onResolveAttachmentUrl: (String, Boolean) -> Unit,
+    onAttachmentClick: (ru.kubsu.borshchevyk.core.model.domain.Attachment) -> Unit,
     onPinToggle: () -> Unit,
     onReactionToggle: (String) -> Unit,
     onEdit: () -> Unit,
@@ -116,6 +117,7 @@ internal fun MessageBubble(
                     attachmentUrls = attachmentUrls,
                     thumbnailUrls = thumbnailUrls,
                     onResolveAttachmentUrl = onResolveAttachmentUrl,
+                    onAttachmentClick = onAttachmentClick,
                     onResend = onResend
                 )
             }
@@ -155,6 +157,7 @@ internal fun MessageBubble(
  * @param attachmentUrls The map of attachment URLs.
  * @param thumbnailUrls The map of thumbnail URLs.
  * @param onResolveAttachmentUrl The callback to resolve an attachment URL.
+ * @param onAttachmentClick The callback when an attachment is clicked.
  * @param onResend The callback to resend the message.
  */
 @Composable
@@ -165,6 +168,7 @@ private fun MessageContent(
     attachmentUrls: Map<String, String>,
     thumbnailUrls: Map<String, String>,
     onResolveAttachmentUrl: (String, Boolean) -> Unit,
+    onAttachmentClick: (ru.kubsu.borshchevyk.core.model.domain.Attachment) -> Unit,
     onResend: () -> Unit
 ) {
     Column(
@@ -183,6 +187,7 @@ private fun MessageContent(
                 attachmentUrls = attachmentUrls,
                 thumbnailUrls = thumbnailUrls,
                 onResolveAttachmentUrl = onResolveAttachmentUrl,
+                onAttachmentClick = onAttachmentClick,
                 isFromMe = isFromMe
             )
             if (!isOnlyCircle) Spacer(modifier = Modifier.height(8.dp))

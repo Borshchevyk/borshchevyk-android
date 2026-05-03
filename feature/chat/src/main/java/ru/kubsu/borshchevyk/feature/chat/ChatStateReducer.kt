@@ -100,9 +100,15 @@ fun ChatUiState.reduce(action: ChatStateAction): ChatUiState {
         }
         is ChatStateAction.UpdateAttachmentUrl -> {
             if (this is ChatUiState.Content) {
-                val newMap = this.feed.attachmentUrls.toMutableMap()
-                newMap[action.attachmentId] = action.url
-                this.copy(feed = this.feed.copy(attachmentUrls = newMap))
+                if (action.isThumbnail) {
+                    val newMap = this.feed.thumbnailUrls.toMutableMap()
+                    newMap[action.attachmentId] = action.url
+                    this.copy(feed = this.feed.copy(thumbnailUrls = newMap))
+                } else {
+                    val newMap = this.feed.attachmentUrls.toMutableMap()
+                    newMap[action.attachmentId] = action.url
+                    this.copy(feed = this.feed.copy(attachmentUrls = newMap))
+                }
             } else this
         }
         is ChatStateAction.SetReaders -> {

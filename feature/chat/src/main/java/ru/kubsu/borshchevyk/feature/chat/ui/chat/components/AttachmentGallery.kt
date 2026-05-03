@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
@@ -37,13 +38,21 @@ internal fun AttachmentGallery(
     attachmentUrls: Map<String, String>,
     thumbnailUrls: Map<String, String>,
     onResolveAttachmentUrl: (String, Boolean) -> Unit,
+    onAttachmentClick: (Attachment) -> Unit,
     isFromMe: Boolean
 ) {
     if (attachments.isEmpty()) return
 
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         attachments.forEach { attachment ->
-            AttachmentItem(attachment, attachmentUrls, thumbnailUrls, onResolveAttachmentUrl, isFromMe)
+            AttachmentItem(
+                attachment = attachment,
+                attachmentUrls = attachmentUrls,
+                thumbnailUrls = thumbnailUrls,
+                onResolveAttachmentUrl = onResolveAttachmentUrl,
+                onAttachmentClick = onAttachmentClick,
+                isFromMe = isFromMe
+            )
         }
     }
 }
@@ -54,6 +63,7 @@ internal fun AttachmentItem(
     attachmentUrls: Map<String, String>,
     thumbnailUrls: Map<String, String>,
     onResolveAttachmentUrl: (String, Boolean) -> Unit,
+    onAttachmentClick: (Attachment) -> Unit,
     isFromMe: Boolean
 ) {
     val url = attachmentUrls[attachment.id]
@@ -95,7 +105,8 @@ internal fun AttachmentItem(
                     modifier = Modifier
                         .fillMaxWidth(0.8f)
                         .aspectRatio(16f / 9f)
-                        .clip(RoundedCornerShape(12.dp)),
+                        .clip(RoundedCornerShape(12.dp))
+                        .clickable { onAttachmentClick(attachment) },
                     contentScale = ContentScale.Crop,
                     loading = {
                         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -120,7 +131,8 @@ internal fun AttachmentItem(
                     modifier = Modifier
                         .fillMaxWidth(0.8f)
                         .aspectRatio(16f / 9f)
-                        .clip(RoundedCornerShape(12.dp)),
+                        .clip(RoundedCornerShape(12.dp))
+                        .clickable { onAttachmentClick(attachment) },
                     contentAlignment = Alignment.Center
                 ) {
                     SubcomposeAsyncImage(
