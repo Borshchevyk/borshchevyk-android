@@ -5,11 +5,11 @@ package ru.kubsu.borshchevyk.core.network.client
  */
 object NetworkConstants {
     /** The base URL for all standard REST API requests. */
-    const val BASE_URL = "https://borshchevik.su"
+    const val BASE_URL = "https://dev.borshchevik.su"
     
     /** The base WebSocket URL for real-time messaging and notifications. */
-    const val WS_URL = "wss://borshchevik.su/api/v1/messages/ws-message"
+    const val WS_URL = "wss://dev.borshchevik.su/api/v1/messages/ws-message"
     
     /** The WebSocket URL for LiveKit audio/video communication. */
-    const val LIVEKIT_URL = "wss://borshchevik.su/livekit"
+    const val LIVEKIT_URL = "wss://dev.borshchevik.su/livekit"
 }
