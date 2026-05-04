@@ -120,6 +120,12 @@ interface MessageDao {
     fun deleteAttachmentsForMessage(messageId: String)
 
     /**
+     * Deletes a specific reaction by a user for a message.
+     */
+    @Query("DELETE FROM reactions WHERE messageId = :messageId AND userId = :userId AND reaction = :reaction")
+    fun deleteReaction(messageId: String, userId: String, reaction: String)
+
+    /**
      * Deletes all reactions for a specific message.
      *
      * @param messageId The ID of the message.

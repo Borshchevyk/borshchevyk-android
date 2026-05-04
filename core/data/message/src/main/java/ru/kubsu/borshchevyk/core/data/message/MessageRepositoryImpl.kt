@@ -255,6 +255,21 @@ class MessageRepositoryImpl @Inject constructor(
      */
     override fun observePins(chatId: String): Flow<String> = 
         chatWebSocketDataSource.observePins(chatId)
+            .onEach { messageId ->
+                withContext(ioDispatcher) {
+                    val msgWithDetails = messageDao.getMessage(messageId)
+                    if (msgWithDetails != null && !msgWithDetails.message.isPinned) {
+                        val updatedMsg = msgWithDetails.message.copy(isPinned = true)
+                        messageDao.upsertMessageWithDetails(
+                            message = updatedMsg,
+                            author = msgWithDetails.author,
+                            forwardedFromUser = msgWithDetails.forwardedFromUser,
+                            attachments = msgWithDetails.attachments,
+                            reactions = msgWithDetails.reactions
+                        )
+                    }
+                }
+            }
 
     /**
      * Observes newly unpinned messages within a specific chat.
