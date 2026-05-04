@@ -16,13 +16,21 @@ import ru.kubsu.borshchevyk.core.network.mesh.MeshGossipProtocol
 import javax.inject.Inject
 import javax.inject.Singleton
 
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.serialization.encodeToString
+import ru.kubsu.borshchevyk.core.network.mesh.MeshConnectionManager
+import ru.kubsu.borshchevyk.core.network.mesh.MeshSignatureService
+import java.util.UUID
+
 @Singleton
 class MeshProfileListener @Inject constructor(
     private val gossipProtocol: MeshGossipProtocol,
     private val userDao: UserDao,
     private val json: Json,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
-    @ApplicationScope private val scope: CoroutineScope
+    @ApplicationScope private val scope: CoroutineScope,
+    private val meshConnectionManager: MeshConnectionManager,
+    private val signatureService: MeshSignatureService
 ) {
     private val TAG = "MeshProfileListener"
 
@@ -54,5 +62,37 @@ class MeshProfileListener @Inject constructor(
                 }
             }
             .launchIn(scope)
+
+        meshConnectionManager.connectedEndpoints
+            .onEach { endpoints ->
+                if (endpoints.isNotEmpty()) {
+                    broadcastLocalProfile()
+                }
+            }
+            .launchIn(scope)
+    }
+
+    private suspend fun broadcastLocalProfile() {
+        withContext(ioDispatcher) {
+            val userId = signatureService.getUserId() ?: return@withContext
+            val localUser = userDao.getUser(userId) ?: return@withContext
+            
+            val profilePayload = UserProfileMeshPayload(
+                id = localUser.userId,
+                firstName = localUser.firstName,
+                lastName = localUser.lastName,
+                tag = localUser.tag,
+                avatarUrl = localUser.avatarUrl
+            )
+            
+            val payloadString = json.encodeToString(profilePayload)
+            val envelope = ru.kubsu.borshchevyk.core.network.mesh.MeshEnvelope(
+                envelopeId = UUID.randomUUID().toString(),
+                originEndpointId = "", 
+                action = "USER_PROFILE",
+                payload = payloadString
+            )
+            gossipProtocol.broadcast(envelope)
+        }
     }
 }
