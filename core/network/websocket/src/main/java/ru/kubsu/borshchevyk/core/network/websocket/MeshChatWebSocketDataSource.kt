@@ -19,6 +19,13 @@ import ru.kubsu.borshchevyk.core.network.dto.ShortUserDto
 import ru.kubsu.borshchevyk.core.network.dto.TypingEvent
 import ru.kubsu.borshchevyk.core.network.mesh.MeshEnvelope
 import ru.kubsu.borshchevyk.core.network.mesh.MeshGossipProtocol
+import ru.kubsu.borshchevyk.core.network.dto.UpdateChatMeshPayload
+import ru.kubsu.borshchevyk.core.network.dto.DeleteChatMeshPayload
+import ru.kubsu.borshchevyk.core.network.dto.ClearHistoryMeshPayload
+import ru.kubsu.borshchevyk.core.network.dto.InviteUserMeshPayload
+import ru.kubsu.borshchevyk.core.network.dto.KickUserMeshPayload
+import ru.kubsu.borshchevyk.core.network.dto.ChatResponse
+import ru.kubsu.borshchevyk.core.model.domain.ChatType
 import java.time.Instant
 import java.util.UUID
 import javax.inject.Inject
@@ -56,7 +63,41 @@ class MeshChatWebSocketDataSource @Inject constructor(
     }
 
     override fun observeChatEvents(): Flow<NotificationDto.ChatEventDto> {
-        return emptyFlow()
+        return gossipProtocol.incomingEnvelopes
+            .filter { 
+                it.action in setOf("UPDATE_CHAT", "CLEAR_HISTORY", "DELETE_CHAT", "INVITE_USER", "KICK_USER") 
+            }
+            .map { envelope ->
+                val chatId = when (envelope.action) {
+                    "UPDATE_CHAT" -> json.decodeFromString<UpdateChatMeshPayload>(envelope.payload).chatId
+                    "CLEAR_HISTORY" -> json.decodeFromString<ClearHistoryMeshPayload>(envelope.payload).chatId
+                    "DELETE_CHAT" -> json.decodeFromString<DeleteChatMeshPayload>(envelope.payload).chatId
+                    "INVITE_USER" -> json.decodeFromString<InviteUserMeshPayload>(envelope.payload).chatId
+                    "KICK_USER" -> json.decodeFromString<KickUserMeshPayload>(envelope.payload).chatId
+                    else -> ""
+                }
+                
+                // Constructing a minimal ChatResponse
+                val chat = ChatResponse(
+                    id = chatId,
+                    type = ChatType.GROUP, // Assuming actions are mostly for groups, but the UI/DB layer usually matches by ID
+                    createdAt = Instant.now().toString()
+                )
+                
+                // If it's an UPDATE_CHAT, we could optionally extract the title/description
+                // but the UI typically re-fetches or applies the partial update.
+                val updatedChat = if (envelope.action == "UPDATE_CHAT") {
+                    val payload = json.decodeFromString<UpdateChatMeshPayload>(envelope.payload)
+                    chat.copy(title = payload.title, description = payload.description)
+                } else {
+                    chat
+                }
+
+                NotificationDto.ChatEventDto(
+                    chat = updatedChat,
+                    action = envelope.action
+                )
+            }
     }
 
     @Serializable

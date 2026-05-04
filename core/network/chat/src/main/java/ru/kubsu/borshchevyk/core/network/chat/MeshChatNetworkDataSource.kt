@@ -18,13 +18,24 @@ import ru.kubsu.borshchevyk.core.network.dto.ShortUserDto
 import ru.kubsu.borshchevyk.core.network.dto.TargetUserRequest
 import ru.kubsu.borshchevyk.core.network.dto.UpdateChatInfoRequest
 import ru.kubsu.borshchevyk.core.network.dto.UpdatePermissionsRequest
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.encodeToString
+import ru.kubsu.borshchevyk.core.network.mesh.MeshGossipProtocol
+import ru.kubsu.borshchevyk.core.network.mesh.MeshEnvelope
+import ru.kubsu.borshchevyk.core.network.dto.UpdateChatMeshPayload
+import ru.kubsu.borshchevyk.core.network.dto.DeleteChatMeshPayload
+import ru.kubsu.borshchevyk.core.network.dto.ClearHistoryMeshPayload
+import ru.kubsu.borshchevyk.core.network.dto.InviteUserMeshPayload
+import ru.kubsu.borshchevyk.core.network.dto.KickUserMeshPayload
 import java.util.UUID
 import javax.inject.Inject
 
 class MeshChatNetworkDataSource @Inject constructor(
     private val userDao: UserDao,
     private val chatDao: ChatDao,
-    @IoDispatcher private val ioDispatcher: CoroutineDispatcher
+    @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
+    private val gossipProtocol: MeshGossipProtocol,
+    private val json: Json
 ) : ChatNetworkDataSource {
 
     override suspend fun createChat(request: CreateChatRequest): NetworkResult<ChatResponse> {
@@ -122,15 +133,39 @@ class MeshChatNetworkDataSource @Inject constructor(
         chatId: String,
         request: UpdateChatInfoRequest
     ): NetworkResult<Unit> {
-         return NetworkResult.Success(Unit)
+        val payload = UpdateChatMeshPayload(chatId, request.title, request.description)
+        val envelope = MeshEnvelope(
+            envelopeId = UUID.randomUUID().toString(),
+            originEndpointId = "self",
+            action = "UPDATE_CHAT",
+            payload = json.encodeToString(payload)
+        )
+        gossipProtocol.broadcast(envelope)
+        return NetworkResult.Success(Unit)
     }
 
     override suspend fun clearChatHistory(chatId: String, forAll: Boolean): NetworkResult<Unit> {
-         return NetworkResult.Success(Unit)
+        val payload = ClearHistoryMeshPayload(chatId, forAll)
+        val envelope = MeshEnvelope(
+            envelopeId = UUID.randomUUID().toString(),
+            originEndpointId = "self",
+            action = "CLEAR_HISTORY",
+            payload = json.encodeToString(payload)
+        )
+        gossipProtocol.broadcast(envelope)
+        return NetworkResult.Success(Unit)
     }
 
     override suspend fun deleteChat(chatId: String): NetworkResult<Unit> {
-         return NetworkResult.Success(Unit)
+        val payload = DeleteChatMeshPayload(chatId)
+        val envelope = MeshEnvelope(
+            envelopeId = UUID.randomUUID().toString(),
+            originEndpointId = "self",
+            action = "DELETE_CHAT",
+            payload = json.encodeToString(payload)
+        )
+        gossipProtocol.broadcast(envelope)
+        return NetworkResult.Success(Unit)
     }
 
     override suspend fun getChatMembers(
@@ -142,10 +177,26 @@ class MeshChatNetworkDataSource @Inject constructor(
     }
 
     override suspend fun inviteUser(chatId: String, request: TargetUserRequest): NetworkResult<Unit> {
+        val payload = InviteUserMeshPayload(chatId, request.targetUserId)
+        val envelope = MeshEnvelope(
+            envelopeId = UUID.randomUUID().toString(),
+            originEndpointId = "self",
+            action = "INVITE_USER",
+            payload = json.encodeToString(payload)
+        )
+        gossipProtocol.broadcast(envelope)
         return NetworkResult.Success(Unit)
     }
 
     override suspend fun kickUser(chatId: String, targetUserId: String): NetworkResult<Unit> {
+        val payload = KickUserMeshPayload(chatId, targetUserId)
+        val envelope = MeshEnvelope(
+            envelopeId = UUID.randomUUID().toString(),
+            originEndpointId = "self",
+            action = "KICK_USER",
+            payload = json.encodeToString(payload)
+        )
+        gossipProtocol.broadcast(envelope)
         return NetworkResult.Success(Unit)
     }
 
