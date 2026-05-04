@@ -19,7 +19,7 @@ interface NetworkWebSocketModule {
 
     @Binds
     @Singleton
-    fun bindPresenceWebSocketDataSource(impl: KrossbowWebSocketDataSource): PresenceWebSocketDataSource
+    fun bindPresenceWebSocketDataSource(impl: ProxyPresenceWebSocketDataSource): PresenceWebSocketDataSource
 
     @Binds
     @Singleton

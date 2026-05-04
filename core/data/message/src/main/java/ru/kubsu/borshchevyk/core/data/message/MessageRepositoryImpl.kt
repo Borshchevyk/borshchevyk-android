@@ -49,8 +49,13 @@ class MessageRepositoryImpl @Inject constructor(
     private val presenceWebSocketDataSource: PresenceWebSocketDataSource,
     private val messageDao: MessageDao,
     private val chatDao: ChatDao,
+    private val meshProfileListener: MeshProfileListener,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher
 ) : MessageRepository {
+
+    init {
+        meshProfileListener.startListening()
+    }
 
     /**
      * Sends a new message to a specific chat, saving the resulting message into the local database cache.

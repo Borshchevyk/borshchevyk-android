@@ -37,8 +37,8 @@ class MeshChatWebSocketDataSource @Inject constructor(
                 val meshPayload = json.decodeFromString<MeshMessagePayload>(envelope.payload)
                 NotificationDto.MessageDto(
                     id = envelope.envelopeId,
-                    chat = ShortChatDto(id = meshPayload.chatId, name = "Mesh Chat"),
-                    author = ShortUserDto(id = envelope.originEndpointId, firstName = "Mesh User"),
+                    chat = ShortChatDto(id = meshPayload.chatId, name = ""),
+                    author = ShortUserDto(id = envelope.originEndpointId),
                     text = meshPayload.request.text,
                     createdAt = Instant.now().toString(),
                     status = "RECEIVED_BY_USER",
@@ -87,7 +87,7 @@ class MeshChatWebSocketDataSource @Inject constructor(
             .map { envelope ->
                 val isTyping = envelope.payload.contains("\"isTyping\":true")
                 TypingEvent(
-                    user = ShortUserDto(id = envelope.originEndpointId, firstName = "Mesh User"),
+                    user = ShortUserDto(id = envelope.originEndpointId),
                     isTyping = isTyping
                 )
             }
@@ -102,7 +102,7 @@ class MeshChatWebSocketDataSource @Inject constructor(
                 ReactionEvent(
                     messageId = payload.messageId,
                     reaction = payload.reaction,
-                    user = ShortUserDto(id = envelope.originEndpointId, firstName = "Mesh User"),
+                    user = ShortUserDto(id = envelope.originEndpointId),
                     isAdded = isAdded
                 )
             }
@@ -133,7 +133,7 @@ class MeshChatWebSocketDataSource @Inject constructor(
                 val payload = json.decodeFromString<ReadReceiptMeshPayload>(envelope.payload)
                 ReadReceiptEvent(
                     messageId = payload.messageId,
-                    user = ShortUserDto(id = envelope.originEndpointId, firstName = "Mesh User")
+                    user = ShortUserDto(id = envelope.originEndpointId)
                 )
             }
     }

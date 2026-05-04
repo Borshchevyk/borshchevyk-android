@@ -20,6 +20,7 @@ import ru.kubsu.borshchevyk.core.network.dto.SendMessageRequest
 import ru.kubsu.borshchevyk.core.network.dto.ShortChatDto
 import ru.kubsu.borshchevyk.core.network.dto.ShortUserDto
 import ru.kubsu.borshchevyk.core.network.dto.MessageAttachmentResponse
+import ru.kubsu.borshchevyk.core.network.dto.UserProfileMeshPayload
 import ru.kubsu.borshchevyk.core.network.media.MeshMediaNetworkDataSource
 import ru.kubsu.borshchevyk.core.network.mesh.MeshGossipProtocol
 import kotlinx.coroutines.CoroutineScope
@@ -47,8 +48,7 @@ class MeshMessageNetworkDataSource @Inject constructor(
                     val readers = messageReadersCache.getOrPut(payload.messageId) { java.util.concurrent.ConcurrentHashMap.newKeySet() }
                     readers.add(
                         EnrichedUserResponse(
-                            id = envelope.originEndpointId,
-                            firstName = "Mesh User"
+                            id = envelope.originEndpointId
                         )
                     )
                 } catch (e: Exception) {
@@ -56,6 +56,19 @@ class MeshMessageNetworkDataSource @Inject constructor(
                 }
             }
         }.launchIn(scope)
+    }
+
+    suspend fun broadcastUserProfile(profile: UserProfileMeshPayload) {
+        withContext(ioDispatcher) {
+            val payloadString = json.encodeToString(profile)
+            val envelope = GossipEnvelope(
+                envelopeId = UUID.randomUUID().toString(),
+                originEndpointId = "", // Filled by GossipProtocol
+                action = "USER_PROFILE",
+                payload = payloadString
+            )
+            gossipProtocol.broadcast(envelope)
+        }
     }
 
     override suspend fun sendMessage(chatId: String, request: SendMessageRequest): NetworkResult<MessageResponse> {
@@ -73,8 +86,8 @@ class MeshMessageNetworkDataSource @Inject constructor(
             
             val response = MessageResponse(
                 id = envelope.envelopeId,
-                chat = ShortChatDto(id = chatId, name = "Mesh Chat"),
-                author = ShortUserDto(id = "self", firstName = "Me"),
+                chat = ShortChatDto(id = chatId, name = ""),
+                author = ShortUserDto(id = "self"),
                 text = request.text,
                 createdAt = Instant.now().toString(),
                 source = MessageSource.OFFLINE,
@@ -108,8 +121,8 @@ class MeshMessageNetworkDataSource @Inject constructor(
             
             val response = MessageResponse(
                 id = messageId,
-                chat = ShortChatDto(id = chatId, name = "Mesh Chat"),
-                author = ShortUserDto(id = "self", firstName = "Me"),
+                chat = ShortChatDto(id = chatId, name = ""),
+                author = ShortUserDto(id = "self"),
                 text = request.text,
                 createdAt = Instant.now().toString(),
                 updatedAt = Instant.now().toString(),

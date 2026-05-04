@@ -27,3 +27,12 @@ data class ReadReceiptMeshPayload(
     val chatId: String,
     val messageId: String
 )
+
+@Serializable
+data class UserProfileMeshPayload(
+    val id: String,
+    val firstName: String? = null,
+    val lastName: String? = null,
+    val tag: String? = null,
+    val avatarUrl: String? = null
+)
