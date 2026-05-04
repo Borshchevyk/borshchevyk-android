@@ -392,14 +392,46 @@ class MessageRepositoryImpl @Inject constructor(
      * @return A list of [User]s who read the message.
      */
     override suspend fun getMessageReaders(chatId: String, messageId: String): List<ru.kubsu.borshchevyk.core.model.domain.User> {
-        return networkDataSource.getMessageReaders(chatId, messageId).getOrThrow().map {
-            ru.kubsu.borshchevyk.core.model.domain.User(
-                userId = it.id,
-                firstName = it.firstName,
-                lastName = it.lastName,
-                tag = it.tag ?: "",
-                avatarUrl = it.avatarUrl
-            )
+        val networkReaders = try {
+            networkDataSource.getMessageReaders(chatId, messageId).getOrThrow()
+        } catch (e: Exception) {
+            emptyList()
+        }
+
+        withContext(ioDispatcher) {
+            if (networkReaders.isNotEmpty()) {
+                val users = networkReaders.map { 
+                    ru.kubsu.borshchevyk.core.database.entity.UserEntity(
+                        userId = it.id,
+                        email = null,
+                        tag = it.tag ?: "user_${it.id.take(4)}",
+                        firstName = it.firstName,
+                        lastName = it.lastName,
+                        bio = null,
+                        avatarUrl = it.avatarUrl,
+                        avatars = emptyList()
+                    )
+                }
+                // Save fetched users and map them as readers
+                users.forEach { messageDao.insertUserIgnore(it) }
+                networkReaders.forEach { user ->
+                    messageDao.insertMessageReader(
+                        ru.kubsu.borshchevyk.core.database.entity.MessageReaderEntity(messageId, user.id)
+                    )
+                }
+            }
+        }
+
+        return withContext(ioDispatcher) {
+            messageDao.getMessageReaders(messageId).map { 
+                ru.kubsu.borshchevyk.core.model.domain.User(
+                    userId = it.userId,
+                    firstName = it.firstName,
+                    lastName = it.lastName,
+                    tag = it.tag,
+                    avatarUrl = it.avatarUrl
+                )
+            }
         }
     }
 

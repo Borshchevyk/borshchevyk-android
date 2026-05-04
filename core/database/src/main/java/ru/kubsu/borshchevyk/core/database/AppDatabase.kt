@@ -10,6 +10,7 @@ import ru.kubsu.borshchevyk.core.database.dao.UserDao
 import ru.kubsu.borshchevyk.core.database.entity.AttachmentEntity
 import ru.kubsu.borshchevyk.core.database.entity.ChatEntity
 import ru.kubsu.borshchevyk.core.database.entity.MessageEntity
+import ru.kubsu.borshchevyk.core.database.entity.MessageReaderEntity
 import ru.kubsu.borshchevyk.core.database.entity.ReactionEntity
 import ru.kubsu.borshchevyk.core.database.entity.UserEntity
 
@@ -33,7 +34,8 @@ import ru.kubsu.borshchevyk.core.database.entity.UserEntity
         MessageEntity::class,
         UserEntity::class,
         AttachmentEntity::class,
-        ReactionEntity::class
+        ReactionEntity::class,
+        MessageReaderEntity::class
     ],
     version = 1,
     exportSchema = false

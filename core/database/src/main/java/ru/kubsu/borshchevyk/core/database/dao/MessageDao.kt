@@ -8,6 +8,7 @@ import androidx.room.Transaction
 import kotlinx.coroutines.flow.Flow
 import ru.kubsu.borshchevyk.core.database.entity.AttachmentEntity
 import ru.kubsu.borshchevyk.core.database.entity.MessageEntity
+import ru.kubsu.borshchevyk.core.database.entity.MessageReaderEntity
 import ru.kubsu.borshchevyk.core.database.entity.MessageWithDetails
 import ru.kubsu.borshchevyk.core.database.entity.ReactionEntity
 import ru.kubsu.borshchevyk.core.database.entity.UserEntity
@@ -91,6 +92,24 @@ interface MessageDao {
      */
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     fun insertUsers(users: List<UserEntity>)
+
+    /**
+     * Inserts a user but ignores if it already exists.
+     */
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    fun insertUserIgnore(user: UserEntity)
+
+    /**
+     * Inserts a message reader mapping.
+     */
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    fun insertMessageReader(reader: MessageReaderEntity)
+
+    /**
+     * Retrieves the list of users who have read a specific message.
+     */
+    @Query("SELECT users.* FROM users INNER JOIN message_readers ON users.userId = message_readers.userId WHERE message_readers.messageId = :messageId")
+    fun getMessageReaders(messageId: String): List<UserEntity>
 
     /**
      * Deletes all attachments for a specific message.

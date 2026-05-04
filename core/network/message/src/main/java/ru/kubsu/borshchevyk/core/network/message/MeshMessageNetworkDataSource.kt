@@ -212,7 +212,7 @@ class MeshMessageNetworkDataSource @Inject constructor(
     }
 
     override suspend fun getMessageReaders(chatId: String, messageId: String): NetworkResult<List<EnrichedUserResponse>> {
-        return NetworkResult.Success(messageReadersCache[messageId]?.toList() ?: emptyList())
+        return NetworkResult.Success(emptyList())
     }
 
     override suspend fun getMessageComments(
