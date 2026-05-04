@@ -26,4 +26,8 @@ class MeshSignatureServiceImpl @Inject constructor(
             null
         }
     }
+
+    override suspend fun getUserId(): String? {
+        return authPreferences.userId.firstOrNull()
+    }
 }

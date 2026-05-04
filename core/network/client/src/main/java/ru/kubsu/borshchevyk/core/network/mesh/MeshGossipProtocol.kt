@@ -87,9 +87,11 @@ class MeshGossipProtocol @Inject constructor(
 
     fun broadcast(envelope: MeshEnvelope) {
         scope.launch {
-            val dataToSign = envelope.payload.toByteArray(Charsets.UTF_8)
+            val userId = signatureService.getUserId() ?: "self"
+            val envelopeWithOrigin = envelope.copy(originEndpointId = userId)
+            val dataToSign = envelopeWithOrigin.payload.toByteArray(Charsets.UTF_8)
             val signature = signatureService.signData(dataToSign)
-            val signedEnvelope = envelope.copy(signature = signature)
+            val signedEnvelope = envelopeWithOrigin.copy(signature = signature)
             processEnvelope(signedEnvelope, senderEndpointId = null)
         }
     }
