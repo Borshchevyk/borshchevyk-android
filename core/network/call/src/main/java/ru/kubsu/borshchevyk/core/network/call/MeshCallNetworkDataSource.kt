@@ -4,7 +4,9 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.filter
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -26,24 +28,24 @@ import javax.inject.Singleton
 class MeshCallNetworkDataSource @Inject constructor(
     private val json: Json,
     private val gossipProtocol: MeshGossipProtocol,
-    @IoDispatcher private val ioDispatcher: CoroutineDispatcher
+    @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
+    @ru.kubsu.borshchevyk.core.network.di.ApplicationScope private val scope: CoroutineScope
 ) : CallNetworkDataSource, CallWebSocketDataSource {
 
     private val _callEvents = MutableSharedFlow<NotificationDto.CallEventDto>(extraBufferCapacity = 64)
 
     init {
-        kotlinx.coroutines.GlobalScope.launch(ioDispatcher) {
-            gossipProtocol.incomingEnvelopes
-                .filter { it.action == "CALL_SIGNALING" }
-                .collect { envelope ->
-                    try {
-                        val event = json.decodeFromString<NotificationDto.CallEventDto>(envelope.payload)
-                        _callEvents.tryEmit(event)
-                    } catch (e: Exception) {
-                        // Ignore malformed payloads
-                    }
+        gossipProtocol.incomingEnvelopes
+            .filter { it.action == "CALL_SIGNALING" }
+            .onEach { envelope ->
+                try {
+                    val event = json.decodeFromString<NotificationDto.CallEventDto>(envelope.payload)
+                    _callEvents.tryEmit(event)
+                } catch (e: Exception) {
+                    // Ignore malformed payloads
                 }
-        }
+            }
+            .launchIn(scope)
     }
 
     override suspend fun createCall(request: CreateCallRequest): NetworkResult<CallResponse> {

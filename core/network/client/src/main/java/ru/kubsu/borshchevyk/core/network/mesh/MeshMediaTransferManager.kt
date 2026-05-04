@@ -11,6 +11,9 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -18,12 +21,13 @@ import javax.inject.Singleton
 @Singleton
 class MeshMediaTransferManager @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val payloadRouter: MeshPayloadRouter
+    private val payloadRouter: MeshPayloadRouter,
+    @ru.kubsu.borshchevyk.core.network.di.ApplicationScope private val scope: CoroutineScope
 ) {
     private val TAG = "MeshMediaTransferManager"
 
     // Maps payload ID to attachment metadata (e.g. filename, mimeType)
-    private val payloadMetadataMap = mutableMapOf<Long, MediaMetadata>()
+    private val payloadMetadataMap = java.util.concurrent.ConcurrentHashMap<Long, MediaMetadata>()
 
     // Emits when a file transfer is complete
     private val _incomingFiles = MutableSharedFlow<ReceivedFile>(extraBufferCapacity = 64)
@@ -33,8 +37,13 @@ class MeshMediaTransferManager @Inject constructor(
     data class ReceivedFile(val endpointId: String, val file: File, val metadata: MediaMetadata?)
 
     init {
-        // Here we could intercept incoming payloads or let PayloadRouter pass them if we update it.
-        // For simplicity, we can let PayloadRouter handle the basic callback and we intercept updates if needed.
+        payloadRouter.incomingPayloads
+            .onEach { received ->
+                if (received.payload.type == Payload.Type.FILE) {
+                    handleIncomingFilePayload(received.endpointId, received.payload)
+                }
+            }
+            .launchIn(scope)
     }
 
     fun sendFile(endpointIds: List<String>, file: File, metadata: MediaMetadata): Long {

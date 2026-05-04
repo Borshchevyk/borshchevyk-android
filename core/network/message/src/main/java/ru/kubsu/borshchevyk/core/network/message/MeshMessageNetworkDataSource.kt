@@ -10,7 +10,6 @@ import ru.kubsu.borshchevyk.core.network.client.NetworkResult
 import ru.kubsu.borshchevyk.core.network.di.IoDispatcher
 import ru.kubsu.borshchevyk.core.network.dto.EditMessageRequest
 import ru.kubsu.borshchevyk.core.network.dto.EnrichedUserResponse
-import ru.kubsu.borshchevyk.core.network.dto.MeshEnvelope
 import ru.kubsu.borshchevyk.core.network.mesh.MeshEnvelope as GossipEnvelope
 import ru.kubsu.borshchevyk.core.network.dto.MeshMessagePayload
 import ru.kubsu.borshchevyk.core.network.dto.MessageResponse
@@ -23,6 +22,9 @@ import ru.kubsu.borshchevyk.core.network.dto.ShortUserDto
 import ru.kubsu.borshchevyk.core.network.dto.MessageAttachmentResponse
 import ru.kubsu.borshchevyk.core.network.media.MeshMediaNetworkDataSource
 import ru.kubsu.borshchevyk.core.network.mesh.MeshGossipProtocol
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import java.time.Instant
 import java.util.UUID
 import javax.inject.Inject
@@ -31,30 +33,29 @@ class MeshMessageNetworkDataSource @Inject constructor(
     private val json: Json,
     private val gossipProtocol: MeshGossipProtocol,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
-    private val mediaDataSource: MeshMediaNetworkDataSource
+    private val mediaDataSource: MeshMediaNetworkDataSource,
+    @ru.kubsu.borshchevyk.core.network.di.ApplicationScope private val scope: CoroutineScope
 ) : MessageNetworkDataSource {
 
     private val messageReadersCache = java.util.concurrent.ConcurrentHashMap<String, MutableSet<EnrichedUserResponse>>()
 
     init {
-        kotlinx.coroutines.CoroutineScope(ioDispatcher + kotlinx.coroutines.SupervisorJob()).launch {
-            gossipProtocol.incomingEnvelopes.collect { envelope ->
-                if (envelope.action == "READ_MESSAGE") {
-                    try {
-                        val payload = json.decodeFromString<ReadReceiptMeshPayload>(envelope.payload)
-                        val readers = messageReadersCache.getOrPut(payload.messageId) { java.util.concurrent.ConcurrentHashMap.newKeySet() }
-                        readers.add(
-                            EnrichedUserResponse(
-                                id = envelope.originEndpointId,
-                                firstName = "Mesh User" // Could be enriched if we had a user cache
-                            )
+        gossipProtocol.incomingEnvelopes.onEach { envelope ->
+            if (envelope.action == "READ_MESSAGE") {
+                try {
+                    val payload = json.decodeFromString<ReadReceiptMeshPayload>(envelope.payload)
+                    val readers = messageReadersCache.getOrPut(payload.messageId) { java.util.concurrent.ConcurrentHashMap.newKeySet() }
+                    readers.add(
+                        EnrichedUserResponse(
+                            id = envelope.originEndpointId,
+                            firstName = "Mesh User"
                         )
-                    } catch (e: Exception) {
-                        e.printStackTrace()
-                    }
+                    )
+                } catch (e: Exception) {
+                    e.printStackTrace()
                 }
             }
-        }
+        }.launchIn(scope)
     }
 
     override suspend fun sendMessage(chatId: String, request: SendMessageRequest): NetworkResult<MessageResponse> {
@@ -97,11 +98,13 @@ class MeshMessageNetworkDataSource @Inject constructor(
     override suspend fun editMessage(chatId: String, messageId: String, request: EditMessageRequest): NetworkResult<MessageResponse> {
         return withContext(ioDispatcher) {
             val payload = json.encodeToString(request)
-            val envelope = MeshEnvelope(
+            val envelope = GossipEnvelope(
+                envelopeId = UUID.randomUUID().toString(),
+                originEndpointId = "",
                 action = "EDIT_MESSAGE",
                 payload = payload
             )
-            // Broadcast `envelope`
+            gossipProtocol.broadcast(envelope)
             
             val response = MessageResponse(
                 id = messageId,
@@ -128,11 +131,13 @@ class MeshMessageNetworkDataSource @Inject constructor(
 
     override suspend fun deleteMessage(chatId: String, messageId: String, forAll: Boolean): NetworkResult<Unit> {
         return withContext(ioDispatcher) {
-             val envelope = MeshEnvelope(
+             val envelope = GossipEnvelope(
+                 envelopeId = UUID.randomUUID().toString(),
+                 originEndpointId = "",
                  action = "DELETE_MESSAGE",
                  payload = "{\"messageId\":\"$messageId\",\"forAll\":$forAll}"
              )
-             // Broadcast envelope
+             gossipProtocol.broadcast(envelope)
              NetworkResult.Success(Unit)
         }
     }

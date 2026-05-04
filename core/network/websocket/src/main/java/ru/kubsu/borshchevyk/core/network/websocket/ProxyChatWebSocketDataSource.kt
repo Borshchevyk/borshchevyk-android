@@ -87,10 +87,10 @@ class ProxyChatWebSocketDataSource @Inject constructor(
     }
 
     override suspend fun connect() {
-        krossbowWebSocket.connect()
+        currentDataSource.connect()
     }
 
     override suspend fun disconnect() {
-        krossbowWebSocket.disconnect()
+        currentDataSource.disconnect()
     }
 }

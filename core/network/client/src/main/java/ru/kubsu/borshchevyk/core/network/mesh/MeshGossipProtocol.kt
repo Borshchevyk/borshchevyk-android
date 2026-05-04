@@ -19,9 +19,9 @@ import javax.inject.Singleton
 class MeshGossipProtocol @Inject constructor(
     private val payloadRouter: MeshPayloadRouter,
     private val connectionManager: MeshConnectionManager,
-    private val signatureService: MeshSignatureService
+    private val signatureService: MeshSignatureService,
+    @ru.kubsu.borshchevyk.core.network.di.ApplicationScope private val scope: CoroutineScope
 ) {
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val TAG = "MeshGossipProtocol"
 
     private val MAX_CACHE_SIZE = 1000
