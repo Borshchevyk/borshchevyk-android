@@ -42,6 +42,16 @@ interface ChatDao {
     fun getChat(chatId: String): ChatEntity?
 
     /**
+     * Retrieves a specific chat by partner ID synchronously.
+     * Useful for P2P mesh mode to find existing direct chats.
+     *
+     * @param partnerId The unique ID of the partner.
+     * @return The [ChatEntity] if found, otherwise null.
+     */
+    @Query("SELECT * FROM chats WHERE partnerId = :partnerId LIMIT 1")
+    fun getChatByPartnerId(partnerId: String): ChatEntity?
+
+    /**
      * Inserts or updates a list of chats.
      *
      * @param chats The list of [ChatEntity] to upsert.
