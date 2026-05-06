@@ -6,7 +6,7 @@ import io.ktor.client.request.setBody
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 import ru.kubsu.borshchevyk.core.network.client.NetworkResult
-import ru.kubsu.borshchevyk.core.network.client.safeRequest
+import ru.kubsu.borshchevyk.core.network.di.IoDispatcher
 import ru.kubsu.borshchevyk.core.network.dto.ChallengeRequest
 import ru.kubsu.borshchevyk.core.network.dto.ChallengeResponse
 import ru.kubsu.borshchevyk.core.network.dto.LoginRequest
@@ -16,7 +16,7 @@ import ru.kubsu.borshchevyk.core.network.dto.RegisterRequest
 import ru.kubsu.borshchevyk.core.network.dto.RegisterResponse
 import ru.kubsu.borshchevyk.core.network.dto.VerifyRequest
 import ru.kubsu.borshchevyk.core.network.dto.VerifyResponse
-import ru.kubsu.borshchevyk.core.network.di.IoDispatcher
+import ru.kubsu.borshchevyk.core.network.ktor.client.safeRequest
 import javax.inject.Inject
 
 class KtorAuthNetworkDataSource @Inject constructor(

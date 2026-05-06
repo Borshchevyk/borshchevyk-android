@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace = "ru.kubsu.borshchevyk.core.network.client"
+    namespace = "ru.kubsu.borshchevyk.core.network.ktor"
     compileSdk = 36
     defaultConfig {
         minSdk = 29
@@ -32,8 +32,16 @@ android {
 
 dependencies {
     implementation(project(":core:model"))
-    api(libs.kotlinx.coroutines.core)
-    api(libs.kotlinx.serialization.json)
+    api(project(":core:network:client"))
+    
+    api(libs.ktor.client.core)
+    implementation(libs.ktor.client.okhttp)
+    implementation(libs.ktor.client.content.negotiation)
+    implementation(libs.ktor.client.auth)
+    implementation(libs.ktor.client.logging)
+    implementation(libs.ktor.serialization.kotlinx.json)
+    
+    implementation(libs.kotlinx.coroutines.core)
 
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)

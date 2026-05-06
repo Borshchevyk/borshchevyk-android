@@ -6,21 +6,19 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import ru.kubsu.borshchevyk.core.database.dao.UserDao
 import ru.kubsu.borshchevyk.core.database.entity.UserEntity
 import ru.kubsu.borshchevyk.core.network.di.ApplicationScope
 import ru.kubsu.borshchevyk.core.network.di.IoDispatcher
-import ru.kubsu.borshchevyk.core.network.dto.UserProfileMeshPayload
-import ru.kubsu.borshchevyk.core.network.mesh.MeshGossipProtocol
-import javax.inject.Inject
-import javax.inject.Singleton
-
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.serialization.encodeToString
+import ru.kubsu.borshchevyk.core.network.dto.EnrichedUserResponse
 import ru.kubsu.borshchevyk.core.network.mesh.MeshConnectionManager
+import ru.kubsu.borshchevyk.core.network.mesh.MeshGossipProtocol
 import ru.kubsu.borshchevyk.core.network.mesh.MeshSignatureService
 import java.util.UUID
+import javax.inject.Inject
+import javax.inject.Singleton
 
 @Singleton
 class MeshProfileListener @Inject constructor(
@@ -39,7 +37,7 @@ class MeshProfileListener @Inject constructor(
             .onEach { envelope ->
                 if (envelope.action == "USER_PROFILE") {
                     try {
-                        val payload = json.decodeFromString<UserProfileMeshPayload>(envelope.payload)
+                        val payload = json.decodeFromString<EnrichedUserResponse>(envelope.payload)
                         withContext(ioDispatcher) {
                             val existingUser = userDao.getUser(payload.id)
                             userDao.upsertUser(
@@ -77,7 +75,7 @@ class MeshProfileListener @Inject constructor(
             val userId = signatureService.getUserId() ?: return@withContext
             val localUser = userDao.getUser(userId) ?: return@withContext
             
-            val profilePayload = UserProfileMeshPayload(
+            val profilePayload = EnrichedUserResponse(
                 id = localUser.userId,
                 firstName = localUser.firstName,
                 lastName = localUser.lastName,

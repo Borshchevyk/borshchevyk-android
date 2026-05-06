@@ -1,4 +1,4 @@
-package ru.kubsu.borshchevyk.core.network.client
+package ru.kubsu.borshchevyk.core.network.ktor.client
 
 import io.ktor.client.call.body
 import io.ktor.client.plugins.ClientRequestException
@@ -6,6 +6,7 @@ import io.ktor.client.plugins.RedirectResponseException
 import io.ktor.client.plugins.ServerResponseException
 import io.ktor.client.statement.HttpResponse
 import io.ktor.utils.io.errors.IOException
+import ru.kubsu.borshchevyk.core.network.client.NetworkResult
 
 /**
  * Safely executes an HTTP request and wraps the response in a [NetworkResult].

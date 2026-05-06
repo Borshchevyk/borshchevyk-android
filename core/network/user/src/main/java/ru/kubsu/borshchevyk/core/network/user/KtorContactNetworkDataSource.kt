@@ -8,10 +8,10 @@ import io.ktor.client.request.setBody
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 import ru.kubsu.borshchevyk.core.network.client.NetworkResult
+import ru.kubsu.borshchevyk.core.network.di.IoDispatcher
 import ru.kubsu.borshchevyk.core.network.dto.AddContactRequest
 import ru.kubsu.borshchevyk.core.network.dto.ContactResponse
-import ru.kubsu.borshchevyk.core.network.client.safeRequest
-import ru.kubsu.borshchevyk.core.network.di.IoDispatcher
+import ru.kubsu.borshchevyk.core.network.ktor.client.safeRequest
 import javax.inject.Inject
 
 class KtorContactNetworkDataSource @Inject constructor(

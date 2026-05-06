@@ -16,14 +16,14 @@ import io.ktor.http.contentType
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 import ru.kubsu.borshchevyk.core.network.client.NetworkResult
+import ru.kubsu.borshchevyk.core.network.di.IoDispatcher
 import ru.kubsu.borshchevyk.core.network.dto.AttachmentResponse
 import ru.kubsu.borshchevyk.core.network.dto.AttachmentUrlResult
 import ru.kubsu.borshchevyk.core.network.dto.RequestUploadUrlRequest
 import ru.kubsu.borshchevyk.core.network.dto.UploadUrlResult
 import ru.kubsu.borshchevyk.core.network.dto.ValidateAttachmentsRequest
 import ru.kubsu.borshchevyk.core.network.dto.ValidateAttachmentsResponse
-import ru.kubsu.borshchevyk.core.network.client.safeRequest
-import ru.kubsu.borshchevyk.core.network.di.IoDispatcher
+import ru.kubsu.borshchevyk.core.network.ktor.client.safeRequest
 import javax.inject.Inject
 
 class KtorMediaNetworkDataSource @Inject constructor(

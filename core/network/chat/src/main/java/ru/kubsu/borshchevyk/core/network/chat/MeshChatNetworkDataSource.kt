@@ -1,8 +1,10 @@
 package ru.kubsu.borshchevyk.core.network.chat
 
-import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import ru.kubsu.borshchevyk.core.database.dao.ChatDao
 import ru.kubsu.borshchevyk.core.database.dao.UserDao
 import ru.kubsu.borshchevyk.core.database.entity.ChatEntity
@@ -13,20 +15,14 @@ import ru.kubsu.borshchevyk.core.network.dto.ChatMemberResponse
 import ru.kubsu.borshchevyk.core.network.dto.ChatResponse
 import ru.kubsu.borshchevyk.core.network.dto.CreateChatRequest
 import ru.kubsu.borshchevyk.core.network.dto.GlobalSearchResponse
+import ru.kubsu.borshchevyk.core.network.dto.NotificationDto
 import ru.kubsu.borshchevyk.core.network.dto.PageResponse
 import ru.kubsu.borshchevyk.core.network.dto.ShortUserDto
 import ru.kubsu.borshchevyk.core.network.dto.TargetUserRequest
 import ru.kubsu.borshchevyk.core.network.dto.UpdateChatInfoRequest
 import ru.kubsu.borshchevyk.core.network.dto.UpdatePermissionsRequest
-import kotlinx.serialization.json.Json
-import kotlinx.serialization.encodeToString
-import ru.kubsu.borshchevyk.core.network.mesh.MeshGossipProtocol
 import ru.kubsu.borshchevyk.core.network.mesh.MeshEnvelope
-import ru.kubsu.borshchevyk.core.network.dto.UpdateChatMeshPayload
-import ru.kubsu.borshchevyk.core.network.dto.DeleteChatMeshPayload
-import ru.kubsu.borshchevyk.core.network.dto.ClearHistoryMeshPayload
-import ru.kubsu.borshchevyk.core.network.dto.InviteUserMeshPayload
-import ru.kubsu.borshchevyk.core.network.dto.KickUserMeshPayload
+import ru.kubsu.borshchevyk.core.network.mesh.MeshGossipProtocol
 import java.util.UUID
 import javax.inject.Inject
 
@@ -133,36 +129,39 @@ class MeshChatNetworkDataSource @Inject constructor(
         chatId: String,
         request: UpdateChatInfoRequest
     ): NetworkResult<Unit> {
-        val payload = UpdateChatMeshPayload(chatId, request.title, request.description)
+        val chat = ChatResponse(id = chatId, type = ChatType.GROUP, createdAt = "", title = request.title, description = request.description)
+        val event = NotificationDto.ChatEventDto(chat, "UPDATE_CHAT")
         val envelope = MeshEnvelope(
             envelopeId = UUID.randomUUID().toString(),
             originEndpointId = "self",
             action = "UPDATE_CHAT",
-            payload = json.encodeToString(payload)
+            payload = json.encodeToString(event)
         )
         gossipProtocol.broadcast(envelope)
         return NetworkResult.Success(Unit)
     }
 
     override suspend fun clearChatHistory(chatId: String, forAll: Boolean): NetworkResult<Unit> {
-        val payload = ClearHistoryMeshPayload(chatId, forAll)
+        val chat = ChatResponse(id = chatId, type = ChatType.GROUP, createdAt = "")
+        val event = NotificationDto.ChatEventDto(chat, "CLEAR_HISTORY")
         val envelope = MeshEnvelope(
             envelopeId = UUID.randomUUID().toString(),
             originEndpointId = "self",
             action = "CLEAR_HISTORY",
-            payload = json.encodeToString(payload)
+            payload = json.encodeToString(event)
         )
         gossipProtocol.broadcast(envelope)
         return NetworkResult.Success(Unit)
     }
 
     override suspend fun deleteChat(chatId: String): NetworkResult<Unit> {
-        val payload = DeleteChatMeshPayload(chatId)
+        val chat = ChatResponse(id = chatId, type = ChatType.GROUP, createdAt = "")
+        val event = NotificationDto.ChatEventDto(chat, "DELETE_CHAT")
         val envelope = MeshEnvelope(
             envelopeId = UUID.randomUUID().toString(),
             originEndpointId = "self",
             action = "DELETE_CHAT",
-            payload = json.encodeToString(payload)
+            payload = json.encodeToString(event)
         )
         gossipProtocol.broadcast(envelope)
         return NetworkResult.Success(Unit)
@@ -177,24 +176,26 @@ class MeshChatNetworkDataSource @Inject constructor(
     }
 
     override suspend fun inviteUser(chatId: String, request: TargetUserRequest): NetworkResult<Unit> {
-        val payload = InviteUserMeshPayload(chatId, request.targetUserId)
+        val chat = ChatResponse(id = chatId, type = ChatType.GROUP, createdAt = "", partnerId = request.targetUserId)
+        val event = NotificationDto.ChatEventDto(chat, "INVITE_USER")
         val envelope = MeshEnvelope(
             envelopeId = UUID.randomUUID().toString(),
             originEndpointId = "self",
             action = "INVITE_USER",
-            payload = json.encodeToString(payload)
+            payload = json.encodeToString(event)
         )
         gossipProtocol.broadcast(envelope)
         return NetworkResult.Success(Unit)
     }
 
     override suspend fun kickUser(chatId: String, targetUserId: String): NetworkResult<Unit> {
-        val payload = KickUserMeshPayload(chatId, targetUserId)
+        val chat = ChatResponse(id = chatId, type = ChatType.GROUP, createdAt = "", partnerId = targetUserId)
+        val event = NotificationDto.ChatEventDto(chat, "KICK_USER")
         val envelope = MeshEnvelope(
             envelopeId = UUID.randomUUID().toString(),
             originEndpointId = "self",
             action = "KICK_USER",
-            payload = json.encodeToString(payload)
+            payload = json.encodeToString(event)
         )
         gossipProtocol.broadcast(envelope)
         return NetworkResult.Success(Unit)
