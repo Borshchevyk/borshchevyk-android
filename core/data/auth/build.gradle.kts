@@ -21,6 +21,7 @@ dependencies {
     implementation(project(":core:domain:auth"))
     implementation(project(":core:network:auth"))
     implementation(project(":core:network:client"))
+    implementation(project(":core:network:mesh"))
     implementation(project(":core:network:websocket"))
     implementation(project(":core:security"))
     

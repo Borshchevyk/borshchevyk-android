@@ -29,6 +29,7 @@ dependencies {
     implementation(project(":core:domain:user"))
     implementation(project(":core:domain:call"))
     implementation(project(":core:network:client"))
+    implementation(project(":core:network:mesh"))
     
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)

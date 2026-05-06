@@ -20,6 +20,7 @@ android {
 dependencies {
     implementation(project(":core:model"))
     api(project(":core:network:client"))
+    implementation(project(":core:network:mesh"))
     api(project(":core:network:websocket"))
     implementation(libs.ktor.client.core)
     implementation(libs.kotlinx.coroutines.core)

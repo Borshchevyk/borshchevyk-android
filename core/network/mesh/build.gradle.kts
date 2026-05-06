@@ -6,10 +6,13 @@ plugins {
 }
 
 android {
-    namespace = "ru.kubsu.borshchevyk.core.network.message"
+    namespace = "ru.kubsu.borshchevyk.core.network.mesh"
     compileSdk = 36
     defaultConfig {
         minSdk = 29
+    }
+    buildFeatures {
+        buildConfig = true
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
@@ -18,15 +21,13 @@ android {
 }
 
 dependencies {
-
     implementation(project(":core:model"))
-    api(project(":core:network:client"))
-    implementation(project(":core:network:mesh"))
-    implementation(project(":core:network:media"))
-    implementation(libs.ktor.client.core)
+    implementation(project(":core:network:client"))
+    
+    implementation(libs.play.services.nearby)
     implementation(libs.kotlinx.coroutines.core)
-    implementation(libs.kotlinx.serialization.json)
-
+    implementation(libs.ktor.serialization.kotlinx.json)
+    
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
 }
