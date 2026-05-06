@@ -170,6 +170,9 @@ class ChatViewModel @Inject constructor(
                 val chatTitle = chat?.title ?: chat?.partnerName ?: if (isGroup) "Group Chat" else "Private Chat"
                 
                 val pinned = historyUseCases.getPinnedMessages(chatId).filterNot { it.isDeleted }
+                
+                // Fetch the actual local history immediately to prevent race conditions with the Flow observer
+                val initialHistory = historyUseCases.observeChatHistory(chatId).firstOrNull() ?: emptyList()
 
                 dispatch(ChatStateAction.InitialDataLoaded(
                     chatId = chatId,
@@ -177,7 +180,7 @@ class ChatViewModel @Inject constructor(
                     isGroup = isGroup,
                     chatTitle = chatTitle,
                     chatAvatarUrl = chat?.partnerAvatarUrl,
-                    history = emptyList(),
+                    history = initialHistory,
                     pinned = pinned,
                     forwardPayload = initialForwardPayload
                 ))
