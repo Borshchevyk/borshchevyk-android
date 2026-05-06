@@ -17,13 +17,21 @@ class MeshSignatureServiceImpl @Inject constructor(
 
     override suspend fun signData(dataToSign: ByteArray): String? {
         val userId = authPreferences.userId.firstOrNull() ?: return null
-        val wrappedKeyBase64 = authPreferences.localWrappedPrivateKey.firstOrNull() ?: return null
+        val wrappedKeyBase64 = authPreferences.localWrappedPrivateKey.firstOrNull()
 
         return try {
-            val wrappedKeyBytes = Base64.decode(wrappedKeyBase64, Base64.NO_WRAP)
-            val rawPrivKey = keyManager.unwrapKeyWithLocalKeystore("local_aes_key_$userId", wrappedKeyBytes)
-            val signatureBytes = keyManager.signDataWithRawKey(rawPrivKey, dataToSign)
-            Base64.encodeToString(signatureBytes, Base64.NO_WRAP)
+            if (wrappedKeyBase64 != null) {
+                // Online user: use software-wrapped key
+                val wrappedKeyBytes = Base64.decode(wrappedKeyBase64, Base64.NO_WRAP)
+                val rawPrivKey = keyManager.unwrapKeyWithLocalKeystore("local_aes_key_$userId", wrappedKeyBytes)
+                val signatureBytes = keyManager.signDataWithRawKey(rawPrivKey, dataToSign)
+                Base64.encodeToString(signatureBytes, Base64.NO_WRAP)
+            } else {
+                // Offline user: use Android Hardware Keystore directly
+                val tag = authPreferences.tag.firstOrNull() ?: return null
+                val signatureBytes = keyManager.signData("mesh_key_$tag", dataToSign)
+                Base64.encodeToString(signatureBytes, Base64.NO_WRAP)
+            }
         } catch (e: Exception) {
             e.printStackTrace()
             null

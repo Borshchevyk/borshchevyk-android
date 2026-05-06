@@ -160,7 +160,12 @@ fun ChatListRoute(
                                         uiState.connectedPeers.forEach { peer ->
                                             DropdownMenuItem(
                                                 text = { Text(peer.name) },
-                                                onClick = { peersExpanded = false }
+                                                onClick = { 
+                                                    peersExpanded = false
+                                                    viewModel.onCreatePrivateChatByTag(peer.name) { chatId ->
+                                                        onChatClick(chatId)
+                                                    }
+                                                }
                                             )
                                         }
                                     }

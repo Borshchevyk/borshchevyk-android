@@ -15,6 +15,7 @@ import kotlinx.coroutines.launch
 import ru.kubsu.borshchevyk.core.domain.auth.GetTagUseCase
 import ru.kubsu.borshchevyk.core.domain.chat.CreateGroupChatUseCase
 import ru.kubsu.borshchevyk.core.domain.chat.CreatePrivateChatUseCase
+import ru.kubsu.borshchevyk.core.domain.chat.GlobalSearchUseCase
 import ru.kubsu.borshchevyk.core.domain.chat.JoinChatUseCase
 import ru.kubsu.borshchevyk.core.domain.chat.ObserveUserChatsUseCase
 import ru.kubsu.borshchevyk.core.domain.chat.PinChatUseCase
@@ -67,7 +68,8 @@ class ChatListViewModel @Inject constructor(
     private val transportModeManager: TransportModeManager,
     private val meshConnectionManager: MeshConnectionManager,
     private val disconnectWebSocketUseCase: DisconnectWebSocketUseCase,
-    private val getTagUseCase: GetTagUseCase
+    private val getTagUseCase: GetTagUseCase,
+    private val globalSearchUseCase: GlobalSearchUseCase
 ) : ViewModel() {
 
     private val TAG = "ChatListViewModel"
@@ -258,6 +260,39 @@ class ChatListViewModel @Inject constructor(
                 val chat = joinChatUseCase(inviteCode)
                 onSuccess(chat.id)
             } catch (e: Exception) {
+                _uiState.update { it.copy(error = e.message) }
+            }
+        }
+    }
+
+    /**
+     * Creates a private chat by resolving the user's tag to their ID using local search.
+     * Useful in Mesh mode to quickly start a chat from the connected peers list.
+     *
+     * @param tag The tag of the user.
+     * @param onSuccess Callback invoked with the new chat's ID.
+     */
+    fun onCreatePrivateChatByTag(tag: String, onSuccess: (String) -> Unit) {
+        viewModelScope.launch {
+            Log.d(TAG, "onCreatePrivateChatByTag: Attempting to create chat for tag '$tag'")
+            try {
+                // Search for the user by tag
+                val results = globalSearchUseCase(tag)
+                Log.d(TAG, "onCreatePrivateChatByTag: Search returned ${results.users.size} users")
+                
+                val targetUser = results.users.firstOrNull { it.tag.equals(tag, ignoreCase = true) }
+                
+                if (targetUser != null) {
+                    Log.d(TAG, "onCreatePrivateChatByTag: Found exact user match with ID ${targetUser.userId}")
+                    val chatId = createPrivateChatUseCase(targetUser.userId)
+                    Log.d(TAG, "onCreatePrivateChatByTag: Chat created/found with ID $chatId. Invoking onSuccess.")
+                    onSuccess(chatId)
+                } else {
+                    Log.w(TAG, "onCreatePrivateChatByTag: Exact tag '$tag' not found in results: ${results.users.map { it.tag }}")
+                    _uiState.update { it.copy(error = "User $tag not found in local database") }
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "onCreatePrivateChatByTag: Exception occurred", e)
                 _uiState.update { it.copy(error = e.message) }
             }
         }

@@ -95,13 +95,26 @@ class MeshConnectionManager @Inject constructor(
     private val endpointDiscoveryCallback = object : EndpointDiscoveryCallback() {
         override fun onEndpointFound(endpointId: String, info: DiscoveredEndpointInfo) {
             Log.d(TAG, "Endpoint found: $endpointId (${info.endpointName})")
-            // Request connection when a new endpoint is found
-            connectionsClient.requestConnection(
-                currentLocalEndpointName, // local endpoint name
-                endpointId,
-                connectionLifecycleCallback
-            ).addOnFailureListener { e ->
-                Log.e(TAG, "Failed to request connection to $endpointId", e)
+            
+            // Prevent STATUS_ENDPOINT_IO_ERROR collisions in P2P_CLUSTER
+            // When both devices advertise and discover simultaneously, they will both find 
+            // each other and try to request a connection at the same time, causing an IO error.
+            // We resolve this by only having the device with the lexicographically smaller name request.
+            if (currentLocalEndpointName.compareTo(info.endpointName) < 0) {
+                Log.d(TAG, "My name '$currentLocalEndpointName' is smaller than '${info.endpointName}'. Requesting connection.")
+                connectionsClient.requestConnection(
+                    currentLocalEndpointName,
+                    endpointId,
+                    connectionLifecycleCallback
+                ).addOnFailureListener { e ->
+                    Log.e(TAG, "Failed to request connection to $endpointId", e)
+                }
+            } else if (currentLocalEndpointName == info.endpointName) {
+                Log.w(TAG, "Warning: Both devices have the exact same tag '$currentLocalEndpointName'. Connection might fail or stall.")
+                // Attempt to connect anyway to avoid complete stall
+                connectionsClient.requestConnection(currentLocalEndpointName, endpointId, connectionLifecycleCallback)
+            } else {
+                Log.d(TAG, "My name '$currentLocalEndpointName' is greater than '${info.endpointName}'. Waiting for them to request connection.")
             }
         }
 

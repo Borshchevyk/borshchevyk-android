@@ -39,6 +39,7 @@ class MeshProfileListener @Inject constructor(
         gossipProtocol.incomingEnvelopes
             .onEach { envelope ->
                 if (envelope.action == "USER_PROFILE") {
+                    Log.d(TAG, "INCOMING USER_PROFILE: ${envelope.payload}")
                     try {
                         val payload = json.decodeFromString<EnrichedUserResponse>(envelope.payload)
                         withContext(ioDispatcher) {
@@ -63,10 +64,10 @@ class MeshProfileListener @Inject constructor(
                                 Log.d(TAG, "Saved public key for mesh user: ${payload.id}")
                             }
                             
-                            Log.d(TAG, "Saved mesh user profile: ${payload.id}")
+                            Log.d(TAG, "Saved mesh user profile to DB: ID=${payload.id}, Tag=${payload.tag}")
                         }
                     } catch (e: Exception) {
-                        Log.e(TAG, "Failed to parse USER_PROFILE", e)
+                        Log.e(TAG, "Failed to parse USER_PROFILE. Payload was: ${envelope.payload}", e)
                     }
                 }
             }
@@ -84,19 +85,24 @@ class MeshProfileListener @Inject constructor(
     private suspend fun broadcastLocalProfile() {
         withContext(ioDispatcher) {
             val userId = signatureService.getUserId() ?: return@withContext
-            val localUser = userDao.getUser(userId) ?: return@withContext
+            val localUser = userDao.getUser(userId)
             val localPubKey = signatureService.getLocalPublicKey()
             
+            // If the user hasn't synced with the DB yet, we still must send our tag and pubkey
+            // so others can verify our signatures and find us in search!
+            val fallbackTag = if (userId.startsWith("offline_user_")) userId.removePrefix("offline_user_") else "Unknown"
+
             val profilePayload = EnrichedUserResponse(
-                id = localUser.userId,
-                firstName = localUser.firstName,
-                lastName = localUser.lastName,
-                tag = localUser.tag,
-                avatarUrl = localUser.avatarUrl,
+                id = userId,
+                firstName = localUser?.firstName,
+                lastName = localUser?.lastName,
+                tag = localUser?.tag ?: fallbackTag,
+                avatarUrl = localUser?.avatarUrl,
                 publicKey = localPubKey
             )
             
             val payloadString = json.encodeToString(profilePayload)
+            Log.d(TAG, "OUTGOING USER_PROFILE: $payloadString")
             val envelope = ru.kubsu.borshchevyk.core.network.mesh.MeshEnvelope(
                 envelopeId = UUID.randomUUID().toString(),
                 originEndpointId = "", 

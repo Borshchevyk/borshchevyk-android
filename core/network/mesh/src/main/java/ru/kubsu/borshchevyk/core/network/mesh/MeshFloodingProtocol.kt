@@ -71,19 +71,25 @@ class MeshFloodingProtocol @Inject constructor(
             val dataToVerify = envelope.payload.toByteArray(Charsets.UTF_8)
             val isValid = signatureService.verifySignature(originId, signature, dataToVerify)
             if (!isValid) {
-                Log.e(TAG, "SECURITY ALERT: Invalid signature for envelope ${envelope.envelopeId} from claimed origin $originId. Discarding.")
-                return
+                if (envelope.action == "USER_PROFILE") {
+                    Log.w(TAG, "Signature verification failed or key missing for USER_PROFILE. Allowing through to establish identity.")
+                } else {
+                    Log.e(TAG, "SECURITY ALERT: Invalid signature for envelope ${envelope.envelopeId} from claimed origin $originId. Discarding.")
+                    return
+                }
+            } else {
+                Log.d(TAG, "Signature verified successfully for envelope ${envelope.envelopeId}")
             }
-            Log.d(TAG, "Signature verified successfully for envelope ${envelope.envelopeId}")
         } else if (originId.isNotEmpty() && signature == null) {
              Log.w(TAG, "SECURITY WARNING: Envelope ${envelope.envelopeId} from $originId is missing a signature. Discarding.")
              return
         }
         // ----------------------------------
         
-        Log.d(TAG, "Received new verified envelope: ${envelope.envelopeId}")
+        Log.d(TAG, "Verified envelope ${envelope.envelopeId}. Emitting to SharedFlow...")
         
         val emitted = _incomingEnvelopes.tryEmit(envelope)
+        Log.d(TAG, "Emission result for ${envelope.action}: $emitted")
         if (!emitted) {
             Log.w(TAG, "Failed to emit envelope ${envelope.envelopeId} to shared flow")
         }

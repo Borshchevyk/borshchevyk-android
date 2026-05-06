@@ -82,7 +82,9 @@ class AuthRepositoryImpl @Inject constructor(
         if (pubKey != null) {
             authPreferences.saveLocalPublicKey(Base64.encodeToString(pubKey.encoded, Base64.NO_WRAP))
         }
-        return "offline_user_$tag"
+        val userId = "offline_user_$tag"
+        authPreferences.saveUserId(userId)
+        return userId
     }
 
     /**
@@ -105,7 +107,7 @@ class AuthRepositoryImpl @Inject constructor(
         val rawPrivateKey = keyPair.private.encoded
         val encryptedPrivKey = keyManager.encryptWithPassword(rawPrivateKey, password)
         val publicKeyEncoded = keyPair.public.encoded
-        val pubKeyBase64 = android.util.Base64.encodeToString(publicKeyEncoded, android.util.Base64.NO_WRAP)
+        val pubKeyBase64 = Base64.encodeToString(publicKeyEncoded, Base64.NO_WRAP)
 
         val request = RegisterRequest(
             email = email,
@@ -114,7 +116,7 @@ class AuthRepositoryImpl @Inject constructor(
             lastName = lastName,
             passwordHash = passwordHash,
             publicKey = pubKeyBase64,
-            encryptedPrivateKey = android.util.Base64.encodeToString(encryptedPrivKey, android.util.Base64.NO_WRAP)
+            encryptedPrivateKey = Base64.encodeToString(encryptedPrivKey, Base64.NO_WRAP)
         )
         
         val response = networkDataSource.register(request).getOrThrow()
