@@ -133,3 +133,13 @@ data class PresenceStatusResponse(
     @SerialName("isOnline") val isOnline: Boolean = false,
     val lastSeenAt: Long? = null
 )
+
+/**
+ * Control message used in the Mesh network to indicate a user is still online.
+ */
+@Serializable
+data class PresencePingDto(
+    val userId: String,
+    val timestamp: Long
+)
+
