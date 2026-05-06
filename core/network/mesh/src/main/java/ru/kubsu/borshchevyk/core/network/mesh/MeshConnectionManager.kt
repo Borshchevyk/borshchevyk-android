@@ -17,8 +17,14 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
+
+data class MeshPeer(
+    val endpointId: String,
+    val name: String
+)
 
 @Singleton
 class MeshConnectionManager @Inject constructor(
@@ -30,13 +36,28 @@ class MeshConnectionManager @Inject constructor(
     private val _connectedEndpoints = MutableStateFlow<Set<String>>(emptySet())
     val connectedEndpoints: StateFlow<Set<String>> = _connectedEndpoints.asStateFlow()
 
+    private val _connectedPeers = MutableStateFlow<List<MeshPeer>>(emptyList())
+    val connectedPeers: StateFlow<List<MeshPeer>> = _connectedPeers.asStateFlow()
+    
+    private val endpointNames = ConcurrentHashMap<String, String>()
+    
+    private var currentLocalEndpointName: String = "Unknown User"
+
     private val strategy = Strategy.P2P_CLUSTER
     private val serviceId = "ru.kubsu.borshchevyk.mesh"
     private val TAG = "MeshConnectionManager"
 
+    private fun updatePeers() {
+        val peers = _connectedEndpoints.value.map { id ->
+            MeshPeer(id, endpointNames[id] ?: "Unknown")
+        }
+        _connectedPeers.value = peers
+    }
+
     private val connectionLifecycleCallback = object : ConnectionLifecycleCallback() {
         override fun onConnectionInitiated(endpointId: String, connectionInfo: ConnectionInfo) {
-            Log.d(TAG, "Connection initiated with endpoint: $endpointId")
+            Log.d(TAG, "Connection initiated with endpoint: $endpointId (${connectionInfo.endpointName})")
+            endpointNames[endpointId] = connectionInfo.endpointName
             // Automatically accept connections for the cluster
             connectionsClient.acceptConnection(endpointId, payloadRouter.payloadCallback)
         }
@@ -46,15 +67,19 @@ class MeshConnectionManager @Inject constructor(
                 ConnectionsStatusCodes.STATUS_OK -> {
                     Log.d(TAG, "Successfully connected to endpoint: $endpointId")
                     _connectedEndpoints.value = _connectedEndpoints.value + endpointId
+                    updatePeers()
                 }
                 ConnectionsStatusCodes.STATUS_CONNECTION_REJECTED -> {
                     Log.w(TAG, "Connection rejected by endpoint: $endpointId")
+                    endpointNames.remove(endpointId)
                 }
                 ConnectionsStatusCodes.STATUS_ERROR -> {
                     Log.e(TAG, "Error connecting to endpoint: $endpointId")
+                    endpointNames.remove(endpointId)
                 }
                 else -> {
                     Log.w(TAG, "Unknown connection status ${result.status.statusCode} for endpoint: $endpointId")
+                    endpointNames.remove(endpointId)
                 }
             }
         }
@@ -62,6 +87,8 @@ class MeshConnectionManager @Inject constructor(
         override fun onDisconnected(endpointId: String) {
             Log.d(TAG, "Disconnected from endpoint: $endpointId")
             _connectedEndpoints.value = _connectedEndpoints.value - endpointId
+            endpointNames.remove(endpointId)
+            updatePeers()
         }
     }
 
@@ -70,7 +97,7 @@ class MeshConnectionManager @Inject constructor(
             Log.d(TAG, "Endpoint found: $endpointId (${info.endpointName})")
             // Request connection when a new endpoint is found
             connectionsClient.requestConnection(
-                context.packageName, // local endpoint name
+                currentLocalEndpointName, // local endpoint name
                 endpointId,
                 connectionLifecycleCallback
             ).addOnFailureListener { e ->
@@ -102,7 +129,8 @@ class MeshConnectionManager @Inject constructor(
         Log.d(TAG, "Stopped advertising")
     }
 
-    fun startDiscovery() {
+    fun startDiscovery(localEndpointName: String) {
+        currentLocalEndpointName = localEndpointName
         val options = DiscoveryOptions.Builder().setStrategy(strategy).build()
         connectionsClient.startDiscovery(
             serviceId,
@@ -123,12 +151,16 @@ class MeshConnectionManager @Inject constructor(
     fun disconnect(endpointId: String) {
         connectionsClient.disconnectFromEndpoint(endpointId)
         _connectedEndpoints.value = _connectedEndpoints.value - endpointId
+        endpointNames.remove(endpointId)
+        updatePeers()
         Log.d(TAG, "Disconnected manually from endpoint: $endpointId")
     }
     
     fun stopAllEndpoints() {
         connectionsClient.stopAllEndpoints()
         _connectedEndpoints.value = emptySet()
+        endpointNames.clear()
+        updatePeers()
         Log.d(TAG, "Stopped all endpoints")
     }
 }

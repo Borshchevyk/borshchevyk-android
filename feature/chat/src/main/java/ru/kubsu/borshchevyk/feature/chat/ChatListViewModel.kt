@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import ru.kubsu.borshchevyk.core.domain.auth.GetTagUseCase
 import ru.kubsu.borshchevyk.core.domain.chat.CreateGroupChatUseCase
 import ru.kubsu.borshchevyk.core.domain.chat.CreatePrivateChatUseCase
 import ru.kubsu.borshchevyk.core.domain.chat.JoinChatUseCase
@@ -23,11 +24,11 @@ import ru.kubsu.borshchevyk.core.domain.message.ConnectWebSocketUseCase
 import ru.kubsu.borshchevyk.core.domain.message.DisconnectWebSocketUseCase
 import ru.kubsu.borshchevyk.core.domain.message.ObserveGlobalChatEventsUseCase
 import ru.kubsu.borshchevyk.core.domain.message.ObserveNewMessagesUseCase
-import ru.kubsu.borshchevyk.core.domain.auth.GetTagUseCase
 import ru.kubsu.borshchevyk.core.model.domain.Chat
 import ru.kubsu.borshchevyk.core.network.client.NetworkMode
 import ru.kubsu.borshchevyk.core.network.client.TransportModeManager
 import ru.kubsu.borshchevyk.core.network.mesh.MeshConnectionManager
+import ru.kubsu.borshchevyk.core.network.mesh.MeshPeer
 import javax.inject.Inject
 
 /**
@@ -42,7 +43,8 @@ data class ChatListUiState(
     val isLoading: Boolean = false,
     val error: String? = null,
     val networkMode: NetworkMode = NetworkMode.GLOBAL,
-    val connectedPeersCount: Int = 0
+    val connectedPeersCount: Int = 0,
+    val connectedPeers: List<MeshPeer> = emptyList()
 )
 
 /**
@@ -98,8 +100,8 @@ class ChatListViewModel @Inject constructor(
             _uiState.update { it.copy(networkMode = mode) }
         }.launchIn(viewModelScope)
 
-        meshConnectionManager.connectedEndpoints.onEach { endpoints ->
-            _uiState.update { it.copy(connectedPeersCount = endpoints.size) }
+        meshConnectionManager.connectedPeers.onEach { peers ->
+            _uiState.update { it.copy(connectedPeersCount = peers.size, connectedPeers = peers) }
         }.launchIn(viewModelScope)
     }
 
@@ -111,7 +113,7 @@ class ChatListViewModel @Inject constructor(
                 transportModeManager.setMode(NetworkMode.MESH)
                 try { disconnectWebSocketUseCase() } catch (e: Exception) { Log.e(TAG, "Failed to disconnect WS", e) }
                 meshConnectionManager.startAdvertising(currentUserName)
-                meshConnectionManager.startDiscovery()
+                meshConnectionManager.startDiscovery(currentUserName)
             } else {
                 // Switch to GLOBAL
                 transportModeManager.setMode(NetworkMode.GLOBAL)

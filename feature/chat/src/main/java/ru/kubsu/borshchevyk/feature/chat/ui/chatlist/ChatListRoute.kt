@@ -5,6 +5,8 @@ import android.os.Build
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -19,6 +21,8 @@ import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material.icons.filled.WifiOff
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -32,6 +36,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -132,12 +137,35 @@ fun ChatListRoute(
                     },
                     actions = {
                         if (uiState.networkMode == NetworkMode.MESH) {
-                            Text(
-                                text = "${uiState.connectedPeersCount} peers",
-                                style = BorshchevykTheme.typography.bodyMedium,
-                                color = BorshchevykTheme.colors.primary,
-                                modifier = Modifier.align(Alignment.CenterVertically)
-                            )
+                            var peersExpanded by remember { mutableStateOf(false) }
+                            Box(modifier = Modifier.align(Alignment.CenterVertically)) {
+                                Text(
+                                    text = "${uiState.connectedPeersCount} peers",
+                                    style = BorshchevykTheme.typography.bodyMedium,
+                                    color = BorshchevykTheme.colors.primary,
+                                    modifier = Modifier
+                                        .clickable { peersExpanded = true }
+                                        .padding(horizontal = 4.dp, vertical = 8.dp)
+                                )
+                                DropdownMenu(
+                                    expanded = peersExpanded,
+                                    onDismissRequest = { peersExpanded = false }
+                                ) {
+                                    if (uiState.connectedPeers.isEmpty()) {
+                                        DropdownMenuItem(
+                                            text = { Text("No peers connected") },
+                                            onClick = { peersExpanded = false }
+                                        )
+                                    } else {
+                                        uiState.connectedPeers.forEach { peer ->
+                                            DropdownMenuItem(
+                                                text = { Text(peer.name) },
+                                                onClick = { peersExpanded = false }
+                                            )
+                                        }
+                                    }
+                                }
+                            }
                             Spacer(modifier = Modifier.width(8.dp))
                         }
                         Switch(
