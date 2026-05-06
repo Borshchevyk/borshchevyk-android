@@ -1,8 +1,12 @@
 package ru.kubsu.borshchevyk.core.data.auth
 
 import android.util.Base64
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.withContext
+import ru.kubsu.borshchevyk.core.database.dao.UserDao
+import ru.kubsu.borshchevyk.core.database.entity.UserEntity
 import ru.kubsu.borshchevyk.core.domain.auth.AuthRepository
 import ru.kubsu.borshchevyk.core.network.auth.AuthNetworkDataSource
 import ru.kubsu.borshchevyk.core.network.client.getOrThrow
@@ -30,7 +34,8 @@ class AuthRepositoryImpl @Inject constructor(
     private val networkDataSource: AuthNetworkDataSource,
     private val keyManager: KeyManager,
     private val authPreferences: AuthPreferences,
-    private val webSocketConnectionManager: WebSocketConnectionManager
+    private val webSocketConnectionManager: WebSocketConnectionManager,
+    private val userDao: UserDao
 ) : AuthRepository {
 
     /** Flow emitting the current JWT access token. */
@@ -73,9 +78,11 @@ class AuthRepositoryImpl @Inject constructor(
      * Registers a user offline for mesh network usage by generating an RSA key pair in the Android Keystore.
      *
      * @param tag The user's chosen tag/username.
+     * @param firstName The user's first name.
+     * @param lastName The user's optional last name.
      * @return A string indicating successful offline registration.
      */
-    override suspend fun registerOffline(tag: String): String {
+    override suspend fun registerOffline(tag: String, firstName: String, lastName: String?): String {
         keyManager.generateKeystoreRsaKeyPair("mesh_key_$tag")
         authPreferences.saveTag(tag)
         val pubKey = keyManager.getPublicKey("mesh_key_$tag")
@@ -84,6 +91,22 @@ class AuthRepositoryImpl @Inject constructor(
         }
         val userId = "offline_user_$tag"
         authPreferences.saveUserId(userId)
+
+        withContext(Dispatchers.IO) {
+            userDao.upsertUser(
+                UserEntity(
+                    userId = userId,
+                    email = null,
+                    tag = tag,
+                    firstName = firstName,
+                    lastName = lastName,
+                    bio = null,
+                    avatarUrl = null,
+                    avatars = emptyList()
+                )
+            )
+        }
+
         return userId
     }
 

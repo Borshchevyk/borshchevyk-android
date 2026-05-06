@@ -58,7 +58,17 @@ class MeshChatWebSocketDataSource @Inject constructor(
             }
             .map { envelope ->
                 val chatEvent = json.decodeFromString<NotificationDto.ChatEventDto>(envelope.payload)
-                chatEvent
+                if (chatEvent.chat.type == ru.kubsu.borshchevyk.core.model.domain.ChatType.PRIVATE) {
+                    // The sender correctly inverted the partnerName and partnerAvatarUrl before broadcasting,
+                    // so we only need to securely enforce the partnerId matches the envelope's origin.
+                    chatEvent.copy(
+                        chat = chatEvent.chat.copy(
+                            partnerId = envelope.originEndpointId
+                        )
+                    )
+                } else {
+                    chatEvent
+                }
             }
     }
 

@@ -43,6 +43,7 @@ sealed interface ChatStateAction {
     data class MessageRemoved(val messageId: String) : ChatStateAction
     data class SetPinnedMessages(val pinned: List<Message>) : ChatStateAction
     data class ReactionToggled(val messageId: String, val reaction: String, val currentUserId: String, val isAdded: Boolean) : ChatStateAction
+    data class TitleUpdated(val title: String, val avatarUrl: String?) : ChatStateAction
     object ChatDeleted : ChatStateAction
 }
 

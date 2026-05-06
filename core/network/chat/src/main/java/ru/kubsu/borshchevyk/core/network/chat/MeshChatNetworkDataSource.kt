@@ -23,6 +23,7 @@ import ru.kubsu.borshchevyk.core.network.dto.UpdateChatInfoRequest
 import ru.kubsu.borshchevyk.core.network.dto.UpdatePermissionsRequest
 import ru.kubsu.borshchevyk.core.network.mesh.MeshEnvelope
 import ru.kubsu.borshchevyk.core.network.mesh.MeshFloodingProtocol
+import ru.kubsu.borshchevyk.core.network.mesh.MeshSignatureService
 import java.util.UUID
 import javax.inject.Inject
 
@@ -31,6 +32,7 @@ class MeshChatNetworkDataSource @Inject constructor(
     private val chatDao: ChatDao,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
     private val gossipProtocol: MeshFloodingProtocol,
+    private val signatureService: MeshSignatureService,
     private val json: Json
 ) : ChatNetworkDataSource {
 
@@ -57,12 +59,13 @@ class MeshChatNetworkDataSource @Inject constructor(
             }
 
             val user = userDao.getUser(request.targetUserId)
+            val partnerName = user?.let { "${it.firstName.orEmpty()} ${it.lastName.orEmpty()}".trim().takeIf { name -> name.isNotEmpty() } ?: it.tag } ?: "Unknown"
             val chatResponse = ChatResponse(
                 id = UUID.randomUUID().toString(),
                 type = ChatType.PRIVATE,
                 createdAt = System.currentTimeMillis().toString(),
                 partnerId = request.targetUserId,
-                partnerName = user?.let { "${it.firstName.orEmpty()} ${it.lastName.orEmpty()}".trim() } ?: "Unknown",
+                partnerName = partnerName,
                 partnerAvatarUrl = user?.avatarUrl,
                 isDeletable = true,
                 isPinned = false
@@ -88,6 +91,27 @@ class MeshChatNetworkDataSource @Inject constructor(
                 )
             )
 
+            // Broadcast the chat creation to the remote peer, but invert the partner fields
+            // so the remote peer receives our name/avatar as their partner, avoiding 'New Mesh Chat'.
+            val localUserId = signatureService.getUserId() ?: "self"
+            val localUser = userDao.getUser(localUserId)
+            val localName = localUser?.let { "${it.firstName.orEmpty()} ${it.lastName.orEmpty()}".trim().takeIf { name -> name.isNotEmpty() } ?: it.tag } ?: "Unknown"
+
+            val broadcastChatResponse = chatResponse.copy(
+                partnerId = localUserId,
+                partnerName = localName,
+                partnerAvatarUrl = localUser?.avatarUrl
+            )
+
+            val event = NotificationDto.ChatEventDto(broadcastChatResponse, "UPDATE_CHAT")
+            val envelope = MeshEnvelope(
+                envelopeId = UUID.randomUUID().toString(),
+                originEndpointId = "", // Filled by GossipProtocol
+                action = "UPDATE_CHAT",
+                payload = json.encodeToString(event)
+            )
+            gossipProtocol.broadcast(envelope)
+
             NetworkResult.Success(chatResponse)
         }
     }
@@ -96,6 +120,23 @@ class MeshChatNetworkDataSource @Inject constructor(
         return withContext(ioDispatcher) {
             val localChats = chatDao.observeAllChats().firstOrNull() ?: emptyList()
             val responses = localChats.map { entity ->
+                var resolvedPartnerName = entity.partnerName
+                var resolvedAvatar = entity.partnerAvatarUrl
+                
+                val currentPartnerId = entity.partnerId
+                if (entity.type == ChatType.PRIVATE && currentPartnerId != null) {
+                    val user = userDao.getUser(currentPartnerId)
+                    if (user != null) {
+                        resolvedPartnerName = "${user.firstName.orEmpty()} ${user.lastName.orEmpty()}".trim().takeIf { it.isNotEmpty() } ?: user.tag
+                        resolvedAvatar = user.avatarUrl
+                        
+                        // Self-heal the database
+                        if (resolvedPartnerName != entity.partnerName || resolvedAvatar != entity.partnerAvatarUrl) {
+                            chatDao.upsertChat(entity.copy(partnerName = resolvedPartnerName, partnerAvatarUrl = resolvedAvatar))
+                        }
+                    }
+                }
+
                 ChatResponse(
                     id = entity.id,
                     type = entity.type,
@@ -103,8 +144,8 @@ class MeshChatNetworkDataSource @Inject constructor(
                     description = entity.description,
                     createdAt = entity.createdAt,
                     partnerId = entity.partnerId,
-                    partnerName = entity.partnerName,
-                    partnerAvatarUrl = entity.partnerAvatarUrl,
+                    partnerName = resolvedPartnerName,
+                    partnerAvatarUrl = resolvedAvatar,
                     partnerLastOnline = entity.partnerLastOnline,
                     lastMessage = entity.lastMessage,
                     unreadCount = entity.unreadCount,

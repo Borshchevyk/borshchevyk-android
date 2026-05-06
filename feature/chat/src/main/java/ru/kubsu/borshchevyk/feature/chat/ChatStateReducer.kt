@@ -159,6 +159,11 @@ fun ChatUiState.reduce(action: ChatStateAction): ChatUiState {
                 this.copy(feed = this.feed.copy(messages = updatedMessages))
             } else this
         }
+        is ChatStateAction.TitleUpdated -> {
+            if (this is ChatUiState.Content) {
+                this.copy(context = this.context.copy(chatName = action.title, chatAvatarUrl = action.avatarUrl))
+            } else this
+        }
         is ChatStateAction.ProcessDomainEvent -> {
             if (this !is ChatUiState.Content) return this
             val event = action.event

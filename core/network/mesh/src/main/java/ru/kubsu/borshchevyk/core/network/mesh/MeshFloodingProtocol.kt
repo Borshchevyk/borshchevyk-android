@@ -120,7 +120,13 @@ class MeshFloodingProtocol @Inject constructor(
             val dataToSign = envelopeWithOrigin.payload.toByteArray(Charsets.UTF_8)
             val signature = signatureService.signData(dataToSign)
             val signedEnvelope = envelopeWithOrigin.copy(signature = signature)
-            processEnvelope(signedEnvelope, senderEndpointId = null)
+            
+            // Mark as seen so we don't accidentally process it if it echoes back
+            seenEnvelopes.add(signedEnvelope.envelopeId)
+            
+            // Flood to the network, but DO NOT call processEnvelope locally.
+            // Local processing is handled by the calling DataSources directly to the DB.
+            flood(signedEnvelope, null)
         }
     }
 

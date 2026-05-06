@@ -13,6 +13,7 @@ import ru.kubsu.borshchevyk.core.data.chat.toDomain
 import ru.kubsu.borshchevyk.core.data.chat.toEntity
 import ru.kubsu.borshchevyk.core.database.dao.ChatDao
 import ru.kubsu.borshchevyk.core.database.dao.MessageDao
+import ru.kubsu.borshchevyk.core.database.dao.UserDao
 import ru.kubsu.borshchevyk.core.domain.message.MessageRepository
 import ru.kubsu.borshchevyk.core.model.domain.DomainGlobalChatEvent
 import ru.kubsu.borshchevyk.core.model.domain.DomainPresenceStatus
@@ -49,6 +50,7 @@ class MessageRepositoryImpl @Inject constructor(
     private val presenceWebSocketDataSource: PresenceWebSocketDataSource,
     private val messageDao: MessageDao,
     private val chatDao: ChatDao,
+    private val userDao: UserDao,
     private val meshProfileListener: MeshProfileListener,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher
 ) : MessageRepository {
@@ -229,10 +231,12 @@ class MessageRepositoryImpl @Inject constructor(
                             chatDao.deleteChat(domainEvent.chat.id)
                             messageDao.deleteMessagesByChat(domainEvent.chat.id)
                         } else if (action == GlobalChatAction.HISTORY_CLEARED) {
-                            chatDao.upsertChat(chatDto.toEntity())
+                            val entityToSave = chatDto.toEntity()
+                            chatDao.upsertChat(entityToSave)
                             messageDao.deleteMessagesByChat(domainEvent.chat.id)
                         } else {
-                            chatDao.upsertChat(chatDto.toEntity())
+                            val entityToSave = chatDto.toEntity()
+                            chatDao.upsertChat(entityToSave)
                         }
                     }
                 } catch (e: Exception) {

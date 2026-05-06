@@ -24,6 +24,7 @@ import ru.kubsu.borshchevyk.core.network.dto.ShortChatDto
 import ru.kubsu.borshchevyk.core.network.dto.ShortUserDto
 import ru.kubsu.borshchevyk.core.network.media.MeshMediaNetworkDataSource
 import ru.kubsu.borshchevyk.core.network.mesh.MeshFloodingProtocol
+import ru.kubsu.borshchevyk.core.network.mesh.MeshSignatureService
 import java.time.Instant
 import java.util.UUID
 import javax.inject.Inject
@@ -33,6 +34,7 @@ class MeshMessageNetworkDataSource @Inject constructor(
     private val json: Json,
     private val gossipProtocol: MeshFloodingProtocol,
     private val mediaDataSource: MeshMediaNetworkDataSource,
+    private val signatureService: MeshSignatureService,
     @ApplicationScope private val scope: CoroutineScope,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher
 ) : MessageNetworkDataSource {
@@ -73,11 +75,12 @@ class MeshMessageNetworkDataSource @Inject constructor(
     override suspend fun sendMessage(chatId: String, request: SendMessageRequest): NetworkResult<MessageResponse> {
         return withContext(ioDispatcher) {
             val attachments = request.attachmentIds?.mapNotNull { mediaDataSource.getCachedAttachment(it) } ?: emptyList()
+            val userId = signatureService.getUserId() ?: "self"
             
             val messageDto = NotificationDto.MessageDto(
                 id = UUID.randomUUID().toString(),
                 chat = ShortChatDto(id = chatId, name = ""),
-                author = ShortUserDto(id = "self"), // Endpoint ID will be filled by GossipProtocol but DTO needs it
+                author = ShortUserDto(id = userId), // Endpoint ID will be filled by GossipProtocol but DTO needs it
                 text = request.text,
                 createdAt = Instant.now().toString(),
                 attachments = attachments.map {
@@ -118,6 +121,7 @@ class MeshMessageNetworkDataSource @Inject constructor(
 
     override suspend fun editMessage(chatId: String, messageId: String, request: EditMessageRequest): NetworkResult<MessageResponse> {
         return withContext(ioDispatcher) {
+            val userId = signatureService.getUserId() ?: "self"
             val event = EditMessageEvent(
                 messageId = messageId,
                 text = request.text
@@ -134,7 +138,7 @@ class MeshMessageNetworkDataSource @Inject constructor(
             val response = MessageResponse(
                 id = messageId,
                 chat = ShortChatDto(id = chatId, name = ""),
-                author = ShortUserDto(id = "self"),
+                author = ShortUserDto(id = userId),
                 text = request.text,
                 createdAt = Instant.now().toString(),
                 updatedAt = Instant.now().toString(),

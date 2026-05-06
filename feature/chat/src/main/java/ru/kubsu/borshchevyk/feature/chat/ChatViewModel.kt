@@ -21,6 +21,7 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import ru.kubsu.borshchevyk.core.domain.auth.GetUserIdUseCase
 import ru.kubsu.borshchevyk.core.domain.chat.GetUserChatsUseCase
+import ru.kubsu.borshchevyk.core.domain.chat.ObserveUserChatsUseCase
 import ru.kubsu.borshchevyk.core.domain.message.ChatAttachmentUseCases
 import ru.kubsu.borshchevyk.core.domain.message.ChatHistoryUseCases
 import ru.kubsu.borshchevyk.core.domain.message.usecase.ObserveUserPresenceUseCase
@@ -44,6 +45,7 @@ class ChatViewModel @Inject constructor(
     private val savedStateHandle: SavedStateHandle,
     private val getUserIdUseCase: GetUserIdUseCase,
     private val getUserChatsUseCase: GetUserChatsUseCase,
+    private val observeUserChatsUseCase: ObserveUserChatsUseCase,
     private val historyUseCases: ChatHistoryUseCases,
     private val attachmentUseCases: ChatAttachmentUseCases,
     private val networkMonitor: NetworkMonitor,
@@ -136,6 +138,18 @@ class ChatViewModel @Inject constructor(
                 if (isOnline) {
                     val failedIds = failedMessagesData.keys().toList()
                     failedIds.forEach { msgId -> onResendMessage(msgId) }
+                }
+            }
+            .launchIn(viewModelScope)
+            
+        // Observe chat title updates (e.g. from Mesh background syncs)
+        observeUserChatsUseCase()
+            .onEach { chats ->
+                val chat = chats.find { it.id == chatId }
+                if (chat != null) {
+                    val isGroup = chat.type == ChatType.GROUP
+                    val chatTitle = chat.title ?: chat.partnerName ?: if (isGroup) "Group Chat" else "Private Chat"
+                    dispatch(ChatStateAction.TitleUpdated(chatTitle, chat.partnerAvatarUrl))
                 }
             }
             .launchIn(viewModelScope)

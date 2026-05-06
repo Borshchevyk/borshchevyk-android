@@ -86,11 +86,11 @@ interface MessageDao {
     fun insertReactions(reactions: List<ReactionEntity>)
 
     /**
-     * Inserts or updates user entities.
+     * Inserts or updates user entities, ignoring if they already exist to prevent wiping out full profiles with incomplete message data.
      *
-     * @param users The list of [UserEntity] to upsert.
+     * @param users The list of [UserEntity] to insert.
      */
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
     fun insertUsers(users: List<UserEntity>)
 
     /**

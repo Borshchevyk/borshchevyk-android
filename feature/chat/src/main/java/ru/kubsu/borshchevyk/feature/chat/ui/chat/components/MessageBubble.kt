@@ -91,7 +91,15 @@ internal fun MessageBubble(
     ) {
         if (!isFromMe) {
             val authorName = remember(message.author) {
-                message.author?.let { "${it.firstName} ${it.lastName ?: ""}".trim() } ?: "User"
+                message.author?.let { 
+                    val first = it.firstName
+                    val last = it.lastName
+                    if (!first.isNullOrBlank() || !last.isNullOrBlank()) {
+                        "${first ?: ""} ${last ?: ""}".trim()
+                    } else {
+                        it.tag ?: "User"
+                    }
+                } ?: "User"
             }
             Text(
                 text = authorName,

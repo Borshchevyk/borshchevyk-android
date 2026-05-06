@@ -212,6 +212,21 @@ private fun OfflineAuthFields(
     onIntent: (AuthIntent) -> Unit
 ) {
     AuthTextField(
+        value = uiState.firstName,
+        onValueChange = { onIntent(AuthIntent.FirstNameChanged(it)) },
+        label = "First Name",
+        error = uiState.firstNameError,
+        modifier = Modifier.fillMaxWidth()
+    )
+    Spacer(modifier = Modifier.height(16.dp))
+    AuthTextField(
+        value = uiState.lastName,
+        onValueChange = { onIntent(AuthIntent.LastNameChanged(it)) },
+        label = "Last Name (Optional)",
+        modifier = Modifier.fillMaxWidth()
+    )
+    Spacer(modifier = Modifier.height(16.dp))
+    AuthTextField(
         value = uiState.tag,
         onValueChange = { onIntent(AuthIntent.TagChanged(it)) },
         label = "Unique Tag",
