@@ -15,13 +15,13 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
-class MeshGossipProtocol @Inject constructor(
+class MeshFloodingProtocol @Inject constructor(
     private val payloadRouter: MeshPayloadRouter,
     private val connectionManager: MeshConnectionManager,
     private val signatureService: MeshSignatureService,
     @ApplicationScope private val scope: CoroutineScope
 ) {
-    private val TAG = "MeshGossipProtocol"
+    private val TAG = "MeshFloodingProtocol"
 
     private val MAX_CACHE_SIZE = 1000
     private val seenEnvelopes = Collections.newSetFromMap(

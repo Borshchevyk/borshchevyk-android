@@ -16,7 +16,7 @@ import ru.kubsu.borshchevyk.core.network.di.ApplicationScope
 import ru.kubsu.borshchevyk.core.network.di.IoDispatcher
 import ru.kubsu.borshchevyk.core.network.dto.EnrichedUserResponse
 import ru.kubsu.borshchevyk.core.network.mesh.MeshConnectionManager
-import ru.kubsu.borshchevyk.core.network.mesh.MeshGossipProtocol
+import ru.kubsu.borshchevyk.core.network.mesh.MeshFloodingProtocol
 import ru.kubsu.borshchevyk.core.network.mesh.MeshSignatureService
 import java.util.UUID
 import javax.inject.Inject
@@ -24,7 +24,7 @@ import javax.inject.Singleton
 
 @Singleton
 class MeshProfileListener @Inject constructor(
-    private val gossipProtocol: MeshGossipProtocol,
+    private val gossipProtocol: MeshFloodingProtocol,
     private val userDao: UserDao,
     private val publicKeyDao: PublicKeyDao,
     private val json: Json,

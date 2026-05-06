@@ -22,7 +22,7 @@ import ru.kubsu.borshchevyk.core.network.dto.TargetUserRequest
 import ru.kubsu.borshchevyk.core.network.dto.UpdateChatInfoRequest
 import ru.kubsu.borshchevyk.core.network.dto.UpdatePermissionsRequest
 import ru.kubsu.borshchevyk.core.network.mesh.MeshEnvelope
-import ru.kubsu.borshchevyk.core.network.mesh.MeshGossipProtocol
+import ru.kubsu.borshchevyk.core.network.mesh.MeshFloodingProtocol
 import java.util.UUID
 import javax.inject.Inject
 
@@ -30,7 +30,7 @@ class MeshChatNetworkDataSource @Inject constructor(
     private val userDao: UserDao,
     private val chatDao: ChatDao,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
-    private val gossipProtocol: MeshGossipProtocol,
+    private val gossipProtocol: MeshFloodingProtocol,
     private val json: Json
 ) : ChatNetworkDataSource {
 

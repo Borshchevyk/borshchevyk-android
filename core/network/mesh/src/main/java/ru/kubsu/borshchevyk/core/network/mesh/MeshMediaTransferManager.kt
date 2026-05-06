@@ -12,10 +12,13 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import ru.kubsu.borshchevyk.core.network.di.ApplicationScope
 import ru.kubsu.borshchevyk.core.network.dto.FileHeaderDto
+import ru.kubsu.borshchevyk.core.network.dto.FilePullRequestDto
 import java.io.File
 import java.util.Collections
 import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -23,18 +26,21 @@ import javax.inject.Singleton
 class MeshMediaTransferManager @Inject constructor(
     @ApplicationContext private val context: Context,
     private val payloadRouter: MeshPayloadRouter,
-    private val gossipProtocol: MeshGossipProtocol,
+    private val gossipProtocol: MeshFloodingProtocol,
     private val connectionManager: MeshConnectionManager,
     private val json: Json,
-    @ru.kubsu.borshchevyk.core.network.di.ApplicationScope private val scope: CoroutineScope
+    @ApplicationScope private val scope: CoroutineScope
 ) {
     private val TAG = "MeshMediaTransferManager"
 
     // Maps payload ID to attachment metadata (e.g. filename, mimeType)
-    private val payloadMetadataMap = java.util.concurrent.ConcurrentHashMap<Long, MediaMetadata>()
+    private val payloadMetadataMap = ConcurrentHashMap<Long, MediaMetadata>()
+
+    // Maps domain attachmentId to actual local File on disk
+    private val localFiles = ConcurrentHashMap<String, File>()
 
     // Tracks files that have already been flooded to prevent infinite loops
-    private val seenFiles = Collections.newSetFromMap(java.util.concurrent.ConcurrentHashMap<String, Boolean>())
+    private val seenFiles = Collections.newSetFromMap(ConcurrentHashMap<String, Boolean>())
 
     // Emits when a file transfer is complete
     private val _incomingFiles = MutableSharedFlow<ReceivedFile>(extraBufferCapacity = 64)
@@ -53,7 +59,7 @@ class MeshMediaTransferManager @Inject constructor(
             }
             .launchIn(scope)
 
-        // 2. Listen for 1-hop FILE_HEADER control messages to map payload IDs to metadata
+        // 2. Listen for 1-hop FILE_HEADER control messages and PULL requests
         gossipProtocol.incomingEnvelopes
             .onEach { envelope ->
                 if (envelope.action == "FILE_HEADER") {
@@ -67,6 +73,13 @@ class MeshMediaTransferManager @Inject constructor(
                         Log.d(TAG, "Cached metadata for incoming payload ${header.payloadId}: ${header.filename}")
                     } catch (e: Exception) {
                         Log.e(TAG, "Failed to parse FILE_HEADER", e)
+                    }
+                } else if (envelope.action == "FILE_PULL_REQUEST") {
+                    try {
+                        val pullRequest = json.decodeFromString<FilePullRequestDto>(envelope.payload)
+                        handlePullRequest(pullRequest.attachmentId, envelope.originEndpointId)
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Failed to parse FILE_PULL_REQUEST", e)
                     }
                 }
             }
@@ -88,6 +101,80 @@ class MeshMediaTransferManager @Inject constructor(
                 }
             }
             .launchIn(scope)
+    }
+
+    /**
+     * Registers a local file to the Mesh network. 
+     * It stores the file locally and broadcasts the file metadata to the network.
+     * The actual bytes are NOT sent until a peer requests them via PULL.
+     */
+    fun shareLocalFile(attachmentId: String, file: File, contentType: String, originalFilename: String) {
+        val metadata = MediaMetadata(attachmentId, originalFilename, contentType)
+        localFiles[attachmentId] = file
+        seenFiles.add(attachmentId)
+        
+        val header = FileHeaderDto(
+            payloadId = -1L, // Payload ID is -1 because we are just broadcasting metadata, not a payload
+            attachmentId = metadata.attachmentId,
+            filename = metadata.filename,
+            mimeType = metadata.mimeType
+        )
+        
+        val envelope = MeshEnvelope(
+            envelopeId = UUID.randomUUID().toString(),
+            originEndpointId = "", 
+            action = "FILE_HEADER", 
+            payload = json.encodeToString(header)
+        )
+        
+        gossipProtocol.broadcast(envelope)
+        Log.d(TAG, "Gossip: Broadcasted metadata for local file: $attachmentId")
+    }
+
+    /**
+     * Requests the raw file bytes from the Mesh network.
+     * Floods a PULL request. Any node with the file will respond.
+     */
+    fun pullFile(attachmentId: String) {
+        if (localFiles.containsKey(attachmentId)) {
+            Log.d(TAG, "File $attachmentId is already local. Skipping pull.")
+            return
+        }
+
+        val request = FilePullRequestDto(
+            attachmentId = attachmentId,
+            requesterEndpointId = "self" // Will be filled by broadcast
+        )
+        
+        val envelope = MeshEnvelope(
+            envelopeId = UUID.randomUUID().toString(),
+            originEndpointId = "",
+            action = "FILE_PULL_REQUEST",
+            payload = json.encodeToString(request)
+        )
+        
+        gossipProtocol.broadcast(envelope)
+        Log.d(TAG, "Pull: Requested file $attachmentId from Mesh")
+    }
+
+    private fun handlePullRequest(attachmentId: String, requesterId: String) {
+        val file = localFiles[attachmentId]
+        if (file != null) {
+            val metadata = payloadMetadataMap.values.find { it.attachmentId == attachmentId } 
+                ?: MediaMetadata(attachmentId, file.name, "application/octet-stream")
+            
+            val connected = connectionManager.connectedEndpoints.value
+            if (connected.contains(requesterId)) {
+                Log.d(TAG, "Sending file payload directly to requester: $requesterId")
+                sendFile(listOf(requesterId), file, metadata)
+            } else {
+                Log.d(TAG, "Flooding file payload to neighbors to route to $requesterId")
+                val targets = connected.filter { it != requesterId }
+                if (targets.isNotEmpty()) {
+                    sendFile(targets, file, metadata)
+                }
+            }
+        }
     }
 
     fun sendFile(endpointIds: List<String>, file: File, metadata: MediaMetadata): Long {
@@ -140,6 +227,8 @@ class MeshMediaTransferManager @Inject constructor(
                 Log.w(TAG, "Received file payload ${payload.id} but no metadata found in cache!")
             } else {
                 Log.d(TAG, "Successfully received file payload ${payload.id} (${metadata.filename})")
+                // Cache it locally so we can serve it to others!
+                localFiles[metadata.attachmentId] = payloadFile
             }
             _incomingFiles.tryEmit(ReceivedFile(endpointId, payloadFile, metadata))
             

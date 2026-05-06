@@ -21,7 +21,7 @@ import ru.kubsu.borshchevyk.core.network.dto.SendMessageRequest
 import ru.kubsu.borshchevyk.core.network.dto.ShortChatDto
 import ru.kubsu.borshchevyk.core.network.dto.ShortUserDto
 import ru.kubsu.borshchevyk.core.network.media.MeshMediaNetworkDataSource
-import ru.kubsu.borshchevyk.core.network.mesh.MeshGossipProtocol
+import ru.kubsu.borshchevyk.core.network.mesh.MeshFloodingProtocol
 import java.time.Instant
 import java.util.UUID
 import javax.inject.Inject
@@ -29,7 +29,7 @@ import ru.kubsu.borshchevyk.core.network.mesh.MeshEnvelope as GossipEnvelope
 
 class MeshMessageNetworkDataSource @Inject constructor(
     private val json: Json,
-    private val gossipProtocol: MeshGossipProtocol,
+    private val gossipProtocol: MeshFloodingProtocol,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
     private val mediaDataSource: MeshMediaNetworkDataSource,
     @ru.kubsu.borshchevyk.core.network.di.ApplicationScope private val scope: CoroutineScope

@@ -1,10 +1,10 @@
 package ru.kubsu.borshchevyk.core.network.call
 
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.filter
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.withContext
@@ -18,7 +18,7 @@ import ru.kubsu.borshchevyk.core.network.dto.JoinCallResponse
 import ru.kubsu.borshchevyk.core.network.dto.NotificationDto
 import ru.kubsu.borshchevyk.core.network.dto.ShortUserDto
 import ru.kubsu.borshchevyk.core.network.mesh.MeshEnvelope
-import ru.kubsu.borshchevyk.core.network.mesh.MeshGossipProtocol
+import ru.kubsu.borshchevyk.core.network.mesh.MeshFloodingProtocol
 import ru.kubsu.borshchevyk.core.network.websocket.CallWebSocketDataSource
 import java.util.UUID
 import javax.inject.Inject
@@ -27,7 +27,7 @@ import javax.inject.Singleton
 @Singleton
 class MeshCallNetworkDataSource @Inject constructor(
     private val json: Json,
-    private val gossipProtocol: MeshGossipProtocol,
+    private val gossipProtocol: MeshFloodingProtocol,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
     @ru.kubsu.borshchevyk.core.network.di.ApplicationScope private val scope: CoroutineScope
 ) : CallNetworkDataSource, CallWebSocketDataSource {

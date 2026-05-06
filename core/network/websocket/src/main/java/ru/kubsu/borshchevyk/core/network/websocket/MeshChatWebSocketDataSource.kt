@@ -12,14 +12,14 @@ import ru.kubsu.borshchevyk.core.network.dto.ReadReceiptEvent
 import ru.kubsu.borshchevyk.core.network.dto.ShortUserDto
 import ru.kubsu.borshchevyk.core.network.dto.TypingEvent
 import ru.kubsu.borshchevyk.core.network.mesh.MeshEnvelope
-import ru.kubsu.borshchevyk.core.network.mesh.MeshGossipProtocol
+import ru.kubsu.borshchevyk.core.network.mesh.MeshFloodingProtocol
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
 class MeshChatWebSocketDataSource @Inject constructor(
-    private val gossipProtocol: MeshGossipProtocol,
+    private val gossipProtocol: MeshFloodingProtocol,
     private val json: Json
 ) : ChatWebSocketDataSource {
 
