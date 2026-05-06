@@ -34,7 +34,8 @@ class MeshChatWebSocketDataSource @Inject constructor(
                     val messageDto = json.decodeFromString<NotificationDto.MessageDto>(envelope.payload)
                     messageDto.copy(
                         author = ShortUserDto(id = envelope.originEndpointId),
-                        status = "RECEIVED_BY_USER"
+                        status = "RECEIVED_BY_USER",
+                        source = "OFFLINE"
                     )
                 } else {
                     val editEvent = json.decodeFromString<EditMessageEvent>(envelope.payload)
@@ -45,7 +46,8 @@ class MeshChatWebSocketDataSource @Inject constructor(
                         text = editEvent.text,
                         createdAt = Instant.now().toString(),
                         updatedAt = Instant.now().toString(),
-                        status = "RECEIVED_BY_USER"
+                        status = "RECEIVED_BY_USER",
+                        source = "OFFLINE"
                     )
                 }
             }
