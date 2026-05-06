@@ -183,28 +183,80 @@ class MeshChatNetworkDataSource @Inject constructor(
     }
 
     override suspend fun clearChatHistory(chatId: String, forAll: Boolean): NetworkResult<Unit> {
-        val chat = ChatResponse(id = chatId, type = ChatType.GROUP, createdAt = "")
-        val event = NotificationDto.ChatEventDto(chat, "CLEAR_HISTORY")
-        val envelope = MeshEnvelope(
-            envelopeId = UUID.randomUUID().toString(),
-            originEndpointId = "self",
-            action = "CLEAR_HISTORY",
-            payload = json.encodeToString(event)
-        )
-        gossipProtocol.broadcast(envelope)
+        if (forAll) {
+            withContext(ioDispatcher) {
+                val existingChat = chatDao.getChat(chatId)
+                if (existingChat != null) {
+                    val localUserId = signatureService.getUserId() ?: "self"
+                    val localUser = userDao.getUser(localUserId)
+                    val localName = localUser?.let { "${it.firstName.orEmpty()} ${it.lastName.orEmpty()}".trim().takeIf { name -> name.isNotEmpty() } ?: it.tag } ?: "Unknown"
+
+                    val chatResponse = ChatResponse(
+                        id = existingChat.id,
+                        type = existingChat.type,
+                        title = existingChat.title,
+                        description = existingChat.description,
+                        createdAt = existingChat.createdAt,
+                        partnerId = localUserId,
+                        partnerName = localName,
+                        partnerAvatarUrl = localUser?.avatarUrl,
+                        partnerLastOnline = existingChat.partnerLastOnline,
+                        lastMessage = null, // Clear last message
+                        unreadCount = 0,
+                        allowedReactions = existingChat.allowedReactions,
+                        isDeletable = existingChat.isDeletable,
+                        isPinned = existingChat.isPinned
+                    )
+
+                    val event = NotificationDto.ChatEventDto(chatResponse, "HISTORY_CLEARED")
+                    val envelope = MeshEnvelope(
+                        envelopeId = UUID.randomUUID().toString(),
+                        originEndpointId = "self",
+                        action = "HISTORY_CLEARED",
+                        payload = json.encodeToString(event)
+                    )
+                    gossipProtocol.broadcast(envelope)
+                }
+            }
+        }
         return NetworkResult.Success(Unit)
     }
 
     override suspend fun deleteChat(chatId: String): NetworkResult<Unit> {
-        val chat = ChatResponse(id = chatId, type = ChatType.GROUP, createdAt = "")
-        val event = NotificationDto.ChatEventDto(chat, "DELETE_CHAT")
-        val envelope = MeshEnvelope(
-            envelopeId = UUID.randomUUID().toString(),
-            originEndpointId = "self",
-            action = "DELETE_CHAT",
-            payload = json.encodeToString(event)
-        )
-        gossipProtocol.broadcast(envelope)
+        withContext(ioDispatcher) {
+            val existingChat = chatDao.getChat(chatId)
+            if (existingChat != null) {
+                val localUserId = signatureService.getUserId() ?: "self"
+                val localUser = userDao.getUser(localUserId)
+                val localName = localUser?.let { "${it.firstName.orEmpty()} ${it.lastName.orEmpty()}".trim().takeIf { name -> name.isNotEmpty() } ?: it.tag } ?: "Unknown"
+
+                val chatResponse = ChatResponse(
+                    id = existingChat.id,
+                    type = existingChat.type,
+                    title = existingChat.title,
+                    description = existingChat.description,
+                    createdAt = existingChat.createdAt,
+                    partnerId = localUserId,
+                    partnerName = localName,
+                    partnerAvatarUrl = localUser?.avatarUrl,
+                    partnerLastOnline = existingChat.partnerLastOnline,
+                    lastMessage = existingChat.lastMessage,
+                    unreadCount = existingChat.unreadCount,
+                    allowedReactions = existingChat.allowedReactions,
+                    isDeletable = existingChat.isDeletable,
+                    isPinned = existingChat.isPinned
+                )
+
+                val event = NotificationDto.ChatEventDto(chatResponse, "DELETED")
+                val envelope = MeshEnvelope(
+                    envelopeId = UUID.randomUUID().toString(),
+                    originEndpointId = "self",
+                    action = "DELETED",
+                    payload = json.encodeToString(event)
+                )
+                gossipProtocol.broadcast(envelope)
+            }
+        }
         return NetworkResult.Success(Unit)
     }
 

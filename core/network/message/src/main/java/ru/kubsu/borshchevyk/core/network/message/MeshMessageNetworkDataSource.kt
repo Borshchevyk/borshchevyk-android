@@ -160,13 +160,15 @@ class MeshMessageNetworkDataSource @Inject constructor(
 
     override suspend fun deleteMessage(chatId: String, messageId: String, forAll: Boolean): NetworkResult<Unit> {
         return withContext(ioDispatcher) {
-             val envelope = GossipEnvelope(
-                 envelopeId = UUID.randomUUID().toString(),
-                 originEndpointId = "",
-                 action = "DELETE_MESSAGE",
-                 payload = "{\"messageId\":\"$messageId\",\"forAll\":$forAll}"
-             )
-             gossipProtocol.broadcast(envelope)
+             if (forAll) {
+                 val envelope = GossipEnvelope(
+                     envelopeId = UUID.randomUUID().toString(),
+                     originEndpointId = "",
+                     action = "DELETE_MESSAGE",
+                     payload = "{\"messageId\":\"$messageId\",\"forAll\":$forAll}"
+                 )
+                 gossipProtocol.broadcast(envelope)
+             }
              NetworkResult.Success(Unit)
         }
     }

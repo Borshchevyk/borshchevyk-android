@@ -2,9 +2,12 @@ package ru.kubsu.borshchevyk.core.data.chat
 
 import android.util.Log
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import ru.kubsu.borshchevyk.core.database.dao.ChatDao
 import ru.kubsu.borshchevyk.core.database.dao.MessageDao
@@ -18,18 +21,14 @@ import ru.kubsu.borshchevyk.core.model.domain.DomainTargetUserParam
 import ru.kubsu.borshchevyk.core.model.domain.DomainUpdateChatInfoParam
 import ru.kubsu.borshchevyk.core.model.domain.DomainUpdatePermissionsParam
 import ru.kubsu.borshchevyk.core.model.domain.GlobalSearchResults
+import ru.kubsu.borshchevyk.core.network.chat.ChatNetworkDataSource
 import ru.kubsu.borshchevyk.core.network.client.getOrThrow
+import ru.kubsu.borshchevyk.core.network.di.IoDispatcher
 import ru.kubsu.borshchevyk.core.network.dto.CreateChatRequest
 import ru.kubsu.borshchevyk.core.network.dto.TargetUserRequest
 import ru.kubsu.borshchevyk.core.network.dto.UpdateChatInfoRequest
 import ru.kubsu.borshchevyk.core.network.dto.UpdatePermissionsRequest
-import ru.kubsu.borshchevyk.core.network.chat.ChatNetworkDataSource
-import ru.kubsu.borshchevyk.core.network.di.IoDispatcher
 import javax.inject.Inject
-
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.launch
 
 /**
  * Implementation of [ChatRepository] that manages chat list and chat actions.
@@ -169,6 +168,10 @@ class ChatRepositoryImpl @Inject constructor(
      */
     override suspend fun deleteChat(chatId: String) {
         networkDataSource.deleteChat(chatId).getOrThrow()
+        withContext(ioDispatcher) {
+            chatDao.deleteChat(chatId)
+            messageDao.deleteMessagesByChat(chatId)
+        }
     }
 
     /**

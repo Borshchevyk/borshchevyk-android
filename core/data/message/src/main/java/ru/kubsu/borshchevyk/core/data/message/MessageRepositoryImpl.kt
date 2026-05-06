@@ -327,6 +327,21 @@ class MessageRepositoryImpl @Inject constructor(
      */
     override fun observeUnpins(chatId: String): Flow<String> = 
         chatWebSocketDataSource.observeUnpins(chatId)
+            .onEach { messageId ->
+                withContext(ioDispatcher) {
+                    val msgWithDetails = messageDao.getMessage(messageId)
+                    if (msgWithDetails != null && msgWithDetails.message.isPinned) {
+                        val updatedMsg = msgWithDetails.message.copy(isPinned = false)
+                        messageDao.upsertMessageWithDetails(
+                            message = updatedMsg,
+                            author = msgWithDetails.author,
+                            forwardedFromUser = msgWithDetails.forwardedFromUser,
+                            attachments = msgWithDetails.attachments,
+                            reactions = msgWithDetails.reactions
+                        )
+                    }
+                }
+            }
 
     /**
      * Observes read receipt updates for messages and updates the local cache accordingly.
@@ -430,6 +445,19 @@ class MessageRepositoryImpl @Inject constructor(
      */
     override suspend fun pinMessage(chatId: String, messageId: String) {
         networkDataSource.pinMessage(chatId, messageId).getOrThrow()
+        withContext(ioDispatcher) {
+            val msgWithDetails = messageDao.getMessage(messageId)
+            if (msgWithDetails != null && !msgWithDetails.message.isPinned) {
+                val updatedMsg = msgWithDetails.message.copy(isPinned = true)
+                messageDao.upsertMessageWithDetails(
+                    message = updatedMsg,
+                    author = msgWithDetails.author,
+                    forwardedFromUser = msgWithDetails.forwardedFromUser,
+                    attachments = msgWithDetails.attachments,
+                    reactions = msgWithDetails.reactions
+                )
+            }
+        }
     }
 
     /**
@@ -440,6 +468,19 @@ class MessageRepositoryImpl @Inject constructor(
      */
     override suspend fun unpinMessage(chatId: String, messageId: String) {
         networkDataSource.unpinMessage(chatId, messageId).getOrThrow()
+        withContext(ioDispatcher) {
+            val msgWithDetails = messageDao.getMessage(messageId)
+            if (msgWithDetails != null && msgWithDetails.message.isPinned) {
+                val updatedMsg = msgWithDetails.message.copy(isPinned = false)
+                messageDao.upsertMessageWithDetails(
+                    message = updatedMsg,
+                    author = msgWithDetails.author,
+                    forwardedFromUser = msgWithDetails.forwardedFromUser,
+                    attachments = msgWithDetails.attachments,
+                    reactions = msgWithDetails.reactions
+                )
+            }
+        }
     }
 
     /**
@@ -547,5 +588,12 @@ class MessageRepositoryImpl @Inject constructor(
             attachments = toAttachmentEntities(),
             reactions = toReactionEntities()
         )
+        
+        // Update the chat's last message to show in the chat list
+        val chat = chatDao.getChat(chatId)
+        if (chat != null) {
+            val previewText = if (attachments.isNotEmpty() && text.isBlank()) "Attachment" else text
+            chatDao.upsertChat(chat.copy(lastMessage = previewText))
+        }
     }
 }

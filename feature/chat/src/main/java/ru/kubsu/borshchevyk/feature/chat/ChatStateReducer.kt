@@ -1,6 +1,7 @@
 package ru.kubsu.borshchevyk.feature.chat
 
 import ru.kubsu.borshchevyk.core.model.domain.ChatEvent
+import ru.kubsu.borshchevyk.core.model.domain.GlobalChatAction
 import ru.kubsu.borshchevyk.core.model.domain.MessageReaction
 import ru.kubsu.borshchevyk.core.model.domain.MessageStatus
 
@@ -44,7 +45,12 @@ fun ChatUiState.reduce(action: ChatStateAction): ChatUiState {
         }
         is ChatStateAction.HistoryUpdated -> {
             if (this is ChatUiState.Content) {
-                this.copy(feed = this.feed.copy(messages = action.history))
+                this.copy(
+                    feed = this.feed.copy(
+                        messages = action.history,
+                        pinnedMessages = action.history.filter { it.isPinned }
+                    )
+                )
             } else this
         }
         is ChatStateAction.SetEditingMessage -> {
@@ -260,6 +266,12 @@ fun ChatUiState.reduce(action: ChatStateAction): ChatUiState {
                         } else it
                     }
                     this.copy(feed = this.feed.copy(messages = updatedMessages))
+                }
+                is ChatEvent.GlobalChatEvent -> {
+                    if (event.event.action == GlobalChatAction.DELETED && 
+                        event.event.chat.id.equals(this.context.chatId, ignoreCase = true)) {
+                        this.copy(isChatDeleted = true)
+                    } else this
                 }
             }
         }

@@ -103,4 +103,6 @@ sealed interface ChatEvent {
     data class MessageUnpinned(val messageId: String) : ChatEvent
     /** Event emitted when a read receipt is received. */
     data class ReadReceipt(val event: DomainReadReceiptEvent) : ChatEvent
+    /** Event emitted for global chat operations like deletion. */
+    data class GlobalChatEvent(val event: DomainGlobalChatEvent) : ChatEvent
 }

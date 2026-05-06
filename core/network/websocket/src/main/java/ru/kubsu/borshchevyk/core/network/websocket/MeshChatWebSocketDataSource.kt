@@ -56,7 +56,7 @@ class MeshChatWebSocketDataSource @Inject constructor(
     override fun observeChatEvents(): Flow<NotificationDto.ChatEventDto> {
         return gossipProtocol.incomingEnvelopes
             .filter { 
-                it.action in setOf("UPDATE_CHAT", "CLEAR_HISTORY", "DELETE_CHAT", "INVITE_USER", "KICK_USER") 
+                it.action in setOf("UPDATE_CHAT", "HISTORY_CLEARED", "DELETED", "INVITE_USER", "KICK_USER") 
             }
             .map { envelope ->
                 val chatEvent = json.decodeFromString<NotificationDto.ChatEventDto>(envelope.payload)
@@ -83,10 +83,10 @@ class MeshChatWebSocketDataSource @Inject constructor(
             .map { envelope ->
                 try {
                     val payload = json.decodeFromString<DeleteMessagePayload>(envelope.payload)
-                    payload.messageId
+                    if (payload.forAll) payload.messageId else ""
                 } catch (e: Exception) {
                     // Fallback to basic string parsing if json decode fails
-                    if (envelope.payload.contains("messageId")) {
+                    if (envelope.payload.contains("messageId") && envelope.payload.contains("\"forAll\":true")) {
                         envelope.payload.substringAfter("\"messageId\":\"").substringBefore("\"")
                     } else {
                         ""
