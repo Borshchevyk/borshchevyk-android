@@ -14,6 +14,7 @@ import ru.kubsu.borshchevyk.core.data.chat.toEntity
 import ru.kubsu.borshchevyk.core.database.dao.ChatDao
 import ru.kubsu.borshchevyk.core.database.dao.MessageDao
 import ru.kubsu.borshchevyk.core.database.dao.UserDao
+import ru.kubsu.borshchevyk.core.database.entity.ReactionEntity
 import ru.kubsu.borshchevyk.core.domain.message.MessageRepository
 import ru.kubsu.borshchevyk.core.model.domain.DomainGlobalChatEvent
 import ru.kubsu.borshchevyk.core.model.domain.DomainPresenceStatus
@@ -27,6 +28,7 @@ import ru.kubsu.borshchevyk.core.network.client.getOrThrow
 import ru.kubsu.borshchevyk.core.network.di.IoDispatcher
 import ru.kubsu.borshchevyk.core.network.dto.EditMessageRequest
 import ru.kubsu.borshchevyk.core.network.dto.SendMessageRequest
+import ru.kubsu.borshchevyk.core.network.mesh.MeshSignatureService
 import ru.kubsu.borshchevyk.core.network.message.MessageNetworkDataSource
 import ru.kubsu.borshchevyk.core.network.websocket.ChatWebSocketDataSource
 import ru.kubsu.borshchevyk.core.network.websocket.PresenceWebSocketDataSource
@@ -52,6 +54,7 @@ class MessageRepositoryImpl @Inject constructor(
     private val chatDao: ChatDao,
     private val userDao: UserDao,
     private val meshProfileListener: MeshProfileListener,
+    private val signatureService: MeshSignatureService,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher
 ) : MessageRepository {
 
@@ -391,6 +394,16 @@ class MessageRepositoryImpl @Inject constructor(
      */
     override suspend fun addReaction(chatId: String, messageId: String, reaction: String) {
         networkDataSource.addReaction(chatId, messageId, reaction).getOrThrow()
+        
+        withContext(ioDispatcher) {
+            val userId = signatureService.getUserId() ?: "self"
+            val reactionEntity = ReactionEntity(
+                messageId = messageId,
+                userId = userId,
+                reaction = reaction
+            )
+            messageDao.insertReactions(listOf(reactionEntity))
+        }
     }
 
     /**
@@ -402,6 +415,11 @@ class MessageRepositoryImpl @Inject constructor(
      */
     override suspend fun removeReaction(chatId: String, messageId: String, reaction: String) {
         networkDataSource.removeReaction(chatId, messageId, reaction).getOrThrow()
+        
+        withContext(ioDispatcher) {
+            val userId = signatureService.getUserId() ?: "self"
+            messageDao.deleteReaction(messageId, userId, reaction)
+        }
     }
 
     /**
