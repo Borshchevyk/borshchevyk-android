@@ -8,7 +8,9 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import ru.kubsu.borshchevyk.core.database.dao.PublicKeyDao
 import ru.kubsu.borshchevyk.core.database.dao.UserDao
+import ru.kubsu.borshchevyk.core.database.entity.PublicKeyEntity
 import ru.kubsu.borshchevyk.core.database.entity.UserEntity
 import ru.kubsu.borshchevyk.core.network.di.ApplicationScope
 import ru.kubsu.borshchevyk.core.network.di.IoDispatcher
@@ -24,6 +26,7 @@ import javax.inject.Singleton
 class MeshProfileListener @Inject constructor(
     private val gossipProtocol: MeshGossipProtocol,
     private val userDao: UserDao,
+    private val publicKeyDao: PublicKeyDao,
     private val json: Json,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
     @ApplicationScope private val scope: CoroutineScope,
@@ -52,6 +55,14 @@ class MeshProfileListener @Inject constructor(
                                     avatars = existingUser?.avatars ?: emptyList()
                                 )
                             )
+                            
+                            // Save the public key if provided
+                            val incomingPubKey = payload.publicKey
+                            if (!incomingPubKey.isNullOrBlank()) {
+                                publicKeyDao.insertPublicKey(PublicKeyEntity(payload.id, incomingPubKey))
+                                Log.d(TAG, "Saved public key for mesh user: ${payload.id}")
+                            }
+                            
                             Log.d(TAG, "Saved mesh user profile: ${payload.id}")
                         }
                     } catch (e: Exception) {
@@ -74,13 +85,15 @@ class MeshProfileListener @Inject constructor(
         withContext(ioDispatcher) {
             val userId = signatureService.getUserId() ?: return@withContext
             val localUser = userDao.getUser(userId) ?: return@withContext
+            val localPubKey = signatureService.getLocalPublicKey()
             
             val profilePayload = EnrichedUserResponse(
                 id = localUser.userId,
                 firstName = localUser.firstName,
                 lastName = localUser.lastName,
                 tag = localUser.tag,
-                avatarUrl = localUser.avatarUrl
+                avatarUrl = localUser.avatarUrl,
+                publicKey = localPubKey
             )
             
             val payloadString = json.encodeToString(profilePayload)

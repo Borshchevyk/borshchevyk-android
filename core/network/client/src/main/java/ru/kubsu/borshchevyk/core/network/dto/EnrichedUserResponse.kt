@@ -10,6 +10,7 @@ import kotlinx.serialization.Serializable
  * @property lastName The last name of the user.
  * @property tag The user's tag or username handle.
  * @property avatarUrl The URL of the user's avatar image.
+ * @property publicKey The user's Base64-encoded X.509 public key (optional, used for P2P security).
  */
 @Serializable
 data class EnrichedUserResponse(
@@ -17,5 +18,6 @@ data class EnrichedUserResponse(
     val firstName: String? = null,
     val lastName: String? = null,
     val tag: String? = null,
-    val avatarUrl: String? = null
+    val avatarUrl: String? = null,
+    val publicKey: String? = null
 )

@@ -7,14 +7,14 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.onEach
-import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
 import ru.kubsu.borshchevyk.core.network.client.TokenProvider
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -40,6 +40,7 @@ class AuthPreferences @Inject constructor(@ApplicationContext private val contex
     private val USER_ID = stringPreferencesKey("user_id")
     private val TAG = stringPreferencesKey("tag")
     private val LOCAL_WRAPPED_PRIVATE_KEY = stringPreferencesKey("local_wrapped_private_key")
+    private val LOCAL_PUBLIC_KEY = stringPreferencesKey("local_public_key")
 
     @Volatile
     private var cachedAccessToken: String? = null
@@ -64,6 +65,9 @@ class AuthPreferences @Inject constructor(@ApplicationContext private val contex
 
     /** Flow emitting the Base64-encoded, AES-wrapped RSA private key. */
     val localWrappedPrivateKey: Flow<String?> = context.dataStore.data.map { it[LOCAL_WRAPPED_PRIVATE_KEY] }
+    
+    /** Flow emitting the Base64-encoded RSA public key. */
+    val localPublicKey: Flow<String?> = context.dataStore.data.map { it[LOCAL_PUBLIC_KEY] }
 
     /**
      * Retrieves the current JWT access token asynchronously.
@@ -113,6 +117,7 @@ class AuthPreferences @Inject constructor(@ApplicationContext private val contex
             prefs.remove(USER_ID)
             prefs.remove(TAG)
             prefs.remove(LOCAL_WRAPPED_PRIVATE_KEY)
+            prefs.remove(LOCAL_PUBLIC_KEY)
         }
     }
 
@@ -159,6 +164,17 @@ class AuthPreferences @Inject constructor(@ApplicationContext private val contex
     suspend fun saveLocalWrappedPrivateKey(key: String) {
         context.dataStore.edit { prefs ->
             prefs[LOCAL_WRAPPED_PRIVATE_KEY] = key
+        }
+    }
+
+    /**
+     * Persists the user's public key.
+     *
+     * @param key the Base64-encoded string representing the public key
+     */
+    suspend fun saveLocalPublicKey(key: String) {
+        context.dataStore.edit { prefs ->
+            prefs[LOCAL_PUBLIC_KEY] = key
         }
     }
 }

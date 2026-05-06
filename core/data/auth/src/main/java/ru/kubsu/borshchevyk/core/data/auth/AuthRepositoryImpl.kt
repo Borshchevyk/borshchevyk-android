@@ -4,12 +4,12 @@ import android.util.Base64
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.firstOrNull
 import ru.kubsu.borshchevyk.core.domain.auth.AuthRepository
+import ru.kubsu.borshchevyk.core.network.auth.AuthNetworkDataSource
 import ru.kubsu.borshchevyk.core.network.client.getOrThrow
 import ru.kubsu.borshchevyk.core.network.dto.ChallengeRequest
 import ru.kubsu.borshchevyk.core.network.dto.LoginRequest
 import ru.kubsu.borshchevyk.core.network.dto.RegisterRequest
 import ru.kubsu.borshchevyk.core.network.dto.VerifyRequest
-import ru.kubsu.borshchevyk.core.network.auth.AuthNetworkDataSource
 import ru.kubsu.borshchevyk.core.network.websocket.WebSocketConnectionManager
 import ru.kubsu.borshchevyk.core.security.KeyManager
 import java.security.MessageDigest
@@ -78,6 +78,10 @@ class AuthRepositoryImpl @Inject constructor(
     override suspend fun registerOffline(tag: String): String {
         keyManager.generateKeystoreRsaKeyPair("mesh_key_$tag")
         authPreferences.saveTag(tag)
+        val pubKey = keyManager.getPublicKey("mesh_key_$tag")
+        if (pubKey != null) {
+            authPreferences.saveLocalPublicKey(Base64.encodeToString(pubKey.encoded, Base64.NO_WRAP))
+        }
         return "offline_user_$tag"
     }
 
@@ -101,6 +105,7 @@ class AuthRepositoryImpl @Inject constructor(
         val rawPrivateKey = keyPair.private.encoded
         val encryptedPrivKey = keyManager.encryptWithPassword(rawPrivateKey, password)
         val publicKeyEncoded = keyPair.public.encoded
+        val pubKeyBase64 = android.util.Base64.encodeToString(publicKeyEncoded, android.util.Base64.NO_WRAP)
 
         val request = RegisterRequest(
             email = email,
@@ -108,15 +113,16 @@ class AuthRepositoryImpl @Inject constructor(
             firstName = firstName,
             lastName = lastName,
             passwordHash = passwordHash,
-            publicKey = Base64.encodeToString(publicKeyEncoded, Base64.NO_WRAP),
-            encryptedPrivateKey = Base64.encodeToString(encryptedPrivKey, Base64.NO_WRAP)
+            publicKey = pubKeyBase64,
+            encryptedPrivateKey = android.util.Base64.encodeToString(encryptedPrivKey, android.util.Base64.NO_WRAP)
         )
         
         val response = networkDataSource.register(request).getOrThrow()
 
         val localAesAlias = "local_aes_key_${response.userId}"
         val locallyWrappedKey = keyManager.wrapKeyWithLocalKeystore(localAesAlias, rawPrivateKey)
-        authPreferences.saveLocalWrappedPrivateKey(Base64.encodeToString(locallyWrappedKey, Base64.NO_WRAP))
+        authPreferences.saveLocalWrappedPrivateKey(android.util.Base64.encodeToString(locallyWrappedKey, android.util.Base64.NO_WRAP))
+        authPreferences.saveLocalPublicKey(pubKeyBase64)
 
         authPreferences.saveUserId(response.userId)
 
@@ -138,12 +144,24 @@ class AuthRepositoryImpl @Inject constructor(
 
         val loginResponse = networkDataSource.login(LoginRequest(email, passwordHash)).getOrThrow()
 
-        val encryptedPrivKeyBytes = Base64.decode(loginResponse.encryptedPrivateKey, Base64.NO_WRAP)
+        val encryptedPrivKeyBytes = android.util.Base64.decode(loginResponse.encryptedPrivateKey, android.util.Base64.NO_WRAP)
         val privateKeyBytes = keyManager.decryptWithPassword(encryptedPrivKeyBytes, password)
 
         val localAesAlias = "local_aes_key_${loginResponse.userId}"
         val locallyWrappedKey = keyManager.wrapKeyWithLocalKeystore(localAesAlias, privateKeyBytes)
-        authPreferences.saveLocalWrappedPrivateKey(Base64.encodeToString(locallyWrappedKey, Base64.NO_WRAP))
+        authPreferences.saveLocalWrappedPrivateKey(android.util.Base64.encodeToString(locallyWrappedKey, android.util.Base64.NO_WRAP))
+        
+        // Extract public key from private key bytes and save it
+        try {
+            val keyFactory = java.security.KeyFactory.getInstance("RSA")
+            val privateKeySpec = java.security.spec.PKCS8EncodedKeySpec(privateKeyBytes)
+            val privateKey = keyFactory.generatePrivate(privateKeySpec) as java.security.interfaces.RSAPrivateCrtKey
+            val publicKeySpec = java.security.spec.RSAPublicKeySpec(privateKey.modulus, privateKey.publicExponent)
+            val publicKey = keyFactory.generatePublic(publicKeySpec)
+            authPreferences.saveLocalPublicKey(android.util.Base64.encodeToString(publicKey.encoded, android.util.Base64.NO_WRAP))
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
 
         val challengeResponse = networkDataSource.challenge(ChallengeRequest(loginResponse.userId)).getOrThrow()
 

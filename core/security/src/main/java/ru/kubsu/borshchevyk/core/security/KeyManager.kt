@@ -118,4 +118,13 @@ interface KeyManager {
      * @throws IllegalStateException if the key is not found in the Keystore
      */
     fun signData(alias: String, data: ByteArray): ByteArray
+    /**
+     * Verifies the cryptographic signature of the given data using raw RSA public key bytes.
+     *
+     * @param publicKeyBytes the raw X.509 encoded RSA public key
+     * @param data the original data that was signed
+     * @param signature the cryptographic signature to verify
+     * @return true if the signature is valid and matches the data, false otherwise
+     */
+    fun verifyDataWithRawPublicKey(publicKeyBytes: ByteArray, data: ByteArray, signature: ByteArray): Boolean
 }

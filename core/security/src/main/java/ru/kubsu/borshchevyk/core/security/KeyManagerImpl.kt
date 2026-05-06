@@ -245,11 +245,30 @@ class KeyManagerImpl @Inject constructor() : KeyManager {
      */
     override fun signData(alias: String, data: ByteArray): ByteArray {
         val entry = keyStore.getEntry(alias, null) as? KeyStore.PrivateKeyEntry
-            ?: throw IllegalStateException("Key with alias $alias not found")
+            ?: throw IllegalStateException("Key pair for alias $alias not found in AndroidKeyStore")
 
-        val signature = Signature.getInstance("SHA256withRSA")
-        signature.initSign(entry.privateKey)
-        signature.update(data)
-        return signature.sign()
+        val signer = Signature.getInstance("SHA256withRSA")
+        signer.initSign(entry.privateKey)
+        signer.update(data)
+        return signer.sign()
+    }
+
+    /**
+     * Verifies the cryptographic signature of the given data using raw RSA public key bytes.
+     *
+     * @param publicKeyBytes the raw X.509 encoded RSA public key
+     * @param data the original data that was signed
+     * @param signature the cryptographic signature to verify
+     * @return true if the signature is valid and matches the data, false otherwise
+     */
+    override fun verifyDataWithRawPublicKey(publicKeyBytes: ByteArray, data: ByteArray, signature: ByteArray): Boolean {
+        val keyFactory = KeyFactory.getInstance(KeyProperties.KEY_ALGORITHM_RSA)
+        val publicKeySpec = java.security.spec.X509EncodedKeySpec(publicKeyBytes)
+        val publicKey = keyFactory.generatePublic(publicKeySpec)
+
+        val signer = Signature.getInstance("SHA256withRSA")
+        signer.initVerify(publicKey)
+        signer.update(data)
+        return signer.verify(signature)
     }
 }

@@ -3,14 +3,13 @@ package ru.kubsu.borshchevyk.core.network.mesh
 import android.util.Log
 import com.google.android.gms.nearby.connection.Payload
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
+import ru.kubsu.borshchevyk.core.network.di.ApplicationScope
 import java.util.Collections
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -20,7 +19,7 @@ class MeshGossipProtocol @Inject constructor(
     private val payloadRouter: MeshPayloadRouter,
     private val connectionManager: MeshConnectionManager,
     private val signatureService: MeshSignatureService,
-    @ru.kubsu.borshchevyk.core.network.di.ApplicationScope private val scope: CoroutineScope
+    @ApplicationScope private val scope: CoroutineScope
 ) {
     private val TAG = "MeshGossipProtocol"
 
@@ -44,7 +43,7 @@ class MeshGossipProtocol @Inject constructor(
             .launchIn(scope)
     }
 
-    private fun handleIncomingPayload(received: MeshPayloadRouter.ReceivedPayload) {
+    private suspend fun handleIncomingPayload(received: MeshPayloadRouter.ReceivedPayload) {
         if (received.payload.type == Payload.Type.BYTES) {
             val bytes = received.payload.asBytes() ?: return
             try {
@@ -56,19 +55,37 @@ class MeshGossipProtocol @Inject constructor(
         }
     }
 
-    private fun processEnvelope(envelope: MeshEnvelope, senderEndpointId: String?) {
+    private suspend fun processEnvelope(envelope: MeshEnvelope, senderEndpointId: String?) {
         val isNew = seenEnvelopes.add(envelope.envelopeId)
         
         if (!isNew) {
-            Log.d(TAG, "Dropped duplicate envelope: \${envelope.envelopeId}")
+            Log.d(TAG, "Dropped duplicate envelope: ${envelope.envelopeId}")
             return
         }
         
-        Log.d(TAG, "Received new envelope: \${envelope.envelopeId}")
+        // --- SECURITY: Verify Signature ---
+        val originId = envelope.originEndpointId
+        val signature = envelope.signature
+        
+        if (originId.isNotEmpty() && signature != null) {
+            val dataToVerify = envelope.payload.toByteArray(Charsets.UTF_8)
+            val isValid = signatureService.verifySignature(originId, signature, dataToVerify)
+            if (!isValid) {
+                Log.e(TAG, "SECURITY ALERT: Invalid signature for envelope ${envelope.envelopeId} from claimed origin $originId. Discarding.")
+                return
+            }
+            Log.d(TAG, "Signature verified successfully for envelope ${envelope.envelopeId}")
+        } else if (originId.isNotEmpty() && signature == null) {
+             Log.w(TAG, "SECURITY WARNING: Envelope ${envelope.envelopeId} from $originId is missing a signature. Discarding.")
+             return
+        }
+        // ----------------------------------
+        
+        Log.d(TAG, "Received new verified envelope: ${envelope.envelopeId}")
         
         val emitted = _incomingEnvelopes.tryEmit(envelope)
         if (!emitted) {
-            Log.w(TAG, "Failed to emit envelope \${envelope.envelopeId} to shared flow")
+            Log.w(TAG, "Failed to emit envelope ${envelope.envelopeId} to shared flow")
         }
 
         flood(envelope, senderEndpointId)

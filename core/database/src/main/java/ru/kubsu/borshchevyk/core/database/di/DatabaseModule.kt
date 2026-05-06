@@ -10,6 +10,7 @@ import dagger.hilt.components.SingletonComponent
 import ru.kubsu.borshchevyk.core.database.AppDatabase
 import ru.kubsu.borshchevyk.core.database.dao.ChatDao
 import ru.kubsu.borshchevyk.core.database.dao.MessageDao
+import ru.kubsu.borshchevyk.core.database.dao.PublicKeyDao
 import ru.kubsu.borshchevyk.core.database.dao.UserDao
 import javax.inject.Singleton
 
@@ -40,7 +41,9 @@ object DatabaseModule {
             context,
             AppDatabase::class.java,
             "borshchevyk_database"
-        ).build()
+        )
+        .fallbackToDestructiveMigration()
+        .build()
     }
 
     /**
@@ -72,4 +75,14 @@ object DatabaseModule {
     @Provides
     @Singleton
     fun provideUserDao(database: AppDatabase): UserDao = database.userDao()
+
+    /**
+     * Provides the [PublicKeyDao] implementation.
+     *
+     * @param database The [AppDatabase] instance.
+     * @return The [PublicKeyDao] implementation.
+     */
+    @Provides
+    @Singleton
+    fun providePublicKeyDao(database: AppDatabase): PublicKeyDao = database.publicKeyDao()
 }

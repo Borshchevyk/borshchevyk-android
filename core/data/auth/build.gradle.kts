@@ -24,6 +24,7 @@ dependencies {
     implementation(project(":core:network:mesh"))
     implementation(project(":core:network:websocket"))
     implementation(project(":core:security"))
+    implementation(project(":core:database"))
     
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.kotlinx.coroutines.core)
