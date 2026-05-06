@@ -88,6 +88,11 @@ class MeshGossipProtocol @Inject constructor(
             Log.w(TAG, "Failed to emit envelope ${envelope.envelopeId} to shared flow")
         }
 
+        // Do not flood 1-hop control messages
+        if (envelope.action == "FILE_HEADER") {
+            return
+        }
+
         flood(envelope, senderEndpointId)
     }
 
@@ -98,7 +103,7 @@ class MeshGossipProtocol @Inject constructor(
         if (targets.isNotEmpty()) {
             val payload = Payload.fromBytes(envelope.toByteArray())
             payloadRouter.sendPayload(targets, payload)
-            Log.d(TAG, "Flooded envelope \${envelope.envelopeId} to \${targets.size} endpoints")
+            Log.d(TAG, "Flooded envelope ${envelope.envelopeId} to ${targets.size} endpoints")
         }
     }
 
@@ -110,6 +115,22 @@ class MeshGossipProtocol @Inject constructor(
             val signature = signatureService.signData(dataToSign)
             val signedEnvelope = envelopeWithOrigin.copy(signature = signature)
             processEnvelope(signedEnvelope, senderEndpointId = null)
+        }
+    }
+
+    fun broadcastTo(envelope: MeshEnvelope, targetEndpointIds: List<String>) {
+        scope.launch {
+            val userId = signatureService.getUserId() ?: "self"
+            val envelopeWithOrigin = envelope.copy(originEndpointId = userId)
+            val dataToSign = envelopeWithOrigin.payload.toByteArray(Charsets.UTF_8)
+            val signature = signatureService.signData(dataToSign)
+            val signedEnvelope = envelopeWithOrigin.copy(signature = signature)
+            
+            // Mark as seen so we don't process it ourselves
+            seenEnvelopes.add(signedEnvelope.envelopeId)
+            
+            val payload = Payload.fromBytes(signedEnvelope.toByteArray())
+            payloadRouter.sendPayload(targetEndpointIds, payload)
         }
     }
 }
