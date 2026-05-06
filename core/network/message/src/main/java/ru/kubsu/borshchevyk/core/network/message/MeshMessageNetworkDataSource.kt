@@ -9,7 +9,9 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import ru.kubsu.borshchevyk.core.model.domain.MessageSource
 import ru.kubsu.borshchevyk.core.network.client.NetworkResult
+import ru.kubsu.borshchevyk.core.network.di.ApplicationScope
 import ru.kubsu.borshchevyk.core.network.di.IoDispatcher
+import ru.kubsu.borshchevyk.core.network.dto.EditMessageEvent
 import ru.kubsu.borshchevyk.core.network.dto.EditMessageRequest
 import ru.kubsu.borshchevyk.core.network.dto.EnrichedUserResponse
 import ru.kubsu.borshchevyk.core.network.dto.MessageAttachmentResponse
@@ -30,9 +32,9 @@ import ru.kubsu.borshchevyk.core.network.mesh.MeshEnvelope as GossipEnvelope
 class MeshMessageNetworkDataSource @Inject constructor(
     private val json: Json,
     private val gossipProtocol: MeshFloodingProtocol,
-    @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
     private val mediaDataSource: MeshMediaNetworkDataSource,
-    @ru.kubsu.borshchevyk.core.network.di.ApplicationScope private val scope: CoroutineScope
+    @ApplicationScope private val scope: CoroutineScope,
+    @IoDispatcher private val ioDispatcher: CoroutineDispatcher
 ) : MessageNetworkDataSource {
 
     private val messageReadersCache = java.util.concurrent.ConcurrentHashMap<String, MutableSet<EnrichedUserResponse>>()
@@ -116,7 +118,11 @@ class MeshMessageNetworkDataSource @Inject constructor(
 
     override suspend fun editMessage(chatId: String, messageId: String, request: EditMessageRequest): NetworkResult<MessageResponse> {
         return withContext(ioDispatcher) {
-            val payload = json.encodeToString(request)
+            val event = EditMessageEvent(
+                messageId = messageId,
+                text = request.text
+            )
+            val payload = json.encodeToString(event)
             val envelope = GossipEnvelope(
                 envelopeId = UUID.randomUUID().toString(),
                 originEndpointId = "",

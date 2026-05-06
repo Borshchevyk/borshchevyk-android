@@ -6,13 +6,16 @@ import kotlinx.coroutines.flow.map
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import ru.kubsu.borshchevyk.core.network.dto.EditMessageEvent
 import ru.kubsu.borshchevyk.core.network.dto.NotificationDto
 import ru.kubsu.borshchevyk.core.network.dto.ReactionEvent
 import ru.kubsu.borshchevyk.core.network.dto.ReadReceiptEvent
+import ru.kubsu.borshchevyk.core.network.dto.ShortChatDto
 import ru.kubsu.borshchevyk.core.network.dto.ShortUserDto
 import ru.kubsu.borshchevyk.core.network.dto.TypingEvent
 import ru.kubsu.borshchevyk.core.network.mesh.MeshEnvelope
 import ru.kubsu.borshchevyk.core.network.mesh.MeshFloodingProtocol
+import java.time.Instant
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -25,14 +28,26 @@ class MeshChatWebSocketDataSource @Inject constructor(
 
     override fun observeNewMessages(): Flow<NotificationDto.MessageDto> {
         return gossipProtocol.incomingEnvelopes
-            .filter { it.action == "SEND_MESSAGE" }
+            .filter { it.action == "SEND_MESSAGE" || it.action == "EDIT_MESSAGE" }
             .map { envelope ->
-                val messageDto = json.decodeFromString<NotificationDto.MessageDto>(envelope.payload)
-                // Ensure the author ID matches the origin endpoint for security
-                messageDto.copy(
-                    author = ShortUserDto(id = envelope.originEndpointId),
-                    status = "RECEIVED_BY_USER"
-                )
+                if (envelope.action == "SEND_MESSAGE") {
+                    val messageDto = json.decodeFromString<NotificationDto.MessageDto>(envelope.payload)
+                    messageDto.copy(
+                        author = ShortUserDto(id = envelope.originEndpointId),
+                        status = "RECEIVED_BY_USER"
+                    )
+                } else {
+                    val editEvent = json.decodeFromString<EditMessageEvent>(envelope.payload)
+                    NotificationDto.MessageDto(
+                        id = editEvent.messageId,
+                        chat = ShortChatDto(id = "mesh_chat", name = ""), // Repository handles updating existing by ID
+                        author = ShortUserDto(id = envelope.originEndpointId),
+                        text = editEvent.text,
+                        createdAt = Instant.now().toString(),
+                        updatedAt = Instant.now().toString(),
+                        status = "RECEIVED_BY_USER"
+                    )
+                }
             }
     }
 

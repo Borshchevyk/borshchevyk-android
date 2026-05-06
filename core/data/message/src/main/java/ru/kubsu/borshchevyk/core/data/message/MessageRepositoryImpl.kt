@@ -1,31 +1,31 @@
 package ru.kubsu.borshchevyk.core.data.message
 
+import android.util.Log
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.buffer
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
-import kotlinx.coroutines.channels.Channel
-import android.util.Log
 import kotlinx.coroutines.withContext
-import ru.kubsu.borshchevyk.core.database.dao.MessageDao
-import ru.kubsu.borshchevyk.core.database.dao.ChatDao
-import ru.kubsu.borshchevyk.core.data.chat.toEntity
 import ru.kubsu.borshchevyk.core.data.chat.toDomain
+import ru.kubsu.borshchevyk.core.data.chat.toEntity
+import ru.kubsu.borshchevyk.core.database.dao.ChatDao
+import ru.kubsu.borshchevyk.core.database.dao.MessageDao
 import ru.kubsu.borshchevyk.core.domain.message.MessageRepository
 import ru.kubsu.borshchevyk.core.model.domain.DomainGlobalChatEvent
-import ru.kubsu.borshchevyk.core.model.domain.GlobalChatAction
 import ru.kubsu.borshchevyk.core.model.domain.DomainPresenceStatus
 import ru.kubsu.borshchevyk.core.model.domain.DomainReactionEvent
 import ru.kubsu.borshchevyk.core.model.domain.DomainReadReceiptEvent
 import ru.kubsu.borshchevyk.core.model.domain.DomainTypingEvent
+import ru.kubsu.borshchevyk.core.model.domain.GlobalChatAction
 import ru.kubsu.borshchevyk.core.model.domain.Message
 import ru.kubsu.borshchevyk.core.model.domain.MessageStatus
 import ru.kubsu.borshchevyk.core.network.client.getOrThrow
+import ru.kubsu.borshchevyk.core.network.di.IoDispatcher
 import ru.kubsu.borshchevyk.core.network.dto.EditMessageRequest
 import ru.kubsu.borshchevyk.core.network.dto.SendMessageRequest
-import ru.kubsu.borshchevyk.core.network.di.IoDispatcher
 import ru.kubsu.borshchevyk.core.network.message.MessageNetworkDataSource
 import ru.kubsu.borshchevyk.core.network.websocket.ChatWebSocketDataSource
 import ru.kubsu.borshchevyk.core.network.websocket.PresenceWebSocketDataSource
@@ -180,7 +180,28 @@ class MessageRepositoryImpl @Inject constructor(
             .onEach { domainMsg -> 
                 try {
                     withContext(ioDispatcher) {
-                        domainMsg.saveToDb() 
+                        val existingMsgWithDetails = messageDao.getMessage(domainMsg.id)
+                        if (existingMsgWithDetails != null) {
+                            // This is an update (e.g., EDIT_MESSAGE from Mesh) or a redelivery.
+                            // We should merge the new data (like text and updatedAt) while preserving 
+                            // existing state (like source, attachments, reactions, read status).
+                            val updatedMessageEntity = existingMsgWithDetails.message.copy(
+                                text = domainMsg.text.takeIf { it.isNotEmpty() } ?: existingMsgWithDetails.message.text,
+                                updatedAt = domainMsg.updatedAt ?: existingMsgWithDetails.message.updatedAt,
+                                // Prevent overriding a READ status with an older RECEIVED_BY_USER status
+                                status = if (existingMsgWithDetails.message.status == MessageStatus.READ) MessageStatus.READ else domainMsg.status
+                            )
+                            messageDao.upsertMessageWithDetails(
+                                message = updatedMessageEntity,
+                                author = existingMsgWithDetails.author,
+                                forwardedFromUser = existingMsgWithDetails.forwardedFromUser,
+                                attachments = existingMsgWithDetails.attachments,
+                                reactions = existingMsgWithDetails.reactions
+                            )
+                        } else {
+                            // Completely new message
+                            domainMsg.saveToDb() 
+                        }
                     }
                 } catch (e: Exception) {
                     Log.e("MessageRepository", "Failed to save new message to db: ${domainMsg.id}", e)
@@ -251,6 +272,21 @@ class MessageRepositoryImpl @Inject constructor(
      */
     override fun observeReactions(chatId: String): Flow<DomainReactionEvent> = 
         chatWebSocketDataSource.observeReactions(chatId).map { DomainReactionEvent(it.messageId, it.user.id, it.reaction, it.isAdded) }
+            .onEach { event ->
+                withContext(ioDispatcher) {
+                    if (event.isAdded) {
+                        val reactionEntity = ru.kubsu.borshchevyk.core.database.entity.ReactionEntity(
+                            messageId = event.messageId,
+                            userId = event.userId,
+                            reaction = event.reaction
+                        )
+                        messageDao.insertReactions(listOf(reactionEntity))
+                    } else {
+                        // Delete a specific user's reaction on a message
+                        messageDao.deleteReaction(event.messageId, event.userId, event.reaction)
+                    }
+                }
+            }
 
     /**
      * Observes newly pinned messages within a specific chat.

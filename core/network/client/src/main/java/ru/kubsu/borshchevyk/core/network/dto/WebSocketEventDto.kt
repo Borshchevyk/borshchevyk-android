@@ -143,3 +143,13 @@ data class PresencePingDto(
     val timestamp: Long
 )
 
+/**
+ * Event indicating that a message has been edited in the Mesh network.
+ * We need both messageId and text because Mesh lacks URL parameters.
+ */
+@Serializable
+data class EditMessageEvent(
+    val messageId: String,
+    val text: String
+)
+
