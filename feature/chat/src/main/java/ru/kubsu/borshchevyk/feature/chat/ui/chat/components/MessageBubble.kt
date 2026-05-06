@@ -42,6 +42,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ru.kubsu.borshchevyk.core.model.domain.DomainAttachmentType
 import ru.kubsu.borshchevyk.core.model.domain.Message
+import ru.kubsu.borshchevyk.core.model.domain.MessageSource
 import ru.kubsu.borshchevyk.core.model.domain.MessageStatus
 import ru.kubsu.borshchevyk.core.ui.theme.BorshchevykTheme
 import ru.kubsu.borshchevyk.feature.chat.util.MessageTimeFormatter
@@ -254,6 +255,15 @@ private fun ColumnScope.MessageTimeAndStatus(
     }
 
     Row(modifier = baseModifier.align(Alignment.End), verticalAlignment = Alignment.CenterVertically) {
+        if (message.source == MessageSource.OFFLINE) {
+             Text(
+                 text = "Offline",
+                 style = BorshchevykTheme.typography.labelSmall.copy(fontSize = 10.sp, fontStyle = FontStyle.Italic),
+                 color = color
+             )
+             Spacer(modifier = Modifier.width(4.dp))
+         }
+
         Text(
             text = MessageTimeFormatter.format(message.createdAt),
             style = BorshchevykTheme.typography.labelSmall.copy(fontSize = 10.sp),
