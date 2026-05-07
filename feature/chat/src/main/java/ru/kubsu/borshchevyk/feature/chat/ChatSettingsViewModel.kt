@@ -45,7 +45,6 @@ data class ChatSettingsUiState(
     val partnerId: String? = null,
     val partnerFirstName: String? = null,
     val partnerLastName: String? = null,
-    val partnerAvatarUrl: String? = null,
     val isDeletable: Boolean = true,
     val isLoading: Boolean = false,
     val error: String? = null
@@ -100,14 +99,13 @@ class ChatSettingsViewModel @Inject constructor(
                         isGroupChat = chat?.type == ChatType.GROUP,
                         members = membersPage.content,
                         isContact = isContact,
-                        partnerId = chat.partnerId,
-                        partnerFirstName = chat.partnerName?.substringBefore(" "),
-                        partnerLastName = chat.partnerName?.substringAfter(" ", missingDelimiterValue = ""),
-                        partnerAvatarUrl = chat.partnerAvatarUrl,
+                        partnerId = chat?.partnerId,
+                        partnerFirstName = chat?.partnerName?.substringBefore(" "),
+                        partnerLastName = chat?.partnerName?.substringAfter(" ", missingDelimiterValue = ""),
                         isDeletable = chat?.isDeletable ?: true,
                         isLoading = false 
-                        ) 
-                        }
+                    ) 
+                }
             } catch (e: Exception) {
                 _uiState.update { it.copy(isLoading = false, error = e.message) }
             }
