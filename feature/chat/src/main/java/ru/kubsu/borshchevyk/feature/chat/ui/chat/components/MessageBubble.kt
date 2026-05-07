@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -15,15 +16,16 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Done
 import androidx.compose.material.icons.filled.DoneAll
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -36,16 +38,27 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntRect
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupPositionProvider
+import androidx.compose.ui.window.PopupProperties
 import ru.kubsu.borshchevyk.core.model.domain.DomainAttachmentType
 import ru.kubsu.borshchevyk.core.model.domain.Message
+import ru.kubsu.borshchevyk.core.model.domain.MessageReaction
 import ru.kubsu.borshchevyk.core.model.domain.MessageSource
 import ru.kubsu.borshchevyk.core.model.domain.MessageStatus
 import ru.kubsu.borshchevyk.core.ui.theme.BorshchevykTheme
 import ru.kubsu.borshchevyk.feature.chat.util.MessageTimeFormatter
+import kotlin.math.roundToInt
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -97,7 +110,7 @@ internal fun MessageBubble(
                     if (!first.isNullOrBlank() || !last.isNullOrBlank()) {
                         "${first ?: ""} ${last ?: ""}".trim()
                     } else {
-                        it.tag ?: "User"
+                        it.tag
                     }
                 } ?: "User"
             }
@@ -114,10 +127,12 @@ internal fun MessageBubble(
                 color = if (isOnlyCircle) Color.Transparent else if (isFromMe) BorshchevykTheme.colors.primary else BorshchevykTheme.colors.surfaceVariant,
                 shape = bubbleShape,
                 shadowElevation = if (isOnlyCircle) 0.dp else 2.dp,
-                modifier = Modifier.combinedClickable(
-                    onClick = {},
-                    onLongClick = { showMenu = true }
-                )
+                modifier = Modifier
+                    .clip(bubbleShape)
+                    .combinedClickable(
+                        onClick = {},
+                        onLongClick = { showMenu = true }
+                    )
             ) {
                 MessageContent(
                     message = message,
@@ -316,44 +331,93 @@ private fun MessageDropdownMenu(
     onViewComments: () -> Unit,
     onReactionToggle: (String) -> Unit
 ) {
-    DropdownMenu(
-        expanded = showMenu,
-        onDismissRequest = onDismiss,
-        containerColor = BorshchevykTheme.colors.surface
-    ) {
-        if (message.updatedAt != null && message.updatedAt != message.createdAt) {
-            DropdownMenuItem(
-                text = { 
-                    Text(
-                        text = "Отредактировано: ${MessageTimeFormatter.format(message.updatedAt!!)}",
-                        style = BorshchevykTheme.typography.labelSmall, 
-                        color = BorshchevykTheme.colors.onSurfaceVariant
-                    ) 
-                },
-                onClick = { },
-                enabled = false
+    val emojis = listOf("👍", "❤️", "😂", "😢", "🔥")
+    val density = LocalDensity.current
+
+    val popupPositionProvider = remember {
+        object : PopupPositionProvider {
+            override fun calculatePosition(
+                anchorBounds: IntRect,
+                windowSize: IntSize,
+                layoutDirection: LayoutDirection,
+                popupContentSize: IntSize
+            ): IntOffset {
+                val x = if (isFromMe) {
+                    anchorBounds.right - popupContentSize.width
+                } else {
+                    anchorBounds.left
+                }
+                val y = anchorBounds.top - popupContentSize.height - with(density) { 12.dp.toPx().roundToInt() }
+
+                return IntOffset(x, y)
+            }
+        }
+    }
+
+    if (showMenu) {
+        Popup(
+            onDismissRequest = onDismiss,
+            popupPositionProvider = popupPositionProvider,
+            properties = PopupProperties(
+                focusable = true,
+                dismissOnBackPress = true,
+                dismissOnClickOutside = true
             )
-            HorizontalDivider(color = BorshchevykTheme.colors.outline.copy(alpha = 0.5f))
-        }
+        ) {
+            Column(
+                modifier = Modifier
+                    .width(250.dp)
+            ) {
+                LazyRow(
+                    contentPadding = PaddingValues(horizontal = 10.dp),
+                    modifier = Modifier
+                        .background(BorshchevykTheme.colors.surface, CircleShape)
+                        .padding(vertical = 6.dp)
+                ) {
+                    items(emojis) { emoji ->
+                        Text(
+                            text = emoji,
+                            modifier = Modifier
+                                .clickable {
+                                    onDismiss()
+                                    onReactionToggle(emoji)
+                                }
+                                .padding(8.dp),
+                            fontSize = 32.sp
+                        )
+                    }
+                }
 
-        DropdownMenuItem(text = { Text("Forward") }, onClick = { onDismiss(); onForward() })
-        DropdownMenuItem(text = { Text(if (message.isPinned) "Unpin" else "Pin") }, onClick = { onDismiss(); onPinToggle() })
-        if (isFromMe) {
-            DropdownMenuItem(text = { Text("Edit") }, onClick = { onDismiss(); onEdit() })
-            DropdownMenuItem(text = { Text("Delete for Everyone") }, onClick = { onDismiss(); onDelete(true) })
-        }
-        DropdownMenuItem(text = { Text("Delete for Me") }, onClick = { onDismiss(); onDelete(false) })
-        if (isFromMe) DropdownMenuItem(text = { Text("View Readers") }, onClick = { onDismiss(); onViewReaders() })
-        DropdownMenuItem(text = { Text("Comments (${message.commentsCount})") }, onClick = { onDismiss(); onViewComments() })
+                Spacer(modifier = Modifier.height(16.dp))
 
-        HorizontalDivider(color = BorshchevykTheme.colors.outline.copy(alpha = 0.5f))
-        Row(modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)) {
-            listOf("👍", "❤️", "😂", "😢", "🔥").forEach { emoji ->
-                Text(
-                    text = emoji,
-                    modifier = Modifier.clickable { onDismiss(); onReactionToggle(emoji) }.padding(8.dp),
-                    fontSize = 20.sp
-                )
+                Column(
+                    modifier = Modifier
+                        .background(BorshchevykTheme.colors.surface, RoundedCornerShape(16.dp)),
+                ) {
+                    if (message.updatedAt != null && message.updatedAt != message.createdAt) {
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    text = "Отредактировано: ${MessageTimeFormatter.format(message.updatedAt!!)}",
+                                    style = BorshchevykTheme.typography.labelSmall,
+                                    color = BorshchevykTheme.colors.onSurfaceVariant
+                                )
+                            },
+                            onClick = { },
+                            enabled = false
+                        )
+                    }
+
+                    DropdownMenuItem(text = { Text("Forward") }, onClick = { onDismiss(); onForward() })
+                    DropdownMenuItem(text = { Text(if (message.isPinned) "Unpin" else "Pin") }, onClick = { onDismiss(); onPinToggle() })
+                    if (isFromMe) {
+                        DropdownMenuItem(text = { Text("Edit") }, onClick = { onDismiss(); onEdit() })
+                        DropdownMenuItem(text = { Text("Delete for Everyone") }, onClick = { onDismiss(); onDelete(true) })
+                    }
+                    DropdownMenuItem(text = { Text("Delete for Me") }, onClick = { onDismiss(); onDelete(false) })
+                    if (isFromMe) DropdownMenuItem(text = { Text("View Readers") }, onClick = { onDismiss(); onViewReaders() })
+                    //        DropdownMenuItem(text = { Text("Comments (${message.commentsCount})") }, onClick = { onDismiss(); onViewComments() })
+                }
             }
         }
     }
@@ -361,7 +425,7 @@ private fun MessageDropdownMenu(
 
 @Composable
 private fun ReactionList(
-    reactions: List<ru.kubsu.borshchevyk.core.model.domain.MessageReaction>,
+    reactions: List<MessageReaction>,
     currentUserId: String,
     isFromMe: Boolean,
     onReactionToggle: (String) -> Unit

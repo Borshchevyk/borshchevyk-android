@@ -43,18 +43,17 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import ru.kubsu.borshchevyk.core.model.domain.ChatMember
 import ru.kubsu.borshchevyk.core.model.domain.ChatMemberRole
-import ru.kubsu.borshchevyk.core.network.dto.UpdatePermissionsRequest
+import ru.kubsu.borshchevyk.core.model.domain.Message
 import ru.kubsu.borshchevyk.core.ui.theme.BorshchevykTheme
 import ru.kubsu.borshchevyk.feature.chat.ChatSettingsUiState
 import ru.kubsu.borshchevyk.feature.chat.ChatSharedMediaUiState
 import ru.kubsu.borshchevyk.feature.chat.MediaType
-import ru.kubsu.borshchevyk.core.model.domain.Message
 import ru.kubsu.borshchevyk.feature.chat.ui.chat.components.AddContactDialog
+import ru.kubsu.borshchevyk.feature.chat.ui.chat.components.ChatSharedMediaSection
 import ru.kubsu.borshchevyk.feature.chat.ui.chat.components.ClearHistoryDialog
 import ru.kubsu.borshchevyk.feature.chat.ui.chat.components.DeleteChatDialog
 import ru.kubsu.borshchevyk.feature.chat.ui.chat.components.UpdateChatInfoDialog
 import ru.kubsu.borshchevyk.feature.chat.ui.chat.components.UpdatePermissionsDialog
-import ru.kubsu.borshchevyk.feature.chat.ui.chat.components.ChatSharedMediaSection
 
 /**
  * Screen displaying the settings for a specific chat.
@@ -111,7 +110,7 @@ internal fun ChatSettingsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Chat Settings", style = BorshchevykTheme.typography.titleMedium) },
+                title = { Text("Info", style = BorshchevykTheme.typography.titleMedium) },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
@@ -137,7 +136,7 @@ internal fun ChatSettingsScreen(
                     onRemoveContact = onRemoveContact
                 )
             }
-            
+
             item {
                 ChatSharedMediaSection(
                     uiState = sharedMediaUiState,
@@ -150,7 +149,7 @@ internal fun ChatSettingsScreen(
                 Text("Members (${uiState.members.size})", style = BorshchevykTheme.typography.titleMedium, color = BorshchevykTheme.colors.onSurface)
                 Spacer(modifier = Modifier.height(8.dp))
             }
-            
+
             items(uiState.members) { member ->
                 MemberItemRow(
                     member = member,

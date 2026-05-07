@@ -58,13 +58,13 @@ internal fun AuthScreen(
         verticalArrangement = Arrangement.Center
     ) {
         Text(
-            text = "Borshchevyk",
+            text = "Borshchevik",
             style = BorshchevykTheme.typography.titleLarge.copy(fontSize = 32.sp),
             color = BorshchevykTheme.colors.primary
         )
         Spacer(modifier = Modifier.height(8.dp))
         Text(
-            text = "Modern Messenger",
+            text = "Messenger",
             style = BorshchevykTheme.typography.bodyLarge,
             color = BorshchevykTheme.colors.onSurfaceVariant
         )
