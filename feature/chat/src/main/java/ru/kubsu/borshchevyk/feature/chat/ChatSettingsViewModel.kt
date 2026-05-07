@@ -32,6 +32,9 @@ import javax.inject.Inject
  * @property partnerFirstName The first name of the chat partner.
  * @property partnerLastName The last name of the chat partner.
  * @property isDeletable Indicates whether the chat can be deleted.
+ * @property chatName The title or display name of the chat.
+ * @property chatDescription The description of the chat.
+ * @property chatAvatarUrl The URL for the chat's avatar image.
  * @property isLoading Indicates if settings data is currently being loaded.
  * @property error An optional error message if an operation failed.
  */
@@ -43,9 +46,13 @@ data class ChatSettingsUiState(
     val isChatDeleted: Boolean = false,
     val isContact: Boolean = false,
     val partnerId: String? = null,
+    val partnerTag: String? = null,
     val partnerFirstName: String? = null,
     val partnerLastName: String? = null,
     val isDeletable: Boolean = true,
+    val chatName: String = "",
+    val chatDescription: String? = null,
+    val chatAvatarUrl: String? = null,
     val isLoading: Boolean = false,
     val error: String? = null
 )
@@ -93,6 +100,14 @@ class ChatSettingsViewModel @Inject constructor(
                     contactHandler.isContact(chat.partnerId!!)
                 } else false
 
+                val chatName = if (isPrivate) chat?.partnerName ?: "" else chat?.title ?: ""
+                val chatAvatarUrl = if (isPrivate) chat?.partnerAvatarUrl else null // Could also handle group avatar
+                
+                val partnerTag = if (isPrivate) {
+                    val partnerMember = membersPage.content.find { it.userId == chat?.partnerId }
+                    partnerMember?.user?.tag
+                } else null
+
                 _uiState.update { 
                     it.copy(
                         currentUserId = userId,
@@ -100,9 +115,13 @@ class ChatSettingsViewModel @Inject constructor(
                         members = membersPage.content,
                         isContact = isContact,
                         partnerId = chat?.partnerId,
+                        partnerTag = partnerTag,
                         partnerFirstName = chat?.partnerName?.substringBefore(" "),
                         partnerLastName = chat?.partnerName?.substringAfter(" ", missingDelimiterValue = ""),
                         isDeletable = chat?.isDeletable ?: true,
+                        chatName = chatName,
+                        chatDescription = chat?.description,
+                        chatAvatarUrl = chatAvatarUrl,
                         isLoading = false 
                     ) 
                 }
