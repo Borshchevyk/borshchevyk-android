@@ -206,6 +206,7 @@ private fun MessageContent(
         }
 
         if (message.attachments.isNotEmpty()) {
+
             AttachmentGallery(
                 attachments = message.attachments,
                 attachmentUrls = attachmentUrls,
@@ -371,13 +372,15 @@ private fun MessageDropdownMenu(
                 LazyRow(
                     contentPadding = PaddingValues(horizontal = 10.dp),
                     modifier = Modifier
-                        .background(BorshchevykTheme.colors.surface, CircleShape)
+                        .clip(CircleShape)
+                        .background(BorshchevykTheme.colors.surface)
                         .padding(vertical = 6.dp)
                 ) {
                     items(emojis) { emoji ->
                         Text(
                             text = emoji,
                             modifier = Modifier
+                                .clip(CircleShape)
                                 .clickable {
                                     onDismiss()
                                     onReactionToggle(emoji)

@@ -256,7 +256,7 @@ internal fun MessageInput(
                             text = it
                             onTyping()
                         },
-                        placeholder = { Text("Type...", color = BorshchevykTheme.colors.onSurfaceVariant) },
+                        placeholder = { Text("Message", color = BorshchevykTheme.colors.onSurfaceVariant) },
                         modifier = Modifier.weight(1f).defaultMinSize(minHeight = 48.dp),
                         shape = RoundedCornerShape(24.dp),
                         colors = OutlinedTextFieldDefaults.colors(

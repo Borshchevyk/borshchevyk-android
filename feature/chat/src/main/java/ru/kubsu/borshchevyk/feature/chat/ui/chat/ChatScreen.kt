@@ -17,8 +17,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import ru.kubsu.borshchevyk.core.model.domain.Message
 import ru.kubsu.borshchevyk.core.model.domain.Attachment
+import ru.kubsu.borshchevyk.core.model.domain.Message
 import ru.kubsu.borshchevyk.feature.chat.ChatIntent
 import ru.kubsu.borshchevyk.feature.chat.ChatUiState
 import ru.kubsu.borshchevyk.feature.chat.ui.chat.components.CommentsDialog
@@ -63,11 +63,11 @@ internal fun ChatScreen(
                 onUnpinClick = { msg -> onPinToggle(msg) }
             )
         }
-        
+
         LazyColumn(
             state = listState,
             modifier = Modifier.weight(1f).fillMaxWidth(),
-            contentPadding = PaddingValues(16.dp),
+            contentPadding = PaddingValues(vertical = 16.dp),
             reverseLayout = true
         ) {
             items(contentState.feed.messages, key = { it.id }) { message ->

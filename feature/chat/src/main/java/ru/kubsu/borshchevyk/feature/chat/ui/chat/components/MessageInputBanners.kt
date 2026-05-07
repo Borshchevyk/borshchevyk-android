@@ -45,7 +45,7 @@ internal fun EditingMessageBanner(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(BorshchevykTheme.colors.surfaceVariant)
+            .background(BorshchevykTheme.colors.surface)
             .padding(horizontal = 16.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
