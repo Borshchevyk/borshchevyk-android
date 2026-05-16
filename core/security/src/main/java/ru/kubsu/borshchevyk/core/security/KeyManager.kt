@@ -127,4 +127,47 @@ interface KeyManager {
      * @return true if the signature is valid and matches the data, false otherwise
      */
     fun verifyDataWithRawPublicKey(publicKeyBytes: ByteArray, data: ByteArray, signature: ByteArray): Boolean
+
+    /**
+     * Generates a random AES-256 session key for End-to-End Encryption.
+     *
+     * @return 32 bytes representing the AES key.
+     */
+    fun generateAesSessionKey(): ByteArray
+
+    /**
+     * Encrypts raw data using a provided AES session key (AES/GCM/NoPadding).
+     *
+     * @param data the raw bytes to encrypt.
+     * @param sessionKey the 32-byte AES session key.
+     * @return the encrypted byte array containing IV and ciphertext.
+     */
+    fun encryptWithAes(data: ByteArray, sessionKey: ByteArray): ByteArray
+
+    /**
+     * Decrypts a payload using a provided AES session key.
+     *
+     * @param encryptedData the payload containing IV and ciphertext.
+     * @param sessionKey the 32-byte AES session key.
+     * @return the decrypted raw bytes.
+     */
+    fun decryptWithAes(encryptedData: ByteArray, sessionKey: ByteArray): ByteArray
+
+    /**
+     * Encrypts data (like an AES session key) using an RSA Public Key (Base64 encoded string).
+     *
+     * @param data the raw bytes to encrypt (must fit within RSA key size limits).
+     * @param publicKeyBase64 the X.509 encoded RSA public key in Base64 format.
+     * @return the RSA encrypted byte array.
+     */
+    fun encryptWithRsaPublicKey(data: ByteArray, publicKeyBase64: String): ByteArray
+
+    /**
+     * Decrypts data using the local, hardware-backed RSA Private Key.
+     *
+     * @param alias the Keystore alias of the RSA key pair.
+     * @param encryptedData the RSA encrypted byte array.
+     * @return the decrypted raw bytes.
+     */
+    fun decryptWithRsaPrivateKey(alias: String, encryptedData: ByteArray): ByteArray
 }

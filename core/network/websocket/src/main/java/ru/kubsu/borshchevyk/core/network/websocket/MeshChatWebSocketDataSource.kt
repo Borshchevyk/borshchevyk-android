@@ -13,8 +13,10 @@ import ru.kubsu.borshchevyk.core.network.dto.ReadReceiptEvent
 import ru.kubsu.borshchevyk.core.network.dto.ShortChatDto
 import ru.kubsu.borshchevyk.core.network.dto.ShortUserDto
 import ru.kubsu.borshchevyk.core.network.dto.TypingEvent
+import ru.kubsu.borshchevyk.core.network.mesh.E2EEPayload
 import ru.kubsu.borshchevyk.core.network.mesh.MeshEnvelope
 import ru.kubsu.borshchevyk.core.network.mesh.MeshFloodingProtocol
+import ru.kubsu.borshchevyk.core.network.mesh.MeshSignatureService
 import java.time.Instant
 import java.util.UUID
 import javax.inject.Inject
@@ -23,22 +25,41 @@ import javax.inject.Singleton
 @Singleton
 class MeshChatWebSocketDataSource @Inject constructor(
     private val gossipProtocol: MeshFloodingProtocol,
-    private val json: Json
+    private val json: Json,
+    private val signatureService: MeshSignatureService
 ) : ChatWebSocketDataSource {
+
+    private suspend fun decryptPayloadIfNeeded(payload: String): String {
+        return if (payload.contains("\"encryptedSessionKey\"") && payload.contains("\"encryptedData\"")) {
+            try {
+                val e2eePayload = json.decodeFromString<E2EEPayload>(payload)
+                val decryptedBytes = signatureService.decryptE2EE(e2eePayload)
+                decryptedBytes?.let { String(it, Charsets.UTF_8) } ?: payload
+            } catch (e: kotlinx.serialization.SerializationException) {
+                payload
+            } catch (e: IllegalArgumentException) {
+                payload
+            }
+        } else {
+            payload
+        }
+    }
 
     override fun observeNewMessages(): Flow<NotificationDto.MessageDto> {
         return gossipProtocol.incomingEnvelopes
             .filter { it.action == "SEND_MESSAGE" || it.action == "EDIT_MESSAGE" }
             .map { envelope ->
+                val decryptedPayloadString = decryptPayloadIfNeeded(envelope.payload)
+
                 if (envelope.action == "SEND_MESSAGE") {
-                    val messageDto = json.decodeFromString<NotificationDto.MessageDto>(envelope.payload)
+                    val messageDto = json.decodeFromString<NotificationDto.MessageDto>(decryptedPayloadString)
                     messageDto.copy(
                         author = ShortUserDto(id = envelope.originEndpointId),
                         status = "RECEIVED_BY_USER",
                         source = "OFFLINE"
                     )
                 } else {
-                    val editEvent = json.decodeFromString<EditMessageEvent>(envelope.payload)
+                    val editEvent = json.decodeFromString<EditMessageEvent>(decryptedPayloadString)
                     NotificationDto.MessageDto(
                         id = editEvent.messageId,
                         chat = ShortChatDto(id = "mesh_chat", name = ""), // Repository handles updating existing by ID
@@ -59,7 +80,8 @@ class MeshChatWebSocketDataSource @Inject constructor(
                 it.action in setOf("UPDATE_CHAT", "HISTORY_CLEARED", "DELETED", "INVITE_USER", "KICK_USER") 
             }
             .map { envelope ->
-                val chatEvent = json.decodeFromString<NotificationDto.ChatEventDto>(envelope.payload)
+                val decryptedPayloadString = decryptPayloadIfNeeded(envelope.payload)
+                val chatEvent = json.decodeFromString<NotificationDto.ChatEventDto>(decryptedPayloadString)
                 if (chatEvent.chat.type == ru.kubsu.borshchevyk.core.model.domain.ChatType.PRIVATE) {
                     // The sender correctly inverted the partnerName and partnerAvatarUrl before broadcasting,
                     // so we only need to securely enforce the partnerId matches the envelope's origin.
@@ -81,13 +103,14 @@ class MeshChatWebSocketDataSource @Inject constructor(
         return gossipProtocol.incomingEnvelopes
             .filter { it.action == "DELETE_MESSAGE" }
             .map { envelope ->
+                val decryptedPayloadString = decryptPayloadIfNeeded(envelope.payload)
                 try {
-                    val payload = json.decodeFromString<DeleteMessagePayload>(envelope.payload)
+                    val payload = json.decodeFromString<DeleteMessagePayload>(decryptedPayloadString)
                     if (payload.forAll) payload.messageId else ""
                 } catch (e: Exception) {
                     // Fallback to basic string parsing if json decode fails
-                    if (envelope.payload.contains("messageId") && envelope.payload.contains("\"forAll\":true")) {
-                        envelope.payload.substringAfter("\"messageId\":\"").substringBefore("\"")
+                    if (decryptedPayloadString.contains("messageId") && decryptedPayloadString.contains("\"forAll\":true")) {
+                        decryptedPayloadString.substringAfter("\"messageId\":\"").substringBefore("\"")
                     } else {
                         ""
                     }
@@ -100,7 +123,8 @@ class MeshChatWebSocketDataSource @Inject constructor(
         return gossipProtocol.incomingEnvelopes
             .filter { it.action == "TYPING" }
             .map { envelope ->
-                val typingEvent = json.decodeFromString<TypingEvent>(envelope.payload)
+                val decryptedPayloadString = decryptPayloadIfNeeded(envelope.payload)
+                val typingEvent = json.decodeFromString<TypingEvent>(decryptedPayloadString)
                 typingEvent.copy(user = ShortUserDto(id = envelope.originEndpointId))
             }
     }
@@ -109,7 +133,8 @@ class MeshChatWebSocketDataSource @Inject constructor(
         return gossipProtocol.incomingEnvelopes
             .filter { it.action == "ADD_REACTION" || it.action == "REMOVE_REACTION" }
             .map { envelope ->
-                val reactionEvent = json.decodeFromString<ReactionEvent>(envelope.payload)
+                val decryptedPayloadString = decryptPayloadIfNeeded(envelope.payload)
+                val reactionEvent = json.decodeFromString<ReactionEvent>(decryptedPayloadString)
                 reactionEvent.copy(
                     user = ShortUserDto(id = envelope.originEndpointId),
                     isAdded = envelope.action == "ADD_REACTION"
@@ -121,8 +146,7 @@ class MeshChatWebSocketDataSource @Inject constructor(
         return gossipProtocol.incomingEnvelopes
             .filter { it.action == "PIN_MESSAGE" }
             .map { envelope ->
-                // The payload is just the messageId string
-                envelope.payload
+                decryptPayloadIfNeeded(envelope.payload)
             }
     }
 
@@ -130,8 +154,7 @@ class MeshChatWebSocketDataSource @Inject constructor(
         return gossipProtocol.incomingEnvelopes
             .filter { it.action == "UNPIN_MESSAGE" }
             .map { envelope ->
-                // The payload is just the messageId string
-                envelope.payload
+                decryptPayloadIfNeeded(envelope.payload)
             }
     }
 
@@ -139,7 +162,8 @@ class MeshChatWebSocketDataSource @Inject constructor(
         return gossipProtocol.incomingEnvelopes
             .filter { it.action == "READ_MESSAGE" }
             .map { envelope ->
-                val readEvent = json.decodeFromString<ReadReceiptEvent>(envelope.payload)
+                val decryptedPayloadString = decryptPayloadIfNeeded(envelope.payload)
+                val readEvent = json.decodeFromString<ReadReceiptEvent>(decryptedPayloadString)
                 readEvent.copy(user = ShortUserDto(id = envelope.originEndpointId))
             }
     }

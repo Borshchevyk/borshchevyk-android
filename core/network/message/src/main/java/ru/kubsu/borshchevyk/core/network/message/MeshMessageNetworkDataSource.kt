@@ -23,6 +23,7 @@ import ru.kubsu.borshchevyk.core.network.dto.SendMessageRequest
 import ru.kubsu.borshchevyk.core.network.dto.ShortChatDto
 import ru.kubsu.borshchevyk.core.network.dto.ShortUserDto
 import ru.kubsu.borshchevyk.core.network.media.MeshMediaNetworkDataSource
+import ru.kubsu.borshchevyk.core.network.mesh.E2EEPayload
 import ru.kubsu.borshchevyk.core.network.mesh.MeshFloodingProtocol
 import ru.kubsu.borshchevyk.core.network.mesh.MeshSignatureService
 import java.time.Instant
@@ -41,11 +42,38 @@ class MeshMessageNetworkDataSource @Inject constructor(
 
     private val messageReadersCache = java.util.concurrent.ConcurrentHashMap<String, MutableSet<EnrichedUserResponse>>()
 
+    private suspend fun encryptPayloadIfNeeded(chatId: String, payloadString: String): String {
+        val partnerPubKey = signatureService.getPartnerPublicKeyForChat(chatId) ?: return payloadString
+        val e2eePayload = signatureService.encryptE2EE(payloadString.toByteArray(Charsets.UTF_8), partnerPubKey)
+        return if (e2eePayload != null) {
+            json.encodeToString(e2eePayload)
+        } else {
+            payloadString
+        }
+    }
+
+    private suspend fun decryptPayloadIfNeeded(payload: String): String {
+        return if (payload.contains("\"encryptedSessionKey\"") && payload.contains("\"encryptedData\"")) {
+            try {
+                val e2eePayload = json.decodeFromString<E2EEPayload>(payload)
+                val decryptedBytes = signatureService.decryptE2EE(e2eePayload)
+                decryptedBytes?.let { String(it, Charsets.UTF_8) } ?: payload
+            } catch (e: kotlinx.serialization.SerializationException) {
+                payload
+            } catch (e: IllegalArgumentException) {
+                payload
+            }
+        } else {
+            payload
+        }
+    }
+
     init {
         gossipProtocol.incomingEnvelopes.onEach { envelope ->
             if (envelope.action == "READ_MESSAGE") {
                 try {
-                    val payload = json.decodeFromString<ReadReceiptEvent>(envelope.payload)
+                    val decryptedPayloadString = decryptPayloadIfNeeded(envelope.payload)
+                    val payload = json.decodeFromString<ReadReceiptEvent>(decryptedPayloadString)
                     val readers = messageReadersCache.getOrPut(payload.messageId) { java.util.concurrent.ConcurrentHashMap.newKeySet() }
                     readers.add(
                         EnrichedUserResponse(
@@ -95,11 +123,14 @@ class MeshMessageNetworkDataSource @Inject constructor(
                 status = "SENT"
             )
             val payloadString = json.encodeToString(messageDto)
+
+            val finalPayload = encryptPayloadIfNeeded(chatId, payloadString)
+
             val envelope = GossipEnvelope(
                 envelopeId = messageDto.id,
                 originEndpointId = "", // Filled by GossipProtocol
                 action = "SEND_MESSAGE",
-                payload = payloadString
+                payload = finalPayload
             )
             gossipProtocol.broadcast(envelope)
             
@@ -126,12 +157,15 @@ class MeshMessageNetworkDataSource @Inject constructor(
                 messageId = messageId,
                 text = request.text
             )
-            val payload = json.encodeToString(event)
+            val payloadString = json.encodeToString(event)
+
+            val finalPayload = encryptPayloadIfNeeded(chatId, payloadString)
+
             val envelope = GossipEnvelope(
                 envelopeId = UUID.randomUUID().toString(),
                 originEndpointId = "",
                 action = "EDIT_MESSAGE",
-                payload = payload
+                payload = finalPayload
             )
             gossipProtocol.broadcast(envelope)
             
@@ -161,11 +195,13 @@ class MeshMessageNetworkDataSource @Inject constructor(
     override suspend fun deleteMessage(chatId: String, messageId: String, forAll: Boolean): NetworkResult<Unit> {
         return withContext(ioDispatcher) {
              if (forAll) {
+                 val payloadString = "{\"messageId\":\"$messageId\",\"forAll\":$forAll}"
+                 val finalPayload = encryptPayloadIfNeeded(chatId, payloadString)
                  val envelope = GossipEnvelope(
                      envelopeId = UUID.randomUUID().toString(),
                      originEndpointId = "",
                      action = "DELETE_MESSAGE",
-                     payload = "{\"messageId\":\"$messageId\",\"forAll\":$forAll}"
+                     payload = finalPayload
                  )
                  gossipProtocol.broadcast(envelope)
              }
@@ -181,12 +217,13 @@ class MeshMessageNetworkDataSource @Inject constructor(
                 reaction = reaction,
                 isAdded = true
             )
-            val payload = json.encodeToString(reactionEvent)
+            val payloadString = json.encodeToString(reactionEvent)
+            val finalPayload = encryptPayloadIfNeeded(chatId, payloadString)
             val envelope = GossipEnvelope(
                 envelopeId = UUID.randomUUID().toString(),
                 originEndpointId = "",
                 action = "ADD_REACTION",
-                payload = payload
+                payload = finalPayload
             )
             gossipProtocol.broadcast(envelope)
             NetworkResult.Success(Unit)
@@ -201,12 +238,13 @@ class MeshMessageNetworkDataSource @Inject constructor(
                 reaction = reaction,
                 isAdded = false
             )
-            val payload = json.encodeToString(reactionEvent)
+            val payloadString = json.encodeToString(reactionEvent)
+            val finalPayload = encryptPayloadIfNeeded(chatId, payloadString)
             val envelope = GossipEnvelope(
                 envelopeId = UUID.randomUUID().toString(),
                 originEndpointId = "",
                 action = "REMOVE_REACTION",
-                payload = payload
+                payload = finalPayload
             )
             gossipProtocol.broadcast(envelope)
             NetworkResult.Success(Unit)
@@ -215,11 +253,12 @@ class MeshMessageNetworkDataSource @Inject constructor(
 
     override suspend fun pinMessage(chatId: String, messageId: String): NetworkResult<Unit> {
         return withContext(ioDispatcher) {
+            val finalPayload = encryptPayloadIfNeeded(chatId, messageId)
             val envelope = GossipEnvelope(
                 envelopeId = UUID.randomUUID().toString(),
                 originEndpointId = "",
                 action = "PIN_MESSAGE",
-                payload = messageId
+                payload = finalPayload
             )
             gossipProtocol.broadcast(envelope)
             NetworkResult.Success(Unit)
@@ -228,11 +267,12 @@ class MeshMessageNetworkDataSource @Inject constructor(
 
     override suspend fun unpinMessage(chatId: String, messageId: String): NetworkResult<Unit> {
         return withContext(ioDispatcher) {
+            val finalPayload = encryptPayloadIfNeeded(chatId, messageId)
             val envelope = GossipEnvelope(
                 envelopeId = UUID.randomUUID().toString(),
                 originEndpointId = "",
                 action = "UNPIN_MESSAGE",
-                payload = messageId
+                payload = finalPayload
             )
             gossipProtocol.broadcast(envelope)
             NetworkResult.Success(Unit)
@@ -249,12 +289,13 @@ class MeshMessageNetworkDataSource @Inject constructor(
                 user = ShortUserDto(id = "self"),
                 messageId = messageId
             )
-            val payload = json.encodeToString(readEvent)
+            val payloadString = json.encodeToString(readEvent)
+            val finalPayload = encryptPayloadIfNeeded(chatId, payloadString)
             val envelope = GossipEnvelope(
                 envelopeId = UUID.randomUUID().toString(),
                 originEndpointId = "",
                 action = "READ_MESSAGE",
-                payload = payload
+                payload = finalPayload
             )
             gossipProtocol.broadcast(envelope)
             NetworkResult.Success(Unit)

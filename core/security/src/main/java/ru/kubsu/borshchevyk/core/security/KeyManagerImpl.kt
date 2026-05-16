@@ -65,10 +65,11 @@ class KeyManagerImpl @Inject constructor() : KeyManager {
         val kpg = KeyPairGenerator.getInstance(KeyProperties.KEY_ALGORITHM_RSA, "AndroidKeyStore")
         val spec = KeyGenParameterSpec.Builder(
             alias,
-            KeyProperties.PURPOSE_SIGN or KeyProperties.PURPOSE_VERIFY
+            KeyProperties.PURPOSE_SIGN or KeyProperties.PURPOSE_VERIFY or KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT
         )
             .setDigests(KeyProperties.DIGEST_SHA256)
             .setSignaturePaddings(KeyProperties.SIGNATURE_PADDING_RSA_PKCS1)
+            .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_RSA_OAEP)
             .build()
 
         kpg.initialize(spec)
@@ -270,5 +271,62 @@ class KeyManagerImpl @Inject constructor() : KeyManager {
         signer.initVerify(publicKey)
         signer.update(data)
         return signer.verify(signature)
+    }
+
+    override fun generateAesSessionKey(): ByteArray {
+        val key = ByteArray(32) // AES-256
+        secureRandom.nextBytes(key)
+        return key
+    }
+
+    override fun encryptWithAes(data: ByteArray, sessionKey: ByteArray): ByteArray {
+        val secretKey = SecretKeySpec(sessionKey, "AES")
+        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+        cipher.init(Cipher.ENCRYPT_MODE, secretKey)
+        val iv = cipher.iv ?: throw IllegalStateException("Cipher failed to generate IV")
+        val encrypted = cipher.doFinal(data)
+
+        val buffer = ByteBuffer.allocate(iv.size + encrypted.size)
+        buffer.put(iv)
+        buffer.put(encrypted)
+        return buffer.array()
+    }
+
+    override fun decryptWithAes(encryptedData: ByteArray, sessionKey: ByteArray): ByteArray {
+        if (encryptedData.size < GCM_IV_SIZE) {
+            throw IllegalArgumentException("Encrypted data is too short")
+        }
+
+        val secretKey = SecretKeySpec(sessionKey, "AES")
+        val buffer = ByteBuffer.wrap(encryptedData)
+        val iv = ByteArray(GCM_IV_SIZE)
+        buffer.get(iv)
+        val encrypted = ByteArray(buffer.remaining())
+        buffer.get(encrypted)
+
+        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+        val gcmSpec = GCMParameterSpec(GCM_TAG_SIZE, iv)
+        cipher.init(Cipher.DECRYPT_MODE, secretKey, gcmSpec)
+        return cipher.doFinal(encrypted)
+    }
+
+    override fun encryptWithRsaPublicKey(data: ByteArray, publicKeyBase64: String): ByteArray {
+        val publicKeyBytes = android.util.Base64.decode(publicKeyBase64, android.util.Base64.NO_WRAP)
+        val keyFactory = KeyFactory.getInstance(KeyProperties.KEY_ALGORITHM_RSA)
+        val publicKeySpec = java.security.spec.X509EncodedKeySpec(publicKeyBytes)
+        val publicKey = keyFactory.generatePublic(publicKeySpec)
+
+        val cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding")
+        cipher.init(Cipher.ENCRYPT_MODE, publicKey)
+        return cipher.doFinal(data)
+    }
+
+    override fun decryptWithRsaPrivateKey(alias: String, encryptedData: ByteArray): ByteArray {
+        val entry = keyStore.getEntry(alias, null) as? KeyStore.PrivateKeyEntry
+            ?: throw IllegalStateException("Key pair for alias $alias not found in AndroidKeyStore")
+
+        val cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding")
+        cipher.init(Cipher.DECRYPT_MODE, entry.privateKey)
+        return cipher.doFinal(encryptedData)
     }
 }
