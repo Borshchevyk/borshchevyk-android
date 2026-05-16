@@ -70,6 +70,7 @@ internal fun MessageBubble(
     thumbnailUrls: Map<String, String>,
     onResolveAttachmentUrl: (String, Boolean) -> Unit,
     onAttachmentClick: (ru.kubsu.borshchevyk.core.model.domain.Attachment) -> Unit,
+    onDownloadClick: (String) -> Unit = {},
     onPinToggle: () -> Unit,
     onReactionToggle: (String) -> Unit,
     onEdit: () -> Unit,
@@ -142,6 +143,7 @@ internal fun MessageBubble(
                     thumbnailUrls = thumbnailUrls,
                     onResolveAttachmentUrl = onResolveAttachmentUrl,
                     onAttachmentClick = onAttachmentClick,
+                    onDownloadClick = onDownloadClick,
                     onResend = onResend
                 )
             }
@@ -193,6 +195,7 @@ private fun MessageContent(
     thumbnailUrls: Map<String, String>,
     onResolveAttachmentUrl: (String, Boolean) -> Unit,
     onAttachmentClick: (ru.kubsu.borshchevyk.core.model.domain.Attachment) -> Unit,
+    onDownloadClick: (String) -> Unit = {},
     onResend: () -> Unit
 ) {
     Column(
@@ -213,6 +216,7 @@ private fun MessageContent(
                 thumbnailUrls = thumbnailUrls,
                 onResolveAttachmentUrl = onResolveAttachmentUrl,
                 onAttachmentClick = onAttachmentClick,
+                onDownloadClick = onDownloadClick,
                 isFromMe = isFromMe
             )
             if (!isOnlyCircle) Spacer(modifier = Modifier.height(8.dp))

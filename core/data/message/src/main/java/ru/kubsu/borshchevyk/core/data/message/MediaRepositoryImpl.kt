@@ -3,12 +3,13 @@ package ru.kubsu.borshchevyk.core.data.message
 import ru.kubsu.borshchevyk.core.domain.message.MediaRepository
 import ru.kubsu.borshchevyk.core.model.domain.DomainAttachmentResponse
 import ru.kubsu.borshchevyk.core.model.domain.DomainAttachmentType
+import ru.kubsu.borshchevyk.core.network.client.NetworkConstants
+import ru.kubsu.borshchevyk.core.network.client.NetworkResult
 import ru.kubsu.borshchevyk.core.network.client.getOrThrow
 import ru.kubsu.borshchevyk.core.network.dto.AttachmentResponse
 import ru.kubsu.borshchevyk.core.network.dto.AttachmentType
 import ru.kubsu.borshchevyk.core.network.dto.RequestUploadUrlRequest
 import ru.kubsu.borshchevyk.core.network.dto.ValidateAttachmentsRequest
-import ru.kubsu.borshchevyk.core.network.client.NetworkConstants
 import ru.kubsu.borshchevyk.core.network.media.MediaNetworkDataSource
 import javax.inject.Inject
 
@@ -180,6 +181,19 @@ class MediaRepositoryImpl @Inject constructor(
      */
     override suspend fun validateAttachments(attachmentIds: List<String>): Boolean {
         return networkDataSource.validateAttachments(ValidateAttachmentsRequest(attachmentIds)).getOrThrow().valid
+    }
+
+    override suspend fun exportAttachment(attachmentId: String): Result<String> {
+        return try {
+            val result = networkDataSource.exportAttachment(attachmentId)
+            if (result is NetworkResult.Success) {
+                Result.success(result.data)
+            } else {
+                Result.failure(Exception((result as NetworkResult.Error).message))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 
     private fun DomainAttachmentType.toDto(): AttachmentType = when (this) {

@@ -157,4 +157,20 @@ class KtorMediaNetworkDataSource @Inject constructor(
             }
         }
     }
+
+    override suspend fun exportAttachment(attachmentId: String): NetworkResult<String> {
+        // For Ktor (online mode), we can simply trigger the Android DownloadManager
+        // using the attachment's direct URL. Since getting context here is tricky if not injected,
+        // we can just return the URL, and let the UI layer handle DownloadManager.
+        return try {
+            val response = getAttachmentUrl(attachmentId)
+            if (response is NetworkResult.Success) {
+                NetworkResult.Success(response.data.url)
+            } else {
+                NetworkResult.Error(code = 404, message = "Could not resolve URL for Ktor download.")
+            }
+        } catch (e: Exception) {
+            NetworkResult.Error(code = 500, message = e.message)
+        }
+    }
 }

@@ -1,5 +1,6 @@
 package ru.kubsu.borshchevyk.feature.chat.ui.chat.components
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -7,7 +8,6 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
@@ -39,6 +39,7 @@ internal fun AttachmentGallery(
     thumbnailUrls: Map<String, String>,
     onResolveAttachmentUrl: (String, Boolean) -> Unit,
     onAttachmentClick: (Attachment) -> Unit,
+    onDownloadClick: (String) -> Unit = {},
     isFromMe: Boolean
 ) {
     if (attachments.isEmpty()) return
@@ -51,6 +52,7 @@ internal fun AttachmentGallery(
                 thumbnailUrls = thumbnailUrls,
                 onResolveAttachmentUrl = onResolveAttachmentUrl,
                 onAttachmentClick = onAttachmentClick,
+                onDownloadClick = onDownloadClick,
                 isFromMe = isFromMe
             )
         }
@@ -64,6 +66,7 @@ internal fun AttachmentItem(
     thumbnailUrls: Map<String, String>,
     onResolveAttachmentUrl: (String, Boolean) -> Unit,
     onAttachmentClick: (Attachment) -> Unit,
+    onDownloadClick: (String) -> Unit = {},
     isFromMe: Boolean
 ) {
     val url = attachmentUrls[attachment.id]
@@ -118,11 +121,11 @@ internal fun AttachmentItem(
                     },
                     error = {
                         loadError = true
-                        FileAttachmentCard(attachment, isFromMe)
+                        FileAttachmentCard(attachment, isFromMe) { onDownloadClick(attachment.id) }
                     }
                 )
             } else {
-                FileAttachmentCard(attachment, isFromMe)
+                FileAttachmentCard(attachment, isFromMe) { onDownloadClick(attachment.id) }
             }
         }
         DomainAttachmentType.VIDEO -> {
@@ -169,11 +172,11 @@ internal fun AttachmentItem(
                             }
                         }
                     } else {
-                        FileAttachmentCard(attachment, isFromMe)
+                        FileAttachmentCard(attachment, isFromMe) { onDownloadClick(attachment.id) }
                     }
                 }
             } else {
-                FileAttachmentCard(attachment, isFromMe)
+                FileAttachmentCard(attachment, isFromMe) { onDownloadClick(attachment.id) }
             }
         }
         DomainAttachmentType.CIRCLE -> {
@@ -193,7 +196,7 @@ internal fun AttachmentItem(
             )
         }
         else -> {
-            FileAttachmentCard(attachment, isFromMe)
+            FileAttachmentCard(attachment, isFromMe) { onDownloadClick(attachment.id) }
         }
     }
 }

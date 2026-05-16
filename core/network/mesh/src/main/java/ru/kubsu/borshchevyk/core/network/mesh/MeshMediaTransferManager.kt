@@ -104,6 +104,13 @@ class MeshMediaTransferManager @Inject constructor(
     }
 
     /**
+     * Retrieves the locally cached file for a given attachment ID, if it exists.
+     */
+    fun getLocalFile(attachmentId: String): File? {
+        return localFiles[attachmentId]
+    }
+
+    /**
      * Registers a local file to the Mesh network. 
      * It stores the file locally and broadcasts the file metadata to the network.
      * The actual bytes are NOT sent until a peer requests them via PULL.

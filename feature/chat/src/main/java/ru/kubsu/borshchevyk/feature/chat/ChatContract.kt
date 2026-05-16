@@ -65,6 +65,7 @@ sealed interface ChatIntent {
     data class UnpinMessage(val messageId: String) : ChatIntent
     data class ToggleReaction(val messageId: String, val reaction: String) : ChatIntent
     data class ResolveAttachmentUrl(val attachmentId: String, val isThumbnail: Boolean = false) : ChatIntent
+    data class DownloadAttachment(val attachmentId: String) : ChatIntent
     data class ResendMessage(val messageId: String) : ChatIntent
     data class ForwardMessage(val message: Message) : ChatIntent
     object InitiateCall : ChatIntent

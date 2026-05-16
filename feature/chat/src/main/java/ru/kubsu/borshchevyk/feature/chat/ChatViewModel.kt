@@ -116,6 +116,7 @@ class ChatViewModel @Inject constructor(
             is ChatIntent.UnpinMessage -> onUnpinMessage(intent.messageId)
             is ChatIntent.ToggleReaction -> onToggleReaction(intent.messageId, intent.reaction)
             is ChatIntent.ResolveAttachmentUrl -> resolveAttachmentUrl(intent.attachmentId, intent.isThumbnail)
+            is ChatIntent.DownloadAttachment -> onDownloadAttachment(intent.attachmentId)
             is ChatIntent.ResendMessage -> onResendMessage(intent.messageId)
             is ChatIntent.ForwardMessage -> onForwardMessage(intent.message)
             is ChatIntent.InitiateCall -> onInitiateCall()
@@ -415,6 +416,30 @@ class ChatViewModel @Inject constructor(
                 _effect.send(ChatEffect.NavigateToForwardSelection(Json.encodeToString(payload)))
             } catch (e: Exception) {
                 _effect.send(ChatEffect.ShowError("Forwarding failed"))
+            }
+        }
+    }
+
+    /**
+     * Initiates the download/export of a given attachment.
+     */
+    private fun onDownloadAttachment(attachmentId: String) {
+        viewModelScope.launch {
+            try {
+                val result = attachmentUseCases.exportAttachment(attachmentId)
+                result.fold(
+                    onSuccess = { uri ->
+                        Log.d(TAG, "Successfully exported attachment to $uri")
+                        _effect.send(ChatEffect.ShowError("File saved to Downloads"))
+                    },
+                    onFailure = { error ->
+                        Log.e(TAG, "Failed to export attachment", error)
+                        _effect.send(ChatEffect.ShowError(error.message ?: "Failed to download file"))
+                    }
+                )
+            } catch (e: Exception) {
+                Log.e(TAG, "Error in onDownloadAttachment", e)
+                _effect.send(ChatEffect.ShowError("Failed to start download"))
             }
         }
     }

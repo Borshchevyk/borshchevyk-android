@@ -79,6 +79,7 @@ internal fun ChatScreen(
                     thumbnailUrls = contentState.feed.thumbnailUrls,
                     onResolveAttachmentUrl = onResolveAttachmentUrl,
                     onAttachmentClick = { selectedAttachment = it },
+                    onDownloadClick = { onIntent(ChatIntent.DownloadAttachment(it)) },
                     onPinToggle = { onPinToggle(message) },
                     onReactionToggle = { reaction -> onReactionToggle(message.id, reaction) },
                     onEdit = { onEdit(message) },
@@ -92,12 +93,8 @@ internal fun ChatScreen(
                         onLoadComments(message.id)
                         messageIdForComments = message.id
                     },
-                    onResend = {
-                        onIntent(ChatIntent.ResendMessage(message.id))
-                    },
-                    onForward = {
-                        onIntent(ChatIntent.ForwardMessage(message))
-                    }
+                    onResend = { onIntent(ChatIntent.ResendMessage(message.id)) },
+                    onForward = { onIntent(ChatIntent.ForwardMessage(message)) }
                 )
                 Spacer(modifier = Modifier.height(12.dp))
             }

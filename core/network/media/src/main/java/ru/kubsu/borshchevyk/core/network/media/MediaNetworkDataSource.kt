@@ -97,4 +97,12 @@ interface MediaNetworkDataSource {
      * @return A [NetworkResult] containing the validation result.
      */
     suspend fun validateAttachments(request: ValidateAttachmentsRequest): NetworkResult<ValidateAttachmentsResponse>
+
+    /**
+     * Exports an attachment from the local cache to the device's public Downloads directory.
+     *
+     * @param attachmentId The ID of the attachment to export.
+     * @return A [NetworkResult] containing the URI or path to the exported file, or an error.
+     */
+    suspend fun exportAttachment(attachmentId: String): NetworkResult<String>
 }

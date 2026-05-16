@@ -155,4 +155,52 @@ class MeshMediaNetworkDataSource @Inject constructor(
     override suspend fun validateAttachments(request: ValidateAttachmentsRequest): NetworkResult<ValidateAttachmentsResponse> {
         return NetworkResult.Success(ValidateAttachmentsResponse(valid = true, attachments = emptyList()))
     }
+
+    override suspend fun exportAttachment(attachmentId: String): NetworkResult<String> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val file = transferManager.getLocalFile(attachmentId)
+                if (file == null || !file.exists() || file.length() == 0L) {
+                    return@withContext NetworkResult.Error(code = 404, message = "File not downloaded yet. Please open it first.")
+                }
+
+                val cachedData = attachmentCache[attachmentId]
+                var originalName = cachedData?.originalFilename ?: "mesh_file_${attachmentId.take(8)}"
+                val extension = cachedData?.extension ?: ""
+                if (extension.isNotEmpty() && !originalName.endsWith(".$extension")) {
+                    originalName += ".$extension"
+                }
+
+                val downloadsDir = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS)
+                val borshchevykDir = java.io.File(downloadsDir, "Borshchevyk")
+                if (!borshchevykDir.exists()) {
+                    borshchevykDir.mkdirs()
+                }
+
+                var destFile = java.io.File(borshchevykDir, originalName)
+                var counter = 1
+                val nameWithoutExt = originalName.substringBeforeLast(".")
+                val extPart = if (originalName.contains(".")) ".${originalName.substringAfterLast(".")}" else ""
+                
+                while (destFile.exists()) {
+                    destFile = java.io.File(borshchevykDir, "${nameWithoutExt}_$counter$extPart")
+                    counter++
+                }
+
+                file.copyTo(destFile, overwrite = true)
+
+                // Force MediaScanner to index the file so it immediately appears in the Downloads app/Gallery
+                android.media.MediaScannerConnection.scanFile(
+                    context,
+                    arrayOf(destFile.absolutePath),
+                    null,
+                    null
+                )
+
+                NetworkResult.Success(destFile.absolutePath)
+            } catch (e: Exception) {
+                NetworkResult.Error(code = 500, message = "Export failed: ${e.message}")
+            }
+        }
+    }
 }

@@ -31,7 +31,8 @@ import java.util.Locale
 @Composable
 internal fun FileAttachmentCard(
     attachment: Attachment,
-    isFromMe: Boolean
+    isFromMe: Boolean,
+    onDownloadClick: () -> Unit = {}
 ) {
     val formattedSize = remember(attachment.sizeBytes) {
         val kb = attachment.sizeBytes / 1024.0
@@ -77,7 +78,7 @@ internal fun FileAttachmentCard(
                     color = BorshchevykTheme.colors.onSurfaceVariant
                 )
             }
-            IconButton(onClick = { /* TODO: Download */ }, modifier = Modifier.size(32.dp)) {
+            IconButton(onClick = onDownloadClick, modifier = Modifier.size(32.dp)) {
                 Icon(
                     Icons.Default.Download,
                     contentDescription = "Download",

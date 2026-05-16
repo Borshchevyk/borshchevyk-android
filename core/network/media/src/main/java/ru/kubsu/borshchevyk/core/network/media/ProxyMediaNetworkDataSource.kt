@@ -55,4 +55,7 @@ class ProxyMediaNetworkDataSource @Inject constructor(
 
     override suspend fun validateAttachments(request: ValidateAttachmentsRequest): NetworkResult<ValidateAttachmentsResponse> =
         currentDataSource.validateAttachments(request)
+
+    override suspend fun exportAttachment(attachmentId: String): NetworkResult<String> =
+        currentDataSource.exportAttachment(attachmentId)
 }

@@ -13,5 +13,6 @@ import javax.inject.Inject
  */
 class ChatAttachmentUseCases @Inject constructor(
     val uploadAttachment: UploadAttachmentUseCase,
-    val getAttachmentUrl: GetAttachmentUrlUseCase
+    val getAttachmentUrl: GetAttachmentUrlUseCase,
+    val exportAttachment: ExportAttachmentUseCase
 )

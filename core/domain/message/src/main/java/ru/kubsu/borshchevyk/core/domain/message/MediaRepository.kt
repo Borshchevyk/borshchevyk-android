@@ -111,4 +111,12 @@ interface MediaRepository {
      * @return True if all attachments are valid, false otherwise.
      */
     suspend fun validateAttachments(attachmentIds: List<String>): Boolean
+
+    /**
+     * Exports a locally cached or remote attachment to the public Downloads directory.
+     *
+     * @param attachmentId The ID of the attachment to export.
+     * @return A URI string indicating the public file location, or an error message.
+     */
+    suspend fun exportAttachment(attachmentId: String): Result<String>
 }
