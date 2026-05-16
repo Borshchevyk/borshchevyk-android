@@ -12,5 +12,6 @@ import kotlinx.serialization.Serializable
 data class MeshEnvelope(
     val action: String,
     val payload: String,
-    val signature: String? = null
+    val signature: String? = null,
+    val ttl: Int = 10
 )

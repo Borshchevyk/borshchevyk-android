@@ -62,6 +62,11 @@ class MeshFloodingProtocol @Inject constructor(
             Log.d(TAG, "Dropped duplicate envelope: ${envelope.envelopeId}")
             return
         }
+
+        if (envelope.ttl <= 0) {
+            Log.d(TAG, "Dropped envelope due to TTL exhaustion: ${envelope.envelopeId}")
+            return
+        }
         
         // --- SECURITY: Verify Signature ---
         val originId = envelope.originEndpointId
@@ -94,22 +99,24 @@ class MeshFloodingProtocol @Inject constructor(
             Log.w(TAG, "Failed to emit envelope ${envelope.envelopeId} to shared flow")
         }
 
-        // Do not flood 1-hop control messages
-        if (envelope.action == "FILE_HEADER") {
-            return
-        }
-
         flood(envelope, senderEndpointId)
     }
 
     private fun flood(envelope: MeshEnvelope, senderEndpointId: String?) {
+        val nextTtl = envelope.ttl - 1
+        if (nextTtl <= 0) {
+            Log.d(TAG, "Not flooding envelope ${envelope.envelopeId} further due to TTL exhaustion.")
+            return
+        }
+
         val connected = connectionManager.connectedEndpoints.value
         val targets = connected.filter { it != senderEndpointId }
         
         if (targets.isNotEmpty()) {
-            val payload = Payload.fromBytes(envelope.toByteArray())
+            val decrementedEnvelope = envelope.copy(ttl = nextTtl)
+            val payload = Payload.fromBytes(decrementedEnvelope.toByteArray())
             payloadRouter.sendPayload(targets, payload)
-            Log.d(TAG, "Flooded envelope ${envelope.envelopeId} to ${targets.size} endpoints")
+            Log.d(TAG, "Flooded envelope ${envelope.envelopeId} to ${targets.size} endpoints with TTL ${decrementedEnvelope.ttl}")
         }
     }
 

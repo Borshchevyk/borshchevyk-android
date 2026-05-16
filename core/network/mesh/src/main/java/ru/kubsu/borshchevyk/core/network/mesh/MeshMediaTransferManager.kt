@@ -206,7 +206,8 @@ class MeshMediaTransferManager @Inject constructor(
             envelopeId = UUID.randomUUID().toString(),
             originEndpointId = "", // Will be filled by broadcastTo
             action = "FILE_HEADER",
-            payload = json.encodeToString(header)
+            payload = json.encodeToString(header),
+            ttl = 1
         )
         
         // 2. Send the 1-hop header to the specific targets
