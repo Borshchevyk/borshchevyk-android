@@ -24,6 +24,7 @@ import ru.kubsu.borshchevyk.core.network.dto.UpdatePermissionsRequest
 import ru.kubsu.borshchevyk.core.network.mesh.MeshEnvelope
 import ru.kubsu.borshchevyk.core.network.mesh.MeshFloodingProtocol
 import ru.kubsu.borshchevyk.core.network.mesh.MeshSignatureService
+import ru.kubsu.borshchevyk.core.network.mesh.E2EEPayload
 import java.util.UUID
 import javax.inject.Inject
 
@@ -35,6 +36,16 @@ class MeshChatNetworkDataSource @Inject constructor(
     private val signatureService: MeshSignatureService,
     private val json: Json
 ) : ChatNetworkDataSource {
+
+    private suspend fun encryptPayloadIfNeeded(chatId: String, payloadString: String): String {
+        val partnerPubKey = signatureService.getPartnerPublicKeyForChat(chatId) ?: return payloadString
+        val e2eePayload = signatureService.encryptE2EE(payloadString.toByteArray(Charsets.UTF_8), partnerPubKey)
+        return if (e2eePayload != null) {
+            json.encodeToString(e2eePayload)
+        } else {
+            payloadString
+        }
+    }
 
     override suspend fun createChat(request: CreateChatRequest): NetworkResult<ChatResponse> {
         return NetworkResult.Error(501, "Not implemented in Mesh mode yet")
@@ -104,11 +115,14 @@ class MeshChatNetworkDataSource @Inject constructor(
             )
 
             val event = NotificationDto.ChatEventDto(broadcastChatResponse, "UPDATE_CHAT")
+            val payloadString = json.encodeToString(event)
+            val finalPayload = encryptPayloadIfNeeded(chatResponse.id, payloadString)
+            
             val envelope = MeshEnvelope(
                 envelopeId = UUID.randomUUID().toString(),
                 originEndpointId = "", // Filled by GossipProtocol
                 action = "UPDATE_CHAT",
-                payload = json.encodeToString(event)
+                payload = finalPayload
             )
             gossipProtocol.broadcast(envelope)
 

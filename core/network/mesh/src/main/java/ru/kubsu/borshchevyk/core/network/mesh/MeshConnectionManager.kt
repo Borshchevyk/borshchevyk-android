@@ -14,9 +14,13 @@ import com.google.android.gms.nearby.connection.DiscoveryOptions
 import com.google.android.gms.nearby.connection.EndpointDiscoveryCallback
 import com.google.android.gms.nearby.connection.Strategy
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -29,8 +33,10 @@ data class MeshPeer(
 @Singleton
 class MeshConnectionManager @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val payloadRouter: MeshPayloadRouter
+    private val payloadRouter: MeshPayloadRouter,
+    private val signatureService: MeshSignatureService
 ) {
+    private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private val connectionsClient: ConnectionsClient = Nearby.getConnectionsClient(context)
     
     private val _connectedEndpoints = MutableStateFlow<Set<String>>(emptySet())
@@ -42,6 +48,7 @@ class MeshConnectionManager @Inject constructor(
     private val endpointNames = ConcurrentHashMap<String, String>()
     
     private var currentLocalEndpointName: String = "Unknown User"
+    private var currentLocalUserId: String = "unknown"
 
     private val strategy = Strategy.P2P_CLUSTER
     private val serviceId = "ru.kubsu.borshchevyk.mesh"
@@ -49,7 +56,9 @@ class MeshConnectionManager @Inject constructor(
 
     private fun updatePeers() {
         val peers = _connectedEndpoints.value.map { id ->
-            MeshPeer(id, endpointNames[id] ?: "Unknown")
+            val fullName = endpointNames[id] ?: "Unknown"
+            val displayname = fullName.substringBefore("|")
+            MeshPeer(id, displayname)
         }
         _connectedPeers.value = peers
     }
@@ -94,6 +103,14 @@ class MeshConnectionManager @Inject constructor(
 
     private val endpointDiscoveryCallback = object : EndpointDiscoveryCallback() {
         override fun onEndpointFound(endpointId: String, info: DiscoveredEndpointInfo) {
+            val parts = info.endpointName.split("|")
+            val remoteUserId = if (parts.size > 1) parts[1] else null
+            
+            if (remoteUserId != null && remoteUserId == currentLocalUserId) {
+                Log.d(TAG, "Ignoring self-discovery: ${info.endpointName}")
+                return
+            }
+            
             Log.d(TAG, "Endpoint found: $endpointId (${info.endpointName})")
             
             // Prevent STATUS_ENDPOINT_IO_ERROR collisions in P2P_CLUSTER
@@ -124,16 +141,20 @@ class MeshConnectionManager @Inject constructor(
     }
 
     fun startAdvertising(localEndpointName: String) {
-        val options = AdvertisingOptions.Builder().setStrategy(strategy).build()
-        connectionsClient.startAdvertising(
-            localEndpointName,
-            serviceId,
-            connectionLifecycleCallback,
-            options
-        ).addOnSuccessListener {
-            Log.d(TAG, "Started advertising as $localEndpointName")
-        }.addOnFailureListener { e ->
-            Log.e(TAG, "Failed to start advertising", e)
+        scope.launch {
+            currentLocalUserId = signatureService.getUserId() ?: "unknown"
+            val actualEndpointName = "$localEndpointName|$currentLocalUserId"
+            val options = AdvertisingOptions.Builder().setStrategy(strategy).build()
+            connectionsClient.startAdvertising(
+                actualEndpointName,
+                serviceId,
+                connectionLifecycleCallback,
+                options
+            ).addOnSuccessListener {
+                Log.d(TAG, "Started advertising as $actualEndpointName")
+            }.addOnFailureListener { e ->
+                Log.e(TAG, "Failed to start advertising", e)
+            }
         }
     }
 
@@ -143,16 +164,19 @@ class MeshConnectionManager @Inject constructor(
     }
 
     fun startDiscovery(localEndpointName: String) {
-        currentLocalEndpointName = localEndpointName
-        val options = DiscoveryOptions.Builder().setStrategy(strategy).build()
-        connectionsClient.startDiscovery(
-            serviceId,
-            endpointDiscoveryCallback,
-            options
-        ).addOnSuccessListener {
-            Log.d(TAG, "Started discovery")
-        }.addOnFailureListener { e ->
-            Log.e(TAG, "Failed to start discovery", e)
+        scope.launch {
+            currentLocalUserId = signatureService.getUserId() ?: "unknown"
+            currentLocalEndpointName = "$localEndpointName|$currentLocalUserId"
+            val options = DiscoveryOptions.Builder().setStrategy(strategy).build()
+            connectionsClient.startDiscovery(
+                serviceId,
+                endpointDiscoveryCallback,
+                options
+            ).addOnSuccessListener {
+                Log.d(TAG, "Started discovery")
+            }.addOnFailureListener { e ->
+                Log.e(TAG, "Failed to start discovery", e)
+            }
         }
     }
 
