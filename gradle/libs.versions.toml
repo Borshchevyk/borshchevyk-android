@@ -13,6 +13,7 @@ ktor = "3.0.0"
 krossbow = "7.0.0"
 kotlinxSerialization = "1.7.3"
 kotlinxCoroutines = "1.9.0"
+kotlinxCollectionsImmutable = "0.3.7"
 datastore = "1.1.1"
 ksp = "2.3.6"
 room = "2.6.1"
@@ -58,6 +59,7 @@ krossbow-websocket-ktor = { group = "org.hildan.krossbow", name = "krossbow-webs
 
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinxSerialization" }
 kotlinx-coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version.ref = "kotlinxCoroutines" }
+kotlinx-collections-immutable = { group = "org.jetbrains.kotlinx", name = "kotlinx-collections-immutable", version.ref = "kotlinxCollectionsImmutable" }
 
 androidx-datastore-preferences = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastore" }
 

@@ -11,9 +11,9 @@ import androidx.navigation.toRoute
 import kotlinx.serialization.Serializable
 import ru.kubsu.borshchevyk.feature.auth.ui.AuthRoute
 import ru.kubsu.borshchevyk.feature.call.ui.incoming.IncomingCallBanner
+import ru.kubsu.borshchevyk.feature.chat.conversation.ui.ChatRoute
 import ru.kubsu.borshchevyk.feature.call.ui.call.CallScreen as CallScreenRoute
-import ru.kubsu.borshchevyk.feature.chat.ui.chat.ChatRoute as ChatScreenRoute
-import ru.kubsu.borshchevyk.feature.chat.ui.chat.ChatSettingsRoute as ChatSettingsScreenRoute
+import ru.kubsu.borshchevyk.feature.chat.settings.ui.ChatSettingsRoute as ChatSettingsScreenRoute
 import ru.kubsu.borshchevyk.feature.profile.ui.editprivacy.EditPrivacyRoute as EditPrivacyScreenRoute
 import ru.kubsu.borshchevyk.feature.profile.ui.editprofile.EditProfileRoute as EditProfileScreenRoute
 import ru.kubsu.borshchevyk.feature.search.ui.SearchRoute as SearchScreenRoute
@@ -105,7 +105,7 @@ fun BorshchevykNavHost(
             }
 
             composable<ChatRoute> {
-                ChatScreenRoute(
+                ChatRoute(
                     onBackClick = {
                         navController.popBackStack()
                     },

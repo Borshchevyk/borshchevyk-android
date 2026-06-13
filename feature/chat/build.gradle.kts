@@ -21,6 +21,7 @@ android {
 }
 
 dependencies {
+    implementation(libs.kotlinx.collections.immutable)
     implementation(project(":core:ui"))
     implementation(project(":core:model"))
     implementation(project(":core:domain:auth"))

@@ -30,7 +30,9 @@
             <option value="$PROJECT_DIR$/core/network/call" />
             <option value="$PROJECT_DIR$/core/network/chat" />
             <option value="$PROJECT_DIR$/core/network/client" />
+            <option value="$PROJECT_DIR$/core/network/ktor" />
             <option value="$PROJECT_DIR$/core/network/media" />
+            <option value="$PROJECT_DIR$/core/network/mesh" />
             <option value="$PROJECT_DIR$/core/network/message" />
             <option value="$PROJECT_DIR$/core/network/user" />
             <option value="$PROJECT_DIR$/core/network/websocket" />
