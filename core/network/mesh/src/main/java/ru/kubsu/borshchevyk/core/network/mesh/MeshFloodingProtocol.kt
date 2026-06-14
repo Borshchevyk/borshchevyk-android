@@ -72,22 +72,33 @@ class MeshFloodingProtocol @Inject constructor(
         val originId = envelope.originEndpointId
         val signature = envelope.signature
         
-        if (originId.isNotEmpty() && signature != null) {
-            val dataToVerify = envelope.payload.toByteArray(Charsets.UTF_8)
-            val isValid = signatureService.verifySignature(originId, signature, dataToVerify)
-            if (!isValid) {
+        if (originId.isEmpty()) {
+            Log.e(TAG, "SECURITY ALERT: Envelope ${envelope.envelopeId} has no origin ID. Discarding.")
+            return
+        }
+
+        if (signature == null) {
+            Log.e(TAG, "SECURITY WARNING: Envelope ${envelope.envelopeId} from $originId is missing a signature. Discarding.")
+            return
+        }
+        
+        val dataToVerify = envelope.payload.toByteArray(Charsets.UTF_8)
+        val isValid = signatureService.verifySignature(originId, signature, dataToVerify)
+        
+        if (!isValid) {
+            if (!signatureService.hasPublicKey(originId)) {
+                // If it's a USER_PROFILE, it shouldn't be processed here, but passed through to MeshProfileListener which will verify it AFTER extracting the key
                 if (envelope.action == "USER_PROFILE") {
-                    Log.w(TAG, "Signature verification failed or key missing for USER_PROFILE. Allowing through to establish identity.")
+                    Log.w(TAG, "Key missing for USER_PROFILE. Allowing through to establish identity. Listener MUST verify signature before trusting the key.")
                 } else {
-                    Log.e(TAG, "SECURITY ALERT: Invalid signature for envelope ${envelope.envelopeId} from claimed origin $originId. Discarding.")
-                    return
+                    Log.w(TAG, "Public key missing for origin $originId. Allowing envelope ${envelope.envelopeId} through so it can be buffered until key arrives.")
                 }
             } else {
-                Log.d(TAG, "Signature verified successfully for envelope ${envelope.envelopeId}")
+                Log.e(TAG, "SECURITY ALERT: Invalid signature for envelope ${envelope.envelopeId} from claimed origin $originId. Discarding.")
+                return
             }
-        } else if (originId.isNotEmpty() && signature == null) {
-             Log.w(TAG, "SECURITY WARNING: Envelope ${envelope.envelopeId} from $originId is missing a signature. Discarding.")
-             return
+        } else {
+            Log.d(TAG, "Signature verified successfully for envelope ${envelope.envelopeId}")
         }
         // ----------------------------------
         
@@ -150,6 +161,13 @@ class MeshFloodingProtocol @Inject constructor(
             
             val payload = Payload.fromBytes(signedEnvelope.toByteArray())
             payloadRouter.sendPayload(targetEndpointIds, payload)
+        }
+    }
+
+    fun replayLocalEnvelope(envelope: MeshEnvelope) {
+        scope.launch {
+            Log.d(TAG, "Replaying pending envelope locally: ${envelope.envelopeId}")
+            _incomingEnvelopes.emit(envelope)
         }
     }
 }

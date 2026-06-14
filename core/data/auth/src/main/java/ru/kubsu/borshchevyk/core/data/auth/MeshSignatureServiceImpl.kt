@@ -59,6 +59,22 @@ class MeshSignatureServiceImpl @Inject constructor(
         }
     }
 
+    override suspend fun verifySignatureWithKey(publicKeyBase64: String, signature: String, data: ByteArray): Boolean {
+        return try {
+            val pubKeyBytes = Base64.decode(publicKeyBase64, Base64.NO_WRAP)
+            val signatureBytes = Base64.decode(signature, Base64.NO_WRAP)
+
+            keyManager.verifyDataWithRawPublicKey(pubKeyBytes, data, signatureBytes)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            false
+        }
+    }
+
+    override suspend fun hasPublicKey(userId: String): Boolean {
+        return publicKeyDao.getPublicKey(userId) != null
+    }
+
     override suspend fun getUserId(): String? {
         return authPreferences.userId.firstOrNull()
     }

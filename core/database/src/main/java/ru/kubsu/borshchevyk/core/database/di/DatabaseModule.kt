@@ -10,6 +10,7 @@ import dagger.hilt.components.SingletonComponent
 import ru.kubsu.borshchevyk.core.database.AppDatabase
 import ru.kubsu.borshchevyk.core.database.dao.ChatDao
 import ru.kubsu.borshchevyk.core.database.dao.MessageDao
+import ru.kubsu.borshchevyk.core.database.dao.PendingEnvelopeDao
 import ru.kubsu.borshchevyk.core.database.dao.PublicKeyDao
 import ru.kubsu.borshchevyk.core.database.dao.UserDao
 import javax.inject.Singleton
@@ -85,4 +86,14 @@ object DatabaseModule {
     @Provides
     @Singleton
     fun providePublicKeyDao(database: AppDatabase): PublicKeyDao = database.publicKeyDao()
+
+    /**
+     * Provides the [PendingEnvelopeDao] implementation.
+     *
+     * @param database The [AppDatabase] instance.
+     * @return The [PendingEnvelopeDao] implementation.
+     */
+    @Provides
+    @Singleton
+    fun providePendingEnvelopeDao(database: AppDatabase): PendingEnvelopeDao = database.pendingEnvelopeDao()
 }

@@ -24,7 +24,6 @@ import ru.kubsu.borshchevyk.core.network.dto.UpdatePermissionsRequest
 import ru.kubsu.borshchevyk.core.network.mesh.MeshEnvelope
 import ru.kubsu.borshchevyk.core.network.mesh.MeshFloodingProtocol
 import ru.kubsu.borshchevyk.core.network.mesh.MeshSignatureService
-import ru.kubsu.borshchevyk.core.network.mesh.E2EEPayload
 import java.util.UUID
 import javax.inject.Inject
 
@@ -71,8 +70,15 @@ class MeshChatNetworkDataSource @Inject constructor(
 
             val user = userDao.getUser(request.targetUserId)
             val partnerName = user?.let { "${it.firstName.orEmpty()} ${it.lastName.orEmpty()}".trim().takeIf { name -> name.isNotEmpty() } ?: it.tag } ?: "Unknown"
+            
+            val localUserId = signatureService.getUserId() ?: "self"
+            val sortedIds = listOf(localUserId, request.targetUserId).sorted()
+            val deterministicId = java.security.MessageDigest.getInstance("SHA-256")
+                .digest(sortedIds.joinToString("_").toByteArray(Charsets.UTF_8))
+                .joinToString("") { "%02x".format(it) }
+
             val chatResponse = ChatResponse(
-                id = UUID.randomUUID().toString(),
+                id = deterministicId,
                 type = ChatType.PRIVATE,
                 createdAt = System.currentTimeMillis().toString(),
                 partnerId = request.targetUserId,
@@ -104,7 +110,6 @@ class MeshChatNetworkDataSource @Inject constructor(
 
             // Broadcast the chat creation to the remote peer, but invert the partner fields
             // so the remote peer receives our name/avatar as their partner, avoiding 'New Mesh Chat'.
-            val localUserId = signatureService.getUserId() ?: "self"
             val localUser = userDao.getUser(localUserId)
             val localName = localUser?.let { "${it.firstName.orEmpty()} ${it.lastName.orEmpty()}".trim().takeIf { name -> name.isNotEmpty() } ?: it.tag } ?: "Unknown"
 

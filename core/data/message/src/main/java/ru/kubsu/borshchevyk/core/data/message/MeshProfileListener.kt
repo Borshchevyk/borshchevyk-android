@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import ru.kubsu.borshchevyk.core.database.dao.PendingEnvelopeDao
 import ru.kubsu.borshchevyk.core.database.dao.PublicKeyDao
 import ru.kubsu.borshchevyk.core.database.dao.UserDao
 import ru.kubsu.borshchevyk.core.database.entity.PublicKeyEntity
@@ -16,6 +17,7 @@ import ru.kubsu.borshchevyk.core.network.di.ApplicationScope
 import ru.kubsu.borshchevyk.core.network.di.IoDispatcher
 import ru.kubsu.borshchevyk.core.network.dto.EnrichedUserResponse
 import ru.kubsu.borshchevyk.core.network.mesh.MeshConnectionManager
+import ru.kubsu.borshchevyk.core.network.mesh.MeshEnvelope
 import ru.kubsu.borshchevyk.core.network.mesh.MeshFloodingProtocol
 import ru.kubsu.borshchevyk.core.network.mesh.MeshSignatureService
 import java.util.UUID
@@ -27,6 +29,7 @@ class MeshProfileListener @Inject constructor(
     private val gossipProtocol: MeshFloodingProtocol,
     private val userDao: UserDao,
     private val publicKeyDao: PublicKeyDao,
+    private val pendingEnvelopeDao: PendingEnvelopeDao,
     private val json: Json,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
     @ApplicationScope private val scope: CoroutineScope,
@@ -42,6 +45,26 @@ class MeshProfileListener @Inject constructor(
                     Log.d(TAG, "INCOMING USER_PROFILE: ${envelope.payload}")
                     try {
                         val payload = json.decodeFromString<EnrichedUserResponse>(envelope.payload)
+                        
+                        // SECURITY: Root of Trust verification
+                        // We must verify that the envelope was actually signed by the public key inside the payload
+                        // before we trust this key and save it to the database.
+                        val incomingPubKey = payload.publicKey
+                        val signature = envelope.signature
+                        
+                        if (incomingPubKey.isNullOrBlank() || signature == null) {
+                            Log.e(TAG, "SECURITY ALERT: USER_PROFILE from ${payload.id} is missing public key or signature. Discarding.")
+                            return@onEach
+                        }
+
+                        val dataToVerify = envelope.payload.toByteArray(Charsets.UTF_8)
+                        val isValidProfile = signatureService.verifySignatureWithKey(incomingPubKey, signature, dataToVerify)
+                        
+                        if (!isValidProfile) {
+                            Log.e(TAG, "SECURITY ALERT: USER_PROFILE from ${payload.id} failed signature verification against its own key. SPOOFING ATTEMPT! Discarding.")
+                            return@onEach
+                        }
+
                         withContext(ioDispatcher) {
                             val existingUser = userDao.getUser(payload.id)
                             userDao.upsertUser(
@@ -57,12 +80,39 @@ class MeshProfileListener @Inject constructor(
                                 )
                             )
                             
-                            // Save the public key if provided
-                            val incomingPubKey = payload.publicKey
-                            if (!incomingPubKey.isNullOrBlank()) {
-                                publicKeyDao.insertPublicKey(PublicKeyEntity(payload.id, incomingPubKey))
-                                Log.d(TAG, "Saved public key for mesh user: ${payload.id}")
-                            }
+                            // Save the securely verified public key
+                            publicKeyDao.insertPublicKey(PublicKeyEntity(payload.id, incomingPubKey))
+                            Log.d(TAG, "Saved VERIFIED public key for mesh user: ${payload.id}")
+                            
+                            // Retry pending envelopes for this user now that we have their verified public key
+                            val pendingEnvelopes = pendingEnvelopeDao.getPendingEnvelopesForUser(payload.id)
+                            if (pendingEnvelopes.isNotEmpty()) {
+                                    Log.d(TAG, "Found ${pendingEnvelopes.size} pending envelopes for ${payload.id}. Verifying and replaying...")
+                                    pendingEnvelopes.forEach { pending ->
+                                        val signature = pending.signature
+                                        var isValid = false
+                                        if (signature != null) {
+                                            val dataToVerify = pending.payload.toByteArray(Charsets.UTF_8)
+                                            isValid = signatureService.verifySignature(pending.originEndpointId, signature, dataToVerify)
+                                        }
+
+                                        if (isValid) {
+                                            gossipProtocol.replayLocalEnvelope(
+                                                MeshEnvelope(
+                                                    envelopeId = pending.envelopeId,
+                                                    originEndpointId = pending.originEndpointId,
+                                                    action = pending.action,
+                                                    payload = pending.payload,
+                                                    signature = signature,
+                                                    ttl = 0
+                                                )
+                                            )
+                                        } else {
+                                            Log.e(TAG, "SECURITY ALERT: Pending envelope ${pending.envelopeId} failed signature verification after key arrival. Discarding.")
+                                        }
+                                        pendingEnvelopeDao.delete(pending.envelopeId)
+                                    }
+                                }
                             
                             Log.d(TAG, "Saved mesh user profile to DB: ID=${payload.id}, Tag=${payload.tag}")
                         }
