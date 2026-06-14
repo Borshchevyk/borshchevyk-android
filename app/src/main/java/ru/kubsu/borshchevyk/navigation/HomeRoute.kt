@@ -23,7 +23,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import ru.kubsu.borshchevyk.core.ui.theme.BorshchevykTheme
-import ru.kubsu.borshchevyk.feature.chat.ui.chatlist.ChatListRoute
+import ru.kubsu.borshchevyk.feature.chat.chatlist.ui.ChatListRoute
 import ru.kubsu.borshchevyk.feature.contacts.ui.ContactsRoute
 import ru.kubsu.borshchevyk.feature.profile.ui.ProfileRoute
 
