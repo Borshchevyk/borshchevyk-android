@@ -1,5 +1,6 @@
 package ru.kubsu.borshchevyk.core.network.media
 
+import kotlinx.coroutines.flow.Flow
 import ru.kubsu.borshchevyk.core.network.client.NetworkMode
 import ru.kubsu.borshchevyk.core.network.client.NetworkResult
 import ru.kubsu.borshchevyk.core.network.client.TransportModeManager
@@ -25,6 +26,9 @@ class ProxyMediaNetworkDataSource @Inject constructor(
         } else {
             ktorDataSource
         }
+
+    override fun observeAttachmentProgress(attachmentId: String): Flow<Float> =
+        currentDataSource.observeAttachmentProgress(attachmentId)
 
     override suspend fun requestUploadUrl(request: RequestUploadUrlRequest): NetworkResult<UploadUrlResult> =
         currentDataSource.requestUploadUrl(request)

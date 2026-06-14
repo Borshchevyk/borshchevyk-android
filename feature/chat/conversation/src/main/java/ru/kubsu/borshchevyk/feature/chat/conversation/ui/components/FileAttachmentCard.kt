@@ -1,5 +1,6 @@
 package ru.kubsu.borshchevyk.feature.chat.conversation.ui.components
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -13,6 +14,7 @@ import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -32,6 +34,7 @@ import java.util.Locale
 internal fun FileAttachmentCard(
     attachment: Attachment,
     isFromMe: Boolean,
+    downloadProgress: Float = 0f,
     onDownloadClick: () -> Unit = {}
 ) {
     val formattedSize = remember(attachment.sizeBytes) {
@@ -55,14 +58,23 @@ internal fun FileAttachmentCard(
             modifier = Modifier.padding(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                imageVector = when(attachment.type) {
-                    DomainAttachmentType.VOICE -> Icons.Default.Description // Placeholder
-                    else -> Icons.Default.Description
-                },
-                contentDescription = "File",
-                tint = if (isFromMe) BorshchevykTheme.colors.primary else BorshchevykTheme.colors.onSurfaceVariant
-            )
+            Box(contentAlignment = Alignment.Center) {
+                if (downloadProgress > 0f && downloadProgress < 1f) {
+                    CircularProgressIndicator(
+                        progress = { downloadProgress },
+                        modifier = Modifier.size(24.dp),
+                        color = if (isFromMe) BorshchevykTheme.colors.primary else BorshchevykTheme.colors.onSurfaceVariant
+                    )
+                }
+                Icon(
+                    imageVector = when(attachment.type) {
+                        DomainAttachmentType.VOICE -> Icons.Default.Description // Placeholder
+                        else -> Icons.Default.Description
+                    },
+                    contentDescription = "File",
+                    tint = if (isFromMe) BorshchevykTheme.colors.primary else BorshchevykTheme.colors.onSurfaceVariant
+                )
+            }
             Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(

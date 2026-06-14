@@ -15,6 +15,8 @@ import io.ktor.http.contentType
 import io.ktor.utils.io.close
 import io.ktor.utils.io.writeFully
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import ru.kubsu.borshchevyk.core.network.client.NetworkResult
@@ -34,6 +36,10 @@ class KtorMediaNetworkDataSource @Inject constructor(
 ) : MediaNetworkDataSource {
 
     private val TAG = "MediaNetworkDataSource"
+
+    override fun observeAttachmentProgress(attachmentId: String): Flow<Float> {
+        return flowOf(0f)
+    }
 
     override suspend fun uploadAvatar(fileBytes: ByteArray, filename: String, contentType: String): NetworkResult<AttachmentUrlResult> {
         return withContext(ioDispatcher) {

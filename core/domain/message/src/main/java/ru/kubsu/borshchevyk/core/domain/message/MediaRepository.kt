@@ -1,5 +1,6 @@
 package ru.kubsu.borshchevyk.core.domain.message
 
+import kotlinx.coroutines.flow.Flow
 import ru.kubsu.borshchevyk.core.model.domain.DomainAttachmentResponse
 import ru.kubsu.borshchevyk.core.model.domain.DomainAttachmentType
 
@@ -12,6 +13,14 @@ import ru.kubsu.borshchevyk.core.model.domain.DomainAttachmentType
  * storage mechanisms (e.g., S3, local cache).
  */
 interface MediaRepository {
+    /**
+     * Observes the download progress of a specific attachment.
+     *
+     * @param attachmentId The ID of the attachment.
+     * @return A Flow emitting progress values from 0.0 to 1.0.
+     */
+    fun observeAttachmentProgress(attachmentId: String): Flow<Float>
+
     /**
      * Requests a pre-signed upload URL for securely uploading a file to storage.
      *

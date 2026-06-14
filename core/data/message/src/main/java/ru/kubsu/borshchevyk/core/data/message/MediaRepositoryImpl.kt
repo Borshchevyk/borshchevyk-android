@@ -1,5 +1,6 @@
 package ru.kubsu.borshchevyk.core.data.message
 
+import kotlinx.coroutines.flow.Flow
 import ru.kubsu.borshchevyk.core.domain.message.MediaRepository
 import ru.kubsu.borshchevyk.core.model.domain.DomainAttachmentResponse
 import ru.kubsu.borshchevyk.core.model.domain.DomainAttachmentType
@@ -25,6 +26,10 @@ import javax.inject.Inject
 class MediaRepositoryImpl @Inject constructor(
     private val networkDataSource: MediaNetworkDataSource
 ) : MediaRepository {
+
+    override fun observeAttachmentProgress(attachmentId: String): Flow<Float> {
+        return networkDataSource.observeAttachmentProgress(attachmentId)
+    }
 
     /**
      * Requests a pre-signed URL from the backend to directly upload a media file to S3 storage.
@@ -148,7 +153,7 @@ class MediaRepositoryImpl @Inject constructor(
      */
     override suspend fun getAttachmentUrl(attachmentId: String): String {
         val url = networkDataSource.getAttachmentUrl(attachmentId).getOrThrow().url
-        return if (url.startsWith("http")) {
+        return if (url.startsWith("http") || url.startsWith("mesh") || url.startsWith("file")) {
             url
         } else {
             "${NetworkConstants.BASE_URL}${if (url.startsWith("/")) "" else "/"}$url"
@@ -157,7 +162,7 @@ class MediaRepositoryImpl @Inject constructor(
 
     override suspend fun getAttachmentThumbnailUrl(attachmentId: String): String {
         val url = networkDataSource.getAttachmentThumbnailUrl(attachmentId).getOrThrow().url
-        return if (url.startsWith("http")) {
+        return if (url.startsWith("http") || url.startsWith("mesh") || url.startsWith("file")) {
             url
         } else {
             "${NetworkConstants.BASE_URL}${if (url.startsWith("/")) "" else "/"}$url"

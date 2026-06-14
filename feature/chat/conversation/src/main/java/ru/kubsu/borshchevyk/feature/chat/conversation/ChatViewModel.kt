@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
@@ -68,6 +69,10 @@ class ChatViewModel @Inject constructor(
 
     private fun sendEffect(effect: ChatEffect) {
         container.sendEffect(effect)
+    }
+
+    fun observeAttachmentProgress(attachmentId: String): Flow<Float> {
+        return chatMediaHandler.observeAttachmentProgress(attachmentId)
     }
 
     private val chatId: String = checkNotNull(savedStateHandle["chatId"])

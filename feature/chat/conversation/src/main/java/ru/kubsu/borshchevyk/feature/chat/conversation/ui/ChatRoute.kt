@@ -88,6 +88,7 @@ fun ChatRoute(
                 ChatScreen(
                     contentState = state,
                     onIntent = chatViewModel::handleIntent,
+                    onObserveProgress = chatViewModel::observeAttachmentProgress,
                     modifier = Modifier.padding(padding)
                 )
             }

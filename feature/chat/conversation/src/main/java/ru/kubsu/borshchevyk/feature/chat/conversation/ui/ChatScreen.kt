@@ -17,6 +17,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
 import ru.kubsu.borshchevyk.core.model.domain.Attachment
 import ru.kubsu.borshchevyk.feature.chat.conversation.mvi.ChatIntent
 import ru.kubsu.borshchevyk.feature.chat.conversation.mvi.ChatUiState
@@ -30,6 +32,7 @@ import ru.kubsu.borshchevyk.feature.chat.conversation.ui.components.ReadersDialo
 internal fun ChatScreen(
     contentState: ChatUiState.Content,
     onIntent: (ChatIntent) -> Unit,
+    onObserveProgress: (String) -> Flow<Float> = { flowOf(0f) },
     modifier: Modifier = Modifier
 ) {
     var messageIdForReaders by rememberSaveable { mutableStateOf<String?>(null) }
@@ -71,7 +74,8 @@ internal fun ChatScreen(
                     onIntent = onIntent,
                     onAttachmentClick = { selectedAttachment = it },
                     onViewReadersRequested = { messageIdForReaders = it },
-                    onViewCommentsRequested = { messageIdForComments = it }
+                    onViewCommentsRequested = { messageIdForComments = it },
+                    onObserveProgress = onObserveProgress
                 )
                 Spacer(modifier = Modifier.height(12.dp))
             }

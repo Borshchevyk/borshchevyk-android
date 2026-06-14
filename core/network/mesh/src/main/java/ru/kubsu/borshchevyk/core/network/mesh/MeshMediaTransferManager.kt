@@ -3,13 +3,19 @@ package ru.kubsu.borshchevyk.core.network.mesh
 import android.content.Context
 import android.util.Log
 import com.google.android.gms.nearby.connection.Payload
+import com.google.android.gms.nearby.connection.PayloadTransferUpdate
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.update
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import ru.kubsu.borshchevyk.core.network.di.ApplicationScope
@@ -46,10 +52,67 @@ class MeshMediaTransferManager @Inject constructor(
     private val _incomingFiles = MutableSharedFlow<ReceivedFile>(extraBufferCapacity = 64)
     val incomingFiles: SharedFlow<ReceivedFile> = _incomingFiles.asSharedFlow()
 
+    private val progressMap = MutableStateFlow<Map<String, Float>>(emptyMap())
+
     data class MediaMetadata(val attachmentId: String, val filename: String, val mimeType: String)
     data class ReceivedFile(val endpointId: String, val file: File, val metadata: MediaMetadata?)
+    private data class PendingPayload(val endpointId: String, val payload: Payload)
+
+    private val pendingPayloads = ConcurrentHashMap<Long, PendingPayload>()
+    private val completedPayloads = ConcurrentHashMap<Long, Boolean>()
+
+    private fun tryFinalize(payloadId: Long) {
+        val metadata = payloadMetadataMap[payloadId] ?: return
+        val pending = pendingPayloads[payloadId] ?: return
+        if (completedPayloads[payloadId] != true) return
+
+        val payloadFile = pending.payload.asFile()?.asJavaFile()
+        if (payloadFile != null) {
+            val destFile = File(context.cacheDir, "mesh_${metadata.attachmentId}")
+            if (payloadFile.absolutePath != destFile.absolutePath) {
+                payloadFile.copyTo(destFile, overwrite = true)
+                try { payloadFile.delete() } catch (e: Exception) {}
+            }
+            Log.d(TAG, "Successfully finalized file transfer $payloadId (${metadata.filename})")
+            localFiles[metadata.attachmentId] = destFile
+            _incomingFiles.tryEmit(ReceivedFile(pending.endpointId, destFile, metadata))
+        }
+
+        // Cleanup
+        pendingPayloads.remove(payloadId)
+        payloadMetadataMap.remove(payloadId)
+        completedPayloads.remove(payloadId)
+        progressMap.update { it - metadata.attachmentId }
+    }
 
     init {
+        payloadRouter.transferProgress
+            .onEach { update ->
+                val payloadId = update.payloadId
+                if (update.status == PayloadTransferUpdate.Status.SUCCESS) {
+                    if (pendingPayloads.containsKey(payloadId)) {
+                        completedPayloads[payloadId] = true
+                        tryFinalize(payloadId)
+                    } else {
+                        // Outgoing payload finished
+                        val metadata = payloadMetadataMap.remove(payloadId)
+                        if (metadata != null) progressMap.update { it - metadata.attachmentId }
+                    }
+                } else if (update.status == PayloadTransferUpdate.Status.FAILURE) {
+                    pendingPayloads.remove(payloadId)
+                    completedPayloads.remove(payloadId)
+                    val metadata = payloadMetadataMap.remove(payloadId)
+                    if (metadata != null) progressMap.update { it - metadata.attachmentId }
+                } else {
+                    val metadata = payloadMetadataMap[payloadId]
+                    if (metadata != null && update.totalBytes > 0) {
+                        val progress = update.bytesTransferred.toFloat() / update.totalBytes.toFloat()
+                        progressMap.update { it + (metadata.attachmentId to progress) }
+                    }
+                }
+            }
+            .launchIn(scope)
+
         // 1. Listen for incoming raw FILE payloads from Nearby Connections
         payloadRouter.incomingPayloads
             .onEach { received ->
@@ -71,6 +134,7 @@ class MeshMediaTransferManager @Inject constructor(
                             mimeType = header.mimeType
                         )
                         Log.d(TAG, "Cached metadata for incoming payload ${header.payloadId}: ${header.filename}")
+                        tryFinalize(header.payloadId)
                     } catch (e: Exception) {
                         Log.e(TAG, "Failed to parse FILE_HEADER", e)
                     }
@@ -107,7 +171,22 @@ class MeshMediaTransferManager @Inject constructor(
      * Retrieves the locally cached file for a given attachment ID, if it exists.
      */
     fun getLocalFile(attachmentId: String): File? {
-        return localFiles[attachmentId]
+        val cached = localFiles[attachmentId]
+        if (cached != null && cached.exists()) return cached
+        
+        val diskFile = File(context.cacheDir, "mesh_$attachmentId")
+        if (diskFile.exists() && diskFile.length() > 0) {
+            localFiles[attachmentId] = diskFile
+            return diskFile
+        }
+        return null
+    }
+
+    /**
+     * Returns a flow tracking the download progress of a specific attachment.
+     */
+    fun observeProgress(attachmentId: String): Flow<Float> {
+        return progressMap.map { it[attachmentId] ?: 0f }.distinctUntilChanged()
     }
 
     /**
@@ -228,20 +307,8 @@ class MeshMediaTransferManager @Inject constructor(
     
     // Call this from MeshPayloadRouter when Payload.Type.FILE is received
     fun handleIncomingFilePayload(endpointId: String, payload: Payload) {
-        val payloadFile = payload.asFile()?.asJavaFile()
-        if (payloadFile != null) {
-            val metadata = payloadMetadataMap[payload.id]
-            if (metadata == null) {
-                Log.w(TAG, "Received file payload ${payload.id} but no metadata found in cache!")
-            } else {
-                Log.d(TAG, "Successfully received file payload ${payload.id} (${metadata.filename})")
-                // Cache it locally so we can serve it to others!
-                localFiles[metadata.attachmentId] = payloadFile
-            }
-            _incomingFiles.tryEmit(ReceivedFile(endpointId, payloadFile, metadata))
-            
-            // Clean up the mapping
-            payloadMetadataMap.remove(payload.id)
-        }
+        Log.d(TAG, "Started receiving file payload ${payload.id} from $endpointId")
+        pendingPayloads[payload.id] = PendingPayload(endpointId, payload)
+        tryFinalize(payload.id)
     }
 }

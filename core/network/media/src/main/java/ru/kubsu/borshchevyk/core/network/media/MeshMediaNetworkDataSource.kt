@@ -3,6 +3,7 @@ package ru.kubsu.borshchevyk.core.network.media
 import android.content.Context
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
 import ru.kubsu.borshchevyk.core.network.client.NetworkResult
 import ru.kubsu.borshchevyk.core.network.dto.AttachmentResponse
@@ -30,6 +31,10 @@ class MeshMediaNetworkDataSource @Inject constructor(
 
     fun getCachedAttachment(id: String): AttachmentResponse? {
         return attachmentCache[id]
+    }
+
+    override fun observeAttachmentProgress(attachmentId: String): Flow<Float> {
+        return transferManager.observeProgress(attachmentId)
     }
 
     override suspend fun requestUploadUrl(request: RequestUploadUrlRequest): NetworkResult<UploadUrlResult> {
@@ -166,6 +171,10 @@ class MeshMediaNetworkDataSource @Inject constructor(
 
 
     override suspend fun getAttachmentUrl(attachmentId: String): NetworkResult<AttachmentUrlResult> {
+        val file = transferManager.getLocalFile(attachmentId)
+        if (file != null && file.exists()) {
+            return NetworkResult.Success(AttachmentUrlResult("file://${file.absolutePath}"))
+        }
         // Trigger a pull request just in case we don't have it locally
         transferManager.pullFile(attachmentId)
         return NetworkResult.Success(AttachmentUrlResult("mesh://download/$attachmentId"))

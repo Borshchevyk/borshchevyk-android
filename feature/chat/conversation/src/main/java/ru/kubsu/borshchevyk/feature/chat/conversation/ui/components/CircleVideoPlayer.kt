@@ -61,7 +61,8 @@ internal fun CircleVideoPlayer(
     duration: Double,
     imageRequest: ImageRequest?,
     loadError: Boolean,
-    onLoadError: () -> Unit
+    onLoadError: () -> Unit,
+    downloadProgress: Float = 0f
 ) {
     var isPlaying by remember { mutableStateOf(false) }
     var isPreparing by remember { mutableStateOf(false) }
@@ -206,7 +207,7 @@ internal fun CircleVideoPlayer(
                     .size(48.dp)
                     .background(Color.Black.copy(alpha = 0.5f), CircleShape)
                     .clickable {
-                        if (url != null && !isPreparing) {
+                        if (url != null && !url.startsWith("mesh://") && !isPreparing && downloadProgress == 0f) {
                             if (mediaPlayer == null) {
                                 isPreparing = true
                                 val player = MediaPlayer().apply {
@@ -241,13 +242,20 @@ internal fun CircleVideoPlayer(
                     },
                 contentAlignment = Alignment.Center
             ) {
-                if (isPreparing) {
+                if (downloadProgress > 0f && downloadProgress < 1f) {
+                    CircularProgressIndicator(
+                        progress = { downloadProgress },
+                        color = Color.White,
+                        modifier = Modifier.size(24.dp),
+                        strokeWidth = 2.dp
+                    )
+                } else if (isPreparing) {
                     CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
                 } else {
                     Icon(
                         imageVector = Icons.Default.PlayArrow,
                         contentDescription = "Play Circle",
-                        tint = Color.White
+                        tint = if (url?.startsWith("mesh://") == true || loadError) Color.Gray else Color.White
                     )
                 }
             }

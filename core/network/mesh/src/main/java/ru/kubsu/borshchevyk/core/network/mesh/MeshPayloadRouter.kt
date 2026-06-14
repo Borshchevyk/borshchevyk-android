@@ -23,6 +23,9 @@ class MeshPayloadRouter @Inject constructor(
     private val _incomingPayloads = MutableSharedFlow<ReceivedPayload>(extraBufferCapacity = 64)
     val incomingPayloads: SharedFlow<ReceivedPayload> = _incomingPayloads.asSharedFlow()
 
+    private val _transferProgress = MutableSharedFlow<PayloadTransferUpdate>(extraBufferCapacity = 64)
+    val transferProgress: SharedFlow<PayloadTransferUpdate> = _transferProgress.asSharedFlow()
+
     val payloadCallback = object : PayloadCallback() {
         override fun onPayloadReceived(endpointId: String, payload: Payload) {
             _incomingPayloads.tryEmit(ReceivedPayload(endpointId, payload))
@@ -30,7 +33,7 @@ class MeshPayloadRouter @Inject constructor(
         }
 
         override fun onPayloadTransferUpdate(endpointId: String, update: PayloadTransferUpdate) {
-            // Handle transfer progress (useful for STREAM or FILE payloads)
+            _transferProgress.tryEmit(update)
         }
     }
 

@@ -1,5 +1,6 @@
 package ru.kubsu.borshchevyk.core.network.media
 
+import kotlinx.coroutines.flow.Flow
 import ru.kubsu.borshchevyk.core.network.client.NetworkResult
 import ru.kubsu.borshchevyk.core.network.dto.AttachmentResponse
 import ru.kubsu.borshchevyk.core.network.dto.AttachmentUrlResult
@@ -12,6 +13,14 @@ import ru.kubsu.borshchevyk.core.network.dto.ValidateAttachmentsResponse
  * Data source interface defining operations for uploading and managing media attachments.
  */
 interface MediaNetworkDataSource {
+    /**
+     * Observes the download progress of a specific attachment.
+     *
+     * @param attachmentId The ID of the attachment.
+     * @return A Flow emitting progress values from 0.0 to 1.0.
+     */
+    fun observeAttachmentProgress(attachmentId: String): Flow<Float>
+
     /**
      * Requests a pre-signed URL from the server to upload a file directly to storage (e.g., S3).
      *

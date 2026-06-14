@@ -16,6 +16,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -29,6 +30,8 @@ import androidx.compose.ui.unit.dp
 import coil.compose.SubcomposeAsyncImage
 import coil.request.ImageRequest
 import kotlinx.collections.immutable.PersistentMap
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
 import ru.kubsu.borshchevyk.core.model.domain.Attachment
 import ru.kubsu.borshchevyk.core.model.domain.DomainAttachmentType
 import ru.kubsu.borshchevyk.core.ui.theme.BorshchevykTheme
@@ -41,6 +44,7 @@ internal fun AttachmentGallery(
     onResolveAttachmentUrl: (String, Boolean) -> Unit,
     onAttachmentClick: (Attachment) -> Unit,
     onDownloadClick: (String) -> Unit = {},
+    onObserveProgress: (String) -> Flow<Float> = { flowOf(0f) },
     isFromMe: Boolean
 ) {
     if (attachments.isEmpty()) return
@@ -54,6 +58,7 @@ internal fun AttachmentGallery(
                 onResolveAttachmentUrl = onResolveAttachmentUrl,
                 onAttachmentClick = onAttachmentClick,
                 onDownloadClick = onDownloadClick,
+                onObserveProgress = onObserveProgress,
                 isFromMe = isFromMe
             )
         }
@@ -68,12 +73,16 @@ internal fun AttachmentItem(
     onResolveAttachmentUrl: (String, Boolean) -> Unit,
     onAttachmentClick: (Attachment) -> Unit,
     onDownloadClick: (String) -> Unit = {},
+    onObserveProgress: (String) -> Flow<Float> = { flowOf(0f) },
     isFromMe: Boolean
 ) {
     val url = attachmentUrls[attachment.id]
     val thumbnailUrl = attachment.thumbnailKey?.let { thumbnailUrls[it] ?: attachmentUrls[it] } 
         ?: if (attachment.type == DomainAttachmentType.VIDEO || attachment.type == DomainAttachmentType.CIRCLE) thumbnailUrls[attachment.id] else null
     var loadError by remember { mutableStateOf(false) }
+    
+    val progressFlow = remember(attachment.id) { onObserveProgress(attachment.id) }
+    val progress by progressFlow.collectAsState(initial = 0f)
 
     LaunchedEffect(attachment.id, attachment.thumbnailKey) {
         if (url == null && attachment.type != DomainAttachmentType.VIDEO && attachment.type != DomainAttachmentType.CIRCLE) {
@@ -114,19 +123,27 @@ internal fun AttachmentItem(
                     contentScale = ContentScale.Crop,
                     loading = {
                         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(24.dp),
-                                color = if (isFromMe) BorshchevykTheme.colors.onPrimary else BorshchevykTheme.colors.primary
-                            )
+                            if (progress > 0f && progress < 1f) {
+                                CircularProgressIndicator(
+                                    progress = { progress },
+                                    modifier = Modifier.size(24.dp),
+                                    color = if (isFromMe) BorshchevykTheme.colors.onPrimary else BorshchevykTheme.colors.primary,
+                                )
+                            } else {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(24.dp),
+                                    color = if (isFromMe) BorshchevykTheme.colors.onPrimary else BorshchevykTheme.colors.primary
+                                )
+                            }
                         }
                     },
                     error = {
                         loadError = true
-                        FileAttachmentCard(attachment, isFromMe) { onDownloadClick(attachment.id) }
+                        FileAttachmentCard(attachment, isFromMe, progress) { onDownloadClick(attachment.id) }
                     }
                 )
             } else {
-                FileAttachmentCard(attachment, isFromMe) { onDownloadClick(attachment.id) }
+                FileAttachmentCard(attachment, isFromMe, progress) { onDownloadClick(attachment.id) }
             }
         }
         DomainAttachmentType.VIDEO -> {
@@ -146,10 +163,18 @@ internal fun AttachmentItem(
                         contentScale = ContentScale.Crop,
                         loading = {
                             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(24.dp),
-                                    color = if (isFromMe) BorshchevykTheme.colors.onPrimary else BorshchevykTheme.colors.primary
-                                )
+                                if (progress > 0f && progress < 1f) {
+                                    CircularProgressIndicator(
+                                        progress = { progress },
+                                        modifier = Modifier.size(24.dp),
+                                        color = if (isFromMe) BorshchevykTheme.colors.onPrimary else BorshchevykTheme.colors.primary,
+                                    )
+                                } else {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(24.dp),
+                                        color = if (isFromMe) BorshchevykTheme.colors.onPrimary else BorshchevykTheme.colors.primary
+                                    )
+                                }
                             }
                         },
                         error = {
@@ -173,11 +198,11 @@ internal fun AttachmentItem(
                             }
                         }
                     } else {
-                        FileAttachmentCard(attachment, isFromMe) { onDownloadClick(attachment.id) }
+                        FileAttachmentCard(attachment, isFromMe, progress) { onDownloadClick(attachment.id) }
                     }
                 }
             } else {
-                FileAttachmentCard(attachment, isFromMe) { onDownloadClick(attachment.id) }
+                FileAttachmentCard(attachment, isFromMe, progress) { onDownloadClick(attachment.id) }
             }
         }
         DomainAttachmentType.CIRCLE -> {
@@ -186,7 +211,8 @@ internal fun AttachmentItem(
                 duration = attachment.duration ?: 0.0,
                 imageRequest = imageRequest,
                 loadError = loadError,
-                onLoadError = { loadError = true }
+                onLoadError = { loadError = true },
+                downloadProgress = progress
             )
         }
         DomainAttachmentType.VOICE -> {
@@ -197,7 +223,7 @@ internal fun AttachmentItem(
             )
         }
         else -> {
-            FileAttachmentCard(attachment, isFromMe) { onDownloadClick(attachment.id) }
+            FileAttachmentCard(attachment, isFromMe, progress) { onDownloadClick(attachment.id) }
         }
     }
 }

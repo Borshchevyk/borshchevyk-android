@@ -52,6 +52,8 @@ import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
 import kotlinx.collections.immutable.PersistentMap
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
 import ru.kubsu.borshchevyk.core.model.domain.DomainAttachmentType
 import ru.kubsu.borshchevyk.core.model.domain.MessageReaction
 import ru.kubsu.borshchevyk.core.model.domain.MessageSource
@@ -74,7 +76,8 @@ internal fun MessageBubble(
     onIntent: (ChatIntent) -> Unit,
     onAttachmentClick: (ru.kubsu.borshchevyk.core.model.domain.Attachment) -> Unit,
     onViewReadersRequested: (String) -> Unit,
-    onViewCommentsRequested: (String) -> Unit
+    onViewCommentsRequested: (String) -> Unit,
+    onObserveProgress: (String) -> Flow<Float> = { flowOf(0f) }
 ) {
     var showMenu by rememberSaveable { mutableStateOf(false) }
     
@@ -137,7 +140,8 @@ internal fun MessageBubble(
                     attachmentUrls = attachmentUrls,
                     thumbnailUrls = thumbnailUrls,
                     onIntent = onIntent,
-                    onAttachmentClick = onAttachmentClick
+                    onAttachmentClick = onAttachmentClick,
+                    onObserveProgress = onObserveProgress
                 )
             }
             
@@ -172,7 +176,8 @@ private fun MessageContent(
     attachmentUrls: PersistentMap<String, String>,
     thumbnailUrls: PersistentMap<String, String>,
     onIntent: (ChatIntent) -> Unit,
-    onAttachmentClick: (ru.kubsu.borshchevyk.core.model.domain.Attachment) -> Unit
+    onAttachmentClick: (ru.kubsu.borshchevyk.core.model.domain.Attachment) -> Unit,
+    onObserveProgress: (String) -> Flow<Float>
 ) {
     Column(
         modifier = Modifier.padding(
@@ -197,6 +202,7 @@ private fun MessageContent(
                 },
                 onAttachmentClick = onAttachmentClick,
                 onDownloadClick = { onIntent(ChatIntent.DownloadAttachment(it)) },
+                onObserveProgress = onObserveProgress,
                 isFromMe = isFromMe
             )
             if (!isOnlyCircle) Spacer(modifier = Modifier.height(8.dp))
