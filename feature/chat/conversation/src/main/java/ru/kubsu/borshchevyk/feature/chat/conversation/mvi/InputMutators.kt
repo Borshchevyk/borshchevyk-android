@@ -1,23 +1,22 @@
 package ru.kubsu.borshchevyk.feature.chat.conversation.mvi
 
-import kotlinx.collections.immutable.toPersistentList
 import ru.kubsu.borshchevyk.core.model.domain.Message
 import ru.kubsu.borshchevyk.core.model.domain.MessageStatus
+import ru.kubsu.borshchevyk.feature.chat.conversation.ui.model.MessageUiModel
+import ru.kubsu.borshchevyk.feature.chat.conversation.ui.model.toUiModel
 
 fun ChatUiState.setEditingMessage(message: Message?): ChatUiState {
     if (this !is ChatUiState.Content) return this
-    return this.copy(input = this.input.copy(editingMessage = message))
+    return this.copy(input = this.input.copy(editingMessage = message?.toUiModel()))
 }
 
-fun ChatUiState.setMessageSending(tempId: String, message: Message, data: FailedMessageData): ChatUiState {
+fun ChatUiState.setMessageSending(tempId: String, message: MessageUiModel, data: FailedMessageData): ChatUiState {
     if (this !is ChatUiState.Content) return this
     val existingIndex = this.feed.messages.indexOfFirst { it.id == tempId }
     val newMessages = if (existingIndex != -1) {
-        val mutableMessages = this.feed.messages.toMutableList()
-        mutableMessages[existingIndex] = message
-        mutableMessages.toPersistentList()
+        this.feed.messages.set(existingIndex, message)
     } else {
-        (listOf(message) + this.feed.messages).toPersistentList()
+        this.feed.messages.add(0, message)
     }
 
     val builder = this.input.pendingMessagesData.builder()
@@ -33,12 +32,27 @@ fun ChatUiState.setMessageSent(tempId: String): ChatUiState {
     if (this !is ChatUiState.Content) return this
     val builder = this.input.pendingMessagesData.builder()
     builder.remove(tempId)
-    val updatedMessages = this.feed.messages.filterNot { it.id == tempId }.toPersistentList()
+    val existingIndex = this.feed.messages.indexOfFirst { it.id == tempId }
+    val updatedMessages = if (existingIndex != -1) {
+        this.feed.messages.set(existingIndex, this.feed.messages[existingIndex].copy(status = MessageStatus.RECEIVED_BY_SERVER))
+    } else {
+        this.feed.messages
+    }
     return this.copy(feed = this.feed.copy(messages = updatedMessages), input = this.input.copy(isSending = false, pendingMessagesData = builder.build()))
 }
 
 fun ChatUiState.setMessageSendFailed(tempId: String): ChatUiState {
     if (this !is ChatUiState.Content) return this
-    val updatedMessages = this.feed.messages.map { if (it.id == tempId) it.copy(status = MessageStatus.ERROR) else it }.toPersistentList()
+    val existingIndex = this.feed.messages.indexOfFirst { it.id == tempId }
+    val updatedMessages = if (existingIndex != -1) {
+        this.feed.messages.set(existingIndex, this.feed.messages[existingIndex].copy(status = MessageStatus.ERROR))
+    } else {
+        this.feed.messages
+    }
     return this.copy(feed = this.feed.copy(messages = updatedMessages), input = this.input.copy(isSending = false))
+}
+
+fun ChatUiState.setRecordingVoice(isRecording: Boolean): ChatUiState {
+    if (this !is ChatUiState.Content) return this
+    return this.copy(input = this.input.copy(isRecordingVoice = isRecording))
 }

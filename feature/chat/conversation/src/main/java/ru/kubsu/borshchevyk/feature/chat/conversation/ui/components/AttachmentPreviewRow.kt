@@ -1,5 +1,6 @@
 package ru.kubsu.borshchevyk.feature.chat.conversation.ui.components
 
+import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -24,14 +25,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
-import coil.compose.AsyncImage
+import coil.compose.SubcomposeAsyncImage
 import ru.kubsu.borshchevyk.core.ui.theme.BorshchevykTheme
-import ru.kubsu.borshchevyk.feature.chat.common.model.AttachmentFile
 
 @Composable
 internal fun AttachmentPreviewRow(
-    attachments: List<AttachmentFile>,
-    onRemoveAttachment: (AttachmentFile) -> Unit
+    attachments: List<Uri>,
+    onRemoveAttachment: (Uri) -> Unit
 ) {
     if (attachments.isEmpty()) return
 
@@ -48,23 +48,24 @@ internal fun AttachmentPreviewRow(
                         .clip(RoundedCornerShape(12.dp))
                         .background(BorshchevykTheme.colors.surfaceVariant)
                 ) {
-                    if (attachment.contentType.startsWith("image/")) {
-                        AsyncImage(
-                            model = attachment.uri,
-                            contentDescription = "Preview",
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .aspectRatio(1f),
-                            contentScale = ContentScale.Crop
-                        )
-                    } else {
-                        Icon(
-                            Icons.Default.AttachFile,
-                            contentDescription = "File",
-                            tint = BorshchevykTheme.colors.onSurfaceVariant,
-                            modifier = Modifier.align(Alignment.Center)
-                        )
-                    }
+                    // Always try to load with coil, it will fail gracefully or load if it's an image
+                    SubcomposeAsyncImage(
+                        model = attachment,
+                        contentDescription = "Preview",
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .aspectRatio(1f),
+                        contentScale = ContentScale.Crop,
+                        error = {
+                            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                Icon(
+                                    Icons.Default.AttachFile,
+                                    contentDescription = "File",
+                                    tint = BorshchevykTheme.colors.onSurfaceVariant
+                                )
+                            }
+                        }
+                    )
                 }
 
                 Box(

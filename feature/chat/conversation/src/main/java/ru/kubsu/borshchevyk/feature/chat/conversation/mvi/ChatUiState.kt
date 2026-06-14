@@ -7,9 +7,9 @@ import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.persistentSetOf
 import ru.kubsu.borshchevyk.core.model.domain.ForwardPayload
-import ru.kubsu.borshchevyk.core.model.domain.Message
 import ru.kubsu.borshchevyk.core.model.domain.User
 import ru.kubsu.borshchevyk.feature.chat.common.model.AttachmentFile
+import ru.kubsu.borshchevyk.feature.chat.conversation.ui.model.MessageUiModel
 
 data class FailedMessageData(
     val text: String,
@@ -28,18 +28,19 @@ data class ChatContext(
 )
 
 data class MessageFeed(
-    val messages: PersistentList<Message> = persistentListOf(),
-    val pinnedMessages: PersistentList<Message> = persistentListOf(),
-    val commentsByMessageId: PersistentMap<String, PersistentList<Message>> = persistentMapOf(),
+    val messages: PersistentList<MessageUiModel> = persistentListOf(),
+    val pinnedMessages: PersistentList<MessageUiModel> = persistentListOf(),
+    val commentsByMessageId: PersistentMap<String, PersistentList<MessageUiModel>> = persistentMapOf(),
     val readersByMessageId: PersistentMap<String, PersistentList<User>> = persistentMapOf(),
     val attachmentUrls: PersistentMap<String, String> = persistentMapOf(),
     val thumbnailUrls: PersistentMap<String, String> = persistentMapOf()
 )
 
 data class InputState(
-    val editingMessage: Message? = null,
+    val editingMessage: MessageUiModel? = null,
     val typingUsers: PersistentSet<String> = persistentSetOf(),
     val isSending: Boolean = false,
+    val isRecordingVoice: Boolean = false,
     val forwardPayload: ForwardPayload? = null,
     val pendingMessagesData: PersistentMap<String, FailedMessageData> = persistentMapOf()
 )

@@ -29,8 +29,8 @@ class ProxyMediaNetworkDataSource @Inject constructor(
     override suspend fun requestUploadUrl(request: RequestUploadUrlRequest): NetworkResult<UploadUrlResult> =
         currentDataSource.requestUploadUrl(request)
 
-    override suspend fun uploadToS3(url: String, fileBytes: ByteArray, contentType: String): NetworkResult<Unit> =
-        currentDataSource.uploadToS3(url, fileBytes, contentType)
+    override suspend fun uploadToS3(url: String, inputStreamProvider: () -> java.io.InputStream?, sizeBytes: Long, contentType: String): NetworkResult<Unit> =
+        currentDataSource.uploadToS3(url, inputStreamProvider, sizeBytes, contentType)
 
     override suspend fun completeUpload(attachmentId: String): NetworkResult<AttachmentResponse> =
         currentDataSource.completeUpload(attachmentId)
@@ -38,11 +38,11 @@ class ProxyMediaNetworkDataSource @Inject constructor(
     override suspend fun uploadAvatar(fileBytes: ByteArray, filename: String, contentType: String): NetworkResult<AttachmentUrlResult> =
         currentDataSource.uploadAvatar(fileBytes, filename, contentType)
 
-    override suspend fun uploadVoice(fileBytes: ByteArray, duration: Double): NetworkResult<AttachmentResponse> =
-        currentDataSource.uploadVoice(fileBytes, duration)
+    override suspend fun uploadVoice(inputStreamProvider: () -> java.io.InputStream?, sizeBytes: Long, duration: Double): NetworkResult<AttachmentResponse> =
+        currentDataSource.uploadVoice(inputStreamProvider, sizeBytes, duration)
 
-    override suspend fun uploadCircle(fileBytes: ByteArray, duration: Double): NetworkResult<AttachmentResponse> =
-        currentDataSource.uploadCircle(fileBytes, duration)
+    override suspend fun uploadCircle(inputStreamProvider: () -> java.io.InputStream?, sizeBytes: Long, duration: Double): NetworkResult<AttachmentResponse> =
+        currentDataSource.uploadCircle(inputStreamProvider, sizeBytes, duration)
 
     override suspend fun getAttachmentUrl(attachmentId: String): NetworkResult<AttachmentUrlResult> =
         currentDataSource.getAttachmentUrl(attachmentId)

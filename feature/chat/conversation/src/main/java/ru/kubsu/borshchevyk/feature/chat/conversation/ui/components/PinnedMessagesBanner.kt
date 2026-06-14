@@ -17,22 +17,19 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import ru.kubsu.borshchevyk.core.model.domain.Message
+import kotlinx.collections.immutable.PersistentList
 import ru.kubsu.borshchevyk.core.ui.theme.BorshchevykTheme
+import ru.kubsu.borshchevyk.feature.chat.conversation.ui.model.MessageUiModel
 
 @Composable
 internal fun PinnedMessagesBanner(
-    messages: List<Message>,
-    onUnpinClick: (Message) -> Unit
+    messages: PersistentList<MessageUiModel>,
+    onUnpinClick: (MessageUiModel) -> Unit
 ) {
-    val message = messages.lastOrNull() ?: return
+    val message = messages.firstOrNull() ?: return
     Surface(
         color = BorshchevykTheme.colors.surfaceVariant,
-        modifier = Modifier
-//            .padding(top = 8.dp)
-//            .padding(horizontal = 8.dp)
-//            .clip(RoundedCornerShape(16.dp))
-            .fillMaxWidth()
+        modifier = Modifier.fillMaxWidth()
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),

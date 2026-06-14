@@ -5,7 +5,7 @@ import ru.kubsu.borshchevyk.core.model.domain.DomainAttachmentType
 
 data class AttachmentFile(
     val uri: Uri,
-    val bytes: ByteArray,
+    val sizeBytes: Long,
     val originalFilename: String,
     val contentType: String,
     val extension: String,

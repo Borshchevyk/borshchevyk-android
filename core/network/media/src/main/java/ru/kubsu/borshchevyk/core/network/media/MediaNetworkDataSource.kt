@@ -21,14 +21,15 @@ interface MediaNetworkDataSource {
     suspend fun requestUploadUrl(request: RequestUploadUrlRequest): NetworkResult<UploadUrlResult>
 
     /**
-     * Performs the actual binary upload to the provided pre-signed URL.
+     * Performs the actual binary upload to the provided pre-signed URL via streaming.
      *
      * @param url The pre-signed upload URL.
-     * @param fileBytes The binary content of the file.
+     * @param inputStreamProvider A function providing the input stream.
+     * @param sizeBytes The size of the file.
      * @param contentType The MIME type of the file.
      * @return A [NetworkResult] indicating upload success or failure.
      */
-    suspend fun uploadToS3(url: String, fileBytes: ByteArray, contentType: String): NetworkResult<Unit>
+    suspend fun uploadToS3(url: String, inputStreamProvider: () -> java.io.InputStream?, sizeBytes: Long, contentType: String): NetworkResult<Unit>
 
     /**
      * Notifies the server that a file upload has been completed.
@@ -51,20 +52,22 @@ interface MediaNetworkDataSource {
     /**
      * Convenience method to upload a voice message directly.
      *
-     * @param fileBytes The binary content of the voice audio.
+     * @param inputStreamProvider A function providing the input stream of the audio.
+     * @param sizeBytes The size of the file.
      * @param duration The duration of the audio in seconds.
-     * @return A [NetworkResult] containing the resulting [AttachmentResponse].
+     * @return A [NetworkResult] containing the server's [AttachmentResponse].
      */
-    suspend fun uploadVoice(fileBytes: ByteArray, duration: Double): NetworkResult<AttachmentResponse>
+    suspend fun uploadVoice(inputStreamProvider: () -> java.io.InputStream?, sizeBytes: Long, duration: Double): NetworkResult<AttachmentResponse>
 
     /**
      * Convenience method to upload a video circle message directly.
      *
-     * @param fileBytes The binary content of the video.
+     * @param inputStreamProvider A function providing the input stream of the video.
+     * @param sizeBytes The size of the file.
      * @param duration The duration of the video in seconds.
-     * @return A [NetworkResult] containing the resulting [AttachmentResponse].
+     * @return A [NetworkResult] containing the server's [AttachmentResponse].
      */
-    suspend fun uploadCircle(fileBytes: ByteArray, duration: Double): NetworkResult<AttachmentResponse>
+    suspend fun uploadCircle(inputStreamProvider: () -> java.io.InputStream?, sizeBytes: Long, duration: Double): NetworkResult<AttachmentResponse>
 
     /**
      * Requests a direct, pre-signed download URL for a given attachment.

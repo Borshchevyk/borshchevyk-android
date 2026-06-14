@@ -40,10 +40,11 @@ interface MediaRepository {
      * Uploads the file data directly to the storage service using a provided URL.
      *
      * @param url The pre-signed upload URL obtained from [requestUploadUrl].
-     * @param fileBytes The raw byte array of the file to be uploaded.
+     * @param inputStreamProvider A function that provides an InputStream of the file to be uploaded.
+     * @param sizeBytes The total size of the file in bytes.
      * @param contentType The MIME type of the file data.
      */
-    suspend fun uploadToS3(url: String, fileBytes: ByteArray, contentType: String)
+    suspend fun uploadToS3(url: String, inputStreamProvider: () -> java.io.InputStream?, sizeBytes: Long, contentType: String)
 
     /**
      * Confirms the successful upload of an attachment with the backend.
@@ -66,20 +67,22 @@ interface MediaRepository {
     /**
      * Uploads a voice message attachment.
      *
-     * @param fileBytes The raw byte array of the audio recording.
+     * @param inputStreamProvider A function providing the input stream of the audio.
+     * @param sizeBytes The size of the audio file in bytes.
      * @param duration The duration of the voice message in seconds.
      * @return A [DomainAttachmentResponse] representing the uploaded voice message metadata.
      */
-    suspend fun uploadVoice(fileBytes: ByteArray, duration: Double): DomainAttachmentResponse
+    suspend fun uploadVoice(inputStreamProvider: () -> java.io.InputStream?, sizeBytes: Long, duration: Double): DomainAttachmentResponse
 
     /**
      * Uploads a circle video message attachment.
      *
-     * @param fileBytes The raw byte array of the video recording.
+     * @param inputStreamProvider A function providing the input stream of the video.
+     * @param sizeBytes The size of the video file in bytes.
      * @param duration The duration of the video message in seconds.
      * @return A [DomainAttachmentResponse] representing the uploaded circle video metadata.
      */
-    suspend fun uploadCircle(fileBytes: ByteArray, duration: Double): DomainAttachmentResponse
+    suspend fun uploadCircle(inputStreamProvider: () -> java.io.InputStream?, sizeBytes: Long, duration: Double): DomainAttachmentResponse
 
     /**
      * Retrieves the direct download or display URL for a given attachment.

@@ -23,16 +23,6 @@ import ru.kubsu.borshchevyk.feature.chat.conversation.mvi.ChatUiState
 import ru.kubsu.borshchevyk.feature.chat.conversation.ui.components.ChatTopAppBar
 import ru.kubsu.borshchevyk.feature.chat.conversation.ui.components.MessageInput
 
-/**
- * Route for the Chat screen. Handles ViewModel interaction, UI state observation, and navigation events.
- *
- * @param onBackClick Callback invoked when the user navigates back.
- * @param onSettingsClick Callback invoked when the user opens chat settings.
- * @param onNavigateToForwardSelection Callback invoked when the user forwards a message.
- * @param onNavigateToCall Callback invoked when the user initiates a call.
- * @param modifier The modifier to be applied to the layout.
- * @param chatViewModel The view model managing the state for this screen.
- */
 @Composable
 fun ChatRoute(
     onBackClick: () -> Unit,
@@ -65,6 +55,8 @@ fun ChatRoute(
                 if (state.isChatDeleted) onBackClick()
             }
 
+            val editingMessageUi = state.input.editingMessage
+
             Scaffold(
                 topBar = {
                     ChatTopAppBar(
@@ -77,14 +69,16 @@ fun ChatRoute(
                 },
                 bottomBar = {
                     MessageInput(
-                        editingMessage = state.input.editingMessage,
+                        editingMessage = editingMessageUi,
                         isSending = state.input.isSending,
+                        isRecordingVoice = state.input.isRecordingVoice,
                         onSendMessage = { text, atts -> chatViewModel.handleIntent(ChatIntent.SendMessage(text, atts)) },
-                        onSendVoice = { bytes, dur -> chatViewModel.handleIntent(ChatIntent.SendVoice(bytes, dur)) },
-                        onSendCircle = { bytes, dur -> chatViewModel.handleIntent(ChatIntent.SendCircle(bytes, dur)) },
+                        onSendCircle = { uri -> chatViewModel.handleIntent(ChatIntent.SendCircle(uri)) },
                         onEditMessage = { id, text -> chatViewModel.handleIntent(ChatIntent.EditMessage(id, text)) },
                         onCancelEdit = { chatViewModel.handleIntent(ChatIntent.SetEditingMessage(null)) },
                         onTyping = { chatViewModel.handleIntent(ChatIntent.Typing) },
+                        onStartVoiceRecording = { chatViewModel.handleIntent(ChatIntent.StartRecording) },
+                        onStopVoiceRecording = { chatViewModel.handleIntent(ChatIntent.StopRecording) },
                         forwardPayload = state.input.forwardPayload
                     )
                 },
@@ -101,11 +95,6 @@ fun ChatRoute(
     }
 }
 
-/**
- * Displays a loading indicator centered on the screen.
- *
- * @param modifier The modifier to be applied to the layout.
- */
 @Composable
 private fun LoadingScreen(modifier: Modifier) {
     Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -113,12 +102,6 @@ private fun LoadingScreen(modifier: Modifier) {
     }
 }
 
-/**
- * An error screen displaying a message when the chat fails to load or encounters a critical error.
- *
- * @param message The error message to display.
- * @param modifier The modifier to be applied to the layout.
- */
 @Composable
 private fun ErrorScreen(message: String, modifier: Modifier) {
     Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {

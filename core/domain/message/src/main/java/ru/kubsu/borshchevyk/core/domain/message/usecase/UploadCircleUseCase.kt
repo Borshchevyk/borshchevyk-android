@@ -22,7 +22,7 @@ class UploadCircleUseCase @Inject constructor(
      * @param duration The duration of the video in seconds.
      * @return A [DomainAttachmentResponse] representing the finalized video attachment.
      */
-    suspend operator fun invoke(fileBytes: ByteArray, duration: Double): DomainAttachmentResponse {
-        return mediaRepository.uploadCircle(fileBytes, duration)
+    suspend operator fun invoke(inputStreamProvider: () -> java.io.InputStream?, sizeBytes: Long, duration: Double): DomainAttachmentResponse {
+        return mediaRepository.uploadCircle(inputStreamProvider, sizeBytes, duration)
     }
 }

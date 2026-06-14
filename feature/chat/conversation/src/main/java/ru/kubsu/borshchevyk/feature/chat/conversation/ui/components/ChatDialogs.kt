@@ -15,9 +15,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import ru.kubsu.borshchevyk.core.model.domain.Message
 import ru.kubsu.borshchevyk.core.model.domain.User
 import ru.kubsu.borshchevyk.core.ui.theme.BorshchevykTheme
+import ru.kubsu.borshchevyk.feature.chat.conversation.ui.model.MessageUiModel
 
 @Composable
 internal fun ReadersDialog(
@@ -57,7 +57,7 @@ internal fun ReadersDialog(
 
 @Composable
 internal fun CommentsDialog(
-    comments: List<Message>?,
+    comments: List<MessageUiModel>?,
     onDismiss: () -> Unit
 ) {
     AlertDialog(

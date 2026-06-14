@@ -52,11 +52,20 @@ class MeshMediaNetworkDataSource @Inject constructor(
         return NetworkResult.Success(UploadUrlResult(fakeId, "mesh://upload/$fakeId", "mesh-key-$fakeId"))
     }
 
-    override suspend fun uploadToS3(url: String, fileBytes: ByteArray, contentType: String): NetworkResult<Unit> {
+    override suspend fun uploadToS3(url: String, inputStreamProvider: () -> java.io.InputStream?, sizeBytes: Long, contentType: String): NetworkResult<Unit> {
         val attachmentId = url.substringAfterLast("/")
         val file = File(context.cacheDir, "mesh_$attachmentId")
         withContext(Dispatchers.IO) {
-            file.writeBytes(fileBytes)
+            val stream = inputStreamProvider()
+            if (stream != null) {
+                stream.use { input ->
+                    file.outputStream().use { output ->
+                        input.copyTo(output)
+                    }
+                }
+            } else {
+                file.writeBytes(ByteArray(0))
+            }
         }
         val cached = attachmentCache[attachmentId]
         val filename = cached?.originalFilename ?: "file"
@@ -91,11 +100,20 @@ class MeshMediaNetworkDataSource @Inject constructor(
         return NetworkResult.Success(AttachmentUrlResult("mesh://avatar/$fakeId"))
     }
 
-    override suspend fun uploadVoice(fileBytes: ByteArray, duration: Double): NetworkResult<AttachmentResponse> {
+    override suspend fun uploadVoice(inputStreamProvider: () -> java.io.InputStream?, sizeBytes: Long, duration: Double): NetworkResult<AttachmentResponse> {
         val fakeId = UUID.randomUUID().toString()
         val file = File(context.cacheDir, "mesh_$fakeId")
         withContext(Dispatchers.IO) {
-            file.writeBytes(fileBytes)
+            val stream = inputStreamProvider()
+            if (stream != null) {
+                stream.use { input ->
+                    file.outputStream().use { output ->
+                        input.copyTo(output)
+                    }
+                }
+            } else {
+                file.writeBytes(ByteArray(0))
+            }
         }
         transferManager.shareLocalFile(fakeId, file, "audio/ogg", "voice.ogg")
         val response = AttachmentResponse(
@@ -106,7 +124,7 @@ class MeshMediaNetworkDataSource @Inject constructor(
             originalFilename = "voice.ogg",
             extension = "ogg",
             contentType = "audio/ogg",
-            sizeBytes = fileBytes.size.toLong(),
+            sizeBytes = sizeBytes,
             status = AttachmentStatus.READY,
             createdAt = java.time.Instant.now().toString()
         )
@@ -114,11 +132,20 @@ class MeshMediaNetworkDataSource @Inject constructor(
         return NetworkResult.Success(response)
     }
 
-    override suspend fun uploadCircle(fileBytes: ByteArray, duration: Double): NetworkResult<AttachmentResponse> {
+    override suspend fun uploadCircle(inputStreamProvider: () -> java.io.InputStream?, sizeBytes: Long, duration: Double): NetworkResult<AttachmentResponse> {
         val fakeId = UUID.randomUUID().toString()
         val file = File(context.cacheDir, "mesh_$fakeId")
         withContext(Dispatchers.IO) {
-            file.writeBytes(fileBytes)
+            val stream = inputStreamProvider()
+            if (stream != null) {
+                stream.use { input ->
+                    file.outputStream().use { output ->
+                        input.copyTo(output)
+                    }
+                }
+            } else {
+                file.writeBytes(ByteArray(0))
+            }
         }
         transferManager.shareLocalFile(fakeId, file, "video/mp4", "circle.mp4")
         val response = AttachmentResponse(
@@ -129,7 +156,7 @@ class MeshMediaNetworkDataSource @Inject constructor(
             originalFilename = "circle.mp4",
             extension = "mp4",
             contentType = "video/mp4",
-            sizeBytes = fileBytes.size.toLong(),
+            sizeBytes = sizeBytes,
             status = AttachmentStatus.READY,
             createdAt = java.time.Instant.now().toString()
         )

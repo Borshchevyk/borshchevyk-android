@@ -5,6 +5,7 @@ import kotlinx.collections.immutable.toPersistentSet
 import ru.kubsu.borshchevyk.core.model.domain.ChatEvent
 import ru.kubsu.borshchevyk.core.model.domain.GlobalChatAction
 import ru.kubsu.borshchevyk.core.model.domain.MessageStatus
+import ru.kubsu.borshchevyk.feature.chat.conversation.ui.model.toUiModel
 
 fun ChatUiState.processDomainEvent(event: ChatEvent): ChatUiState {
     if (this !is ChatUiState.Content) return this
@@ -20,16 +21,28 @@ fun ChatUiState.processDomainEvent(event: ChatEvent): ChatUiState {
                         )
                     )
                 } else {
+                    val uiModel = msg.toUiModel()
                     val existingMsg = this.feed.messages.find { it.id == msg.id }
+                    
+                    var matchedTempId: String? = null
+                    val filteredMessages = this.feed.messages.filterNot { 
+                        if (matchedTempId == null && it.id.startsWith("temp_") && it.authorId == msg.authorId && it.text == msg.text && it.attachments.size == msg.attachments.size) {
+                            matchedTempId = it.id
+                            true
+                        } else {
+                            false
+                        }
+                    }
+
                     if (existingMsg != null) {
                         this.copy(
                             feed = this.feed.copy(
-                                messages = this.feed.messages.map { if (it.id == msg.id) msg else it }.toPersistentList(),
-                                pinnedMessages = this.feed.pinnedMessages.map { if (it.id == msg.id) msg else it }.toPersistentList()
+                                messages = filteredMessages.map { if (it.id == msg.id) uiModel else it }.toPersistentList(),
+                                pinnedMessages = this.feed.pinnedMessages.map { if (it.id == msg.id) uiModel else it }.toPersistentList()
                             )
                         )
                     } else {
-                        this.copy(feed = this.feed.copy(messages = (listOf(msg) + this.feed.messages).toPersistentList()))
+                        this.copy(feed = this.feed.copy(messages = (listOf(uiModel) + filteredMessages).toPersistentList()))
                     }
                 }
             } else this

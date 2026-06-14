@@ -51,24 +51,26 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
+import kotlinx.collections.immutable.PersistentMap
 import ru.kubsu.borshchevyk.core.model.domain.DomainAttachmentType
-import ru.kubsu.borshchevyk.core.model.domain.Message
 import ru.kubsu.borshchevyk.core.model.domain.MessageReaction
 import ru.kubsu.borshchevyk.core.model.domain.MessageSource
 import ru.kubsu.borshchevyk.core.model.domain.MessageStatus
 import ru.kubsu.borshchevyk.core.ui.theme.BorshchevykTheme
 import ru.kubsu.borshchevyk.feature.chat.common.util.MessageTimeFormatter
 import ru.kubsu.borshchevyk.feature.chat.conversation.mvi.ChatIntent
+import ru.kubsu.borshchevyk.feature.chat.conversation.ui.model.MessageUiModel
+import ru.kubsu.borshchevyk.feature.chat.conversation.ui.model.toDomain
 import kotlin.math.roundToInt
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 internal fun MessageBubble(
-    message: Message,
+    message: MessageUiModel,
     isFromMe: Boolean,
     currentUserId: String,
-    attachmentUrls: Map<String, String>,
-    thumbnailUrls: Map<String, String>,
+    attachmentUrls: PersistentMap<String, String>,
+    thumbnailUrls: PersistentMap<String, String>,
     onIntent: (ChatIntent) -> Unit,
     onAttachmentClick: (ru.kubsu.borshchevyk.core.model.domain.Attachment) -> Unit,
     onViewReadersRequested: (String) -> Unit,
@@ -162,25 +164,13 @@ internal fun MessageBubble(
     }
 }
 
-/**
- * Renders the content of a message.
- *
- * @param message The message to render.
- * @param isFromMe Whether the message is sent by the current user.
- * @param isOnlyCircle Whether the message contains only a circle attachment.
- * @param attachmentUrls The map of attachment URLs.
- * @param thumbnailUrls The map of thumbnail URLs.
- * @param onResolveAttachmentUrl The callback to resolve an attachment URL.
- * @param onAttachmentClick The callback when an attachment is clicked.
- * @param onResend The callback to resend the message.
- */
 @Composable
 private fun MessageContent(
-    message: Message,
+    message: MessageUiModel,
     isFromMe: Boolean,
     isOnlyCircle: Boolean,
-    attachmentUrls: Map<String, String>,
-    thumbnailUrls: Map<String, String>,
+    attachmentUrls: PersistentMap<String, String>,
+    thumbnailUrls: PersistentMap<String, String>,
     onIntent: (ChatIntent) -> Unit,
     onAttachmentClick: (ru.kubsu.borshchevyk.core.model.domain.Attachment) -> Unit
 ) {
@@ -200,7 +190,11 @@ private fun MessageContent(
                 attachments = message.attachments,
                 attachmentUrls = attachmentUrls,
                 thumbnailUrls = thumbnailUrls,
-                onResolveAttachmentUrl = { id, thumb -> onIntent(ChatIntent.ResolveAttachmentUrl(id, thumb)) },
+                onResolveAttachmentUrl = { id, thumb -> 
+                    message.attachments.find { it.id == id }?.let {
+                        onIntent(ChatIntent.ResolveAttachmentUrl(it, thumb))
+                    }
+                },
                 onAttachmentClick = onAttachmentClick,
                 onDownloadClick = { onIntent(ChatIntent.DownloadAttachment(it)) },
                 isFromMe = isFromMe
@@ -220,15 +214,8 @@ private fun MessageContent(
     }
 }
 
-/**
- * Renders information about a forwarded message.
- *
- * @param message The message containing forwarding information.
- * @param isFromMe Whether the message is sent by the current user.
- * @param isOnlyCircle Whether the message contains only a circle attachment.
- */
 @Composable
-private fun ForwardedInfo(message: Message, isFromMe: Boolean, isOnlyCircle: Boolean) {
+private fun ForwardedInfo(message: MessageUiModel, isFromMe: Boolean, isOnlyCircle: Boolean) {
     val forwardedName = remember(message.forwardedFromUser) {
         message.forwardedFromUser?.let { "${it.firstName} ${it.lastName ?: ""}".trim() }?.ifBlank { "User" } ?: "User"
     }
@@ -250,7 +237,7 @@ private fun ForwardedInfo(message: Message, isFromMe: Boolean, isOnlyCircle: Boo
 
 @Composable
 private fun ColumnScope.MessageTimeAndStatus(
-    message: Message,
+    message: MessageUiModel,
     isFromMe: Boolean,
     isOnlyCircle: Boolean,
     onResend: () -> Unit
@@ -291,13 +278,6 @@ private fun ColumnScope.MessageTimeAndStatus(
     }
 }
 
-/**
- * Renders the status icon of a message.
- *
- * @param status The current status of the message.
- * @param color The color of the status icon.
- * @param onResend The callback to resend the message.
- */
 @Composable
 private fun StatusIcon(status: MessageStatus?, color: Color, onResend: () -> Unit) {
     when (status) {
@@ -308,20 +288,21 @@ private fun StatusIcon(status: MessageStatus?, color: Color, onResend: () -> Uni
     }
 }
 
+private val emojis = listOf("👍", "❤️", "😂", "😢", "🔥")
+
 @Composable
 private fun MessageDropdownMenu(
     showMenu: Boolean,
     onDismiss: () -> Unit,
-    message: Message,
+    message: MessageUiModel,
     isFromMe: Boolean,
     onIntent: (ChatIntent) -> Unit,
     onViewReadersRequested: (String) -> Unit,
     onViewCommentsRequested: (String) -> Unit
 ) {
-    val emojis = listOf("👍", "❤️", "😂", "😢", "🔥")
     val density = LocalDensity.current
 
-    val popupPositionProvider = remember {
+    val popupPositionProvider = remember(isFromMe, density) {
         object : PopupPositionProvider {
             override fun calculatePosition(
                 anchorBounds: IntRect,
@@ -400,12 +381,11 @@ private fun MessageDropdownMenu(
                     DropdownMenuItem(text = { Text("Forward") }, onClick = { onDismiss(); onIntent(ChatIntent.ForwardMessage(message)) })
                     DropdownMenuItem(text = { Text(if (message.isPinned) "Unpin" else "Pin") }, onClick = { onDismiss(); onIntent(if (message.isPinned) ChatIntent.UnpinMessage(message.id) else ChatIntent.PinMessage(message.id)) })
                     if (isFromMe) {
-                        DropdownMenuItem(text = { Text("Edit") }, onClick = { onDismiss(); onIntent(ChatIntent.SetEditingMessage(message)) })
+                        DropdownMenuItem(text = { Text("Edit") }, onClick = { onDismiss(); onIntent(ChatIntent.SetEditingMessage(message.toDomain())) })
                         DropdownMenuItem(text = { Text("Delete for Everyone") }, onClick = { onDismiss(); onIntent(ChatIntent.DeleteMessage(message.id, true)) })
                     }
                     DropdownMenuItem(text = { Text("Delete for Me") }, onClick = { onDismiss(); onIntent(ChatIntent.DeleteMessage(message.id, false)) })
                     if (isFromMe) DropdownMenuItem(text = { Text("View Readers") }, onClick = { onDismiss(); onViewReadersRequested(message.id); onIntent(ChatIntent.LoadReaders(message.id)) })
-                    //        DropdownMenuItem(text = { Text("Comments (${message.commentsCount})") }, onClick = { onDismiss(); onViewCommentsRequested(message.id); onIntent(ChatIntent.LoadComments(message.id)) })
                 }
             }
         }
@@ -414,7 +394,7 @@ private fun MessageDropdownMenu(
 
 @Composable
 private fun ReactionList(
-    reactions: List<MessageReaction>,
+    reactions: kotlinx.collections.immutable.PersistentList<MessageReaction>,
     currentUserId: String,
     isFromMe: Boolean,
     onIntent: (ChatIntent) -> Unit,

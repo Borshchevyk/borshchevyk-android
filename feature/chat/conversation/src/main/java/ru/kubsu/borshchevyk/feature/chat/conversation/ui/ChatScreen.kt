@@ -97,7 +97,7 @@ internal fun ChatScreen(
             attachment = selectedAttachment!!,
             attachmentUrls = contentState.feed.attachmentUrls,
             thumbnailUrls = contentState.feed.thumbnailUrls,
-            onResolveAttachmentUrl = { id, thumb -> onIntent(ChatIntent.ResolveAttachmentUrl(id, thumb)) },
+            onResolveAttachmentUrl = { _, thumb -> onIntent(ChatIntent.ResolveAttachmentUrl(selectedAttachment!!, thumb)) },
             onDismiss = { selectedAttachment = null }
         )
     }

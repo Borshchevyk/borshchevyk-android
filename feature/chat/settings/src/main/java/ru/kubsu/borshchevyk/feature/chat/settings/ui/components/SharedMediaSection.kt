@@ -143,11 +143,13 @@ private fun AttachmentItem(
 ) {
     val attachment = message.attachments.firstOrNull()
     val idToResolve = attachment?.id
-    val url = idToResolve?.let { attachmentUrls[it] } ?: ""
+    val isThumbnail = type == MediaType.VIDEO || type == MediaType.CIRCLE || type == MediaType.PHOTO
+    val urlKey = if (isThumbnail) "${idToResolve}_thumb" else idToResolve
+    val url = urlKey?.let { attachmentUrls[it] } ?: ""
 
     if (idToResolve != null && url.isEmpty()) {
         LaunchedEffect(idToResolve) {
-            onResolveUrl(idToResolve, type == MediaType.VIDEO || type == MediaType.CIRCLE)
+            onResolveUrl(idToResolve, isThumbnail)
         }
     }
 

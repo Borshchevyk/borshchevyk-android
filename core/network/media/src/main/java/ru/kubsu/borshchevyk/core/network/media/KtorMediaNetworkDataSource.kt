@@ -9,11 +9,13 @@ import io.ktor.client.request.get
 import io.ktor.client.request.post
 import io.ktor.client.request.put
 import io.ktor.client.request.setBody
-import io.ktor.http.ContentType
 import io.ktor.http.Headers
 import io.ktor.http.HttpHeaders
 import io.ktor.http.contentType
+import io.ktor.utils.io.close
+import io.ktor.utils.io.writeFully
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import ru.kubsu.borshchevyk.core.network.client.NetworkResult
 import ru.kubsu.borshchevyk.core.network.di.IoDispatcher
@@ -52,15 +54,35 @@ class KtorMediaNetworkDataSource @Inject constructor(
         }
     }
 
-    override suspend fun uploadVoice(fileBytes: ByteArray, duration: Double): NetworkResult<AttachmentResponse> {
+    override suspend fun uploadVoice(inputStreamProvider: () -> java.io.InputStream?, sizeBytes: Long, duration: Double): NetworkResult<AttachmentResponse> {
         return withContext(ioDispatcher) {
+            val requestScope = this
             safeRequest {
                 httpClient.post("api/v1/media/upload/voice") {
                     setBody(
                         MultiPartFormDataContent(
                             formData {
                                 append("duration", duration.toString())
-                                append("file", fileBytes, Headers.build {
+                                append("file", io.ktor.client.request.forms.ChannelProvider(sizeBytes) {
+                                    val channel = io.ktor.utils.io.ByteChannel()
+                                    requestScope.launch {
+                                        try {
+                                            val stream = inputStreamProvider() ?: throw IllegalStateException("Could not open input stream")
+                                            stream.use { input ->
+                                                val buffer = ByteArray(8192)
+                                                var bytesRead: Int
+                                                while (input.read(buffer).also { bytesRead = it } != -1) {
+                                                    channel.writeFully(buffer, 0, bytesRead)
+                                                }
+                                            }
+                                        } catch (e: Exception) {
+                                            channel.close(e)
+                                        } finally {
+                                            channel.close()
+                                        }
+                                    }
+                                    channel
+                                }, Headers.build {
                                     append(HttpHeaders.ContentType, "audio/ogg")
                                     append(HttpHeaders.ContentDisposition, "filename=\"voice.ogg\"")
                                 })
@@ -72,15 +94,35 @@ class KtorMediaNetworkDataSource @Inject constructor(
         }
     }
 
-    override suspend fun uploadCircle(fileBytes: ByteArray, duration: Double): NetworkResult<AttachmentResponse> {
+    override suspend fun uploadCircle(inputStreamProvider: () -> java.io.InputStream?, sizeBytes: Long, duration: Double): NetworkResult<AttachmentResponse> {
         return withContext(ioDispatcher) {
+            val requestScope = this
             safeRequest {
                 httpClient.post("api/v1/media/upload/circle") {
                     setBody(
                         MultiPartFormDataContent(
                             formData {
                                 append("duration", duration.toString())
-                                append("file", fileBytes, Headers.build {
+                                append("file", io.ktor.client.request.forms.ChannelProvider(sizeBytes) {
+                                    val channel = io.ktor.utils.io.ByteChannel()
+                                    requestScope.launch {
+                                        try {
+                                            val stream = inputStreamProvider() ?: throw IllegalStateException("Could not open input stream")
+                                            stream.use { input ->
+                                                val buffer = ByteArray(8192)
+                                                var bytesRead: Int
+                                                while (input.read(buffer).also { bytesRead = it } != -1) {
+                                                    channel.writeFully(buffer, 0, bytesRead)
+                                                }
+                                            }
+                                        } catch (e: Exception) {
+                                            channel.close(e)
+                                        } finally {
+                                            channel.close()
+                                        }
+                                    }
+                                    channel
+                                }, Headers.build {
                                     append(HttpHeaders.ContentType, "video/mp4")
                                     append(HttpHeaders.ContentDisposition, "filename=\"circle.mp4\"")
                                 })
@@ -103,13 +145,26 @@ class KtorMediaNetworkDataSource @Inject constructor(
         }
     }
 
-    override suspend fun uploadToS3(url: String, fileBytes: ByteArray, contentType: String): NetworkResult<Unit> {
-        Log.d(TAG, "Uploading file to S3: size ${fileBytes.size}, content-type: $contentType")
+    override suspend fun uploadToS3(url: String, inputStreamProvider: () -> java.io.InputStream?, sizeBytes: Long, contentType: String): NetworkResult<Unit> {
+        Log.d(TAG, "Uploading file to S3: size $sizeBytes, content-type: $contentType")
         return withContext(ioDispatcher) {
             safeRequest {
                 httpClient.put(url) {
-                    contentType(ContentType.parse(contentType))
-                    setBody(fileBytes)
+                    contentType(io.ktor.http.ContentType.parse(contentType))
+                    setBody(object : io.ktor.http.content.OutgoingContent.WriteChannelContent() {
+                        override val contentLength: Long = sizeBytes
+                        override val contentType: io.ktor.http.ContentType = io.ktor.http.ContentType.parse(contentType)
+                        override suspend fun writeTo(channel: io.ktor.utils.io.ByteWriteChannel) {
+                            val stream = inputStreamProvider() ?: throw IllegalStateException("Could not open input stream")
+                            stream.use { input ->
+                                val buffer = ByteArray(8192)
+                                var bytesRead: Int
+                                while (input.read(buffer).also { bytesRead = it } != -1) {
+                                    channel.writeFully(buffer, 0, bytesRead)
+                                }
+                            }
+                        }
+                    })
                 }
             }
         }

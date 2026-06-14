@@ -17,9 +17,13 @@ import ru.kubsu.borshchevyk.core.model.domain.MessageStatus
 import ru.kubsu.borshchevyk.core.ui.mvi.mviContainer
 import ru.kubsu.borshchevyk.feature.chat.common.model.AttachmentFile
 import ru.kubsu.borshchevyk.feature.chat.conversation.interactor.CallHandler
-import ru.kubsu.borshchevyk.feature.chat.conversation.interactor.ChatEventHandler
+import ru.kubsu.borshchevyk.feature.chat.conversation.interactor.ChatHistoryHandler
+import ru.kubsu.borshchevyk.feature.chat.conversation.interactor.ChatMediaHandler
 import ru.kubsu.borshchevyk.feature.chat.conversation.interactor.ChatMessageHandler
+import ru.kubsu.borshchevyk.feature.chat.conversation.interactor.ChatPresenceHandler
+import ru.kubsu.borshchevyk.feature.chat.conversation.interactor.LocalMediaInteractor
 import ru.kubsu.borshchevyk.feature.chat.conversation.interactor.MediaVoiceHandler
+import ru.kubsu.borshchevyk.feature.chat.conversation.interactor.VoiceRecorder
 import ru.kubsu.borshchevyk.feature.chat.conversation.mvi.ChatEffect
 import ru.kubsu.borshchevyk.feature.chat.conversation.mvi.ChatIntent
 import ru.kubsu.borshchevyk.feature.chat.conversation.mvi.ChatUiState
@@ -36,11 +40,13 @@ import ru.kubsu.borshchevyk.feature.chat.conversation.mvi.setMessageSendFailed
 import ru.kubsu.borshchevyk.feature.chat.conversation.mvi.setMessageSending
 import ru.kubsu.borshchevyk.feature.chat.conversation.mvi.setMessageSent
 import ru.kubsu.borshchevyk.feature.chat.conversation.mvi.setReaders
+import ru.kubsu.borshchevyk.feature.chat.conversation.mvi.setRecordingVoice
 import ru.kubsu.borshchevyk.feature.chat.conversation.mvi.toggleReaction
 import ru.kubsu.borshchevyk.feature.chat.conversation.mvi.updateAttachmentUrl
 import ru.kubsu.borshchevyk.feature.chat.conversation.mvi.updateHistory
 import ru.kubsu.borshchevyk.feature.chat.conversation.mvi.updatePresence
 import ru.kubsu.borshchevyk.feature.chat.conversation.mvi.updateTitle
+import ru.kubsu.borshchevyk.feature.chat.conversation.ui.model.toUiModel
 import javax.inject.Inject
 
 @HiltViewModel
@@ -49,7 +55,11 @@ class ChatViewModel @Inject constructor(
     private val chatMessageHandler: ChatMessageHandler,
     private val callHandler: CallHandler,
     private val mediaVoiceHandler: MediaVoiceHandler,
-    private val chatEventHandler: ChatEventHandler
+    private val chatHistoryHandler: ChatHistoryHandler,
+    private val chatPresenceHandler: ChatPresenceHandler,
+    private val chatMediaHandler: ChatMediaHandler,
+    private val localMediaInteractor: LocalMediaInteractor,
+    private val voiceRecorder: VoiceRecorder
 ) : ViewModel() {
 
     private val container = mviContainer<ChatUiState, ChatEffect>(ChatUiState.Loading, viewModelScope)
@@ -73,7 +83,7 @@ class ChatViewModel @Inject constructor(
         viewModelScope.launch {
             container.updateState { it.setLoading() }
             try {
-                val data = chatEventHandler.loadInitialData(chatId, initialForwardPayload)
+                val data = chatHistoryHandler.loadInitialData(chatId, initialForwardPayload)
                 container.updateState { it.setInitialDataLoaded(
                     chatId = data.chatId,
                     currentUserId = data.currentUserId,
@@ -85,8 +95,8 @@ class ChatViewModel @Inject constructor(
                     forwardPayload = data.forwardPayload
                 ) }
                 
-                chatEventHandler.getPartnerId(chatId)?.let { partnerId ->
-                    chatEventHandler.observePresence(partnerId).onEach { presence ->
+                chatPresenceHandler.getPartnerId(chatId)?.let { partnerId ->
+                    chatPresenceHandler.observePresence(partnerId).onEach { presence ->
                         container.updateState { it.updatePresence(presence.isOnline, presence.lastSeenAt) }
                     }.launchIn(viewModelScope)
                 }
@@ -95,25 +105,15 @@ class ChatViewModel @Inject constructor(
             }
         }
 
-        chatEventHandler.observeHistory(chatId).onEach { history ->
+        chatHistoryHandler.observeHistory(chatId).onEach { history ->
             container.updateState { it.updateHistory(history) }
-            history.forEach { msg ->
-                msg.attachments.forEach { att ->
-                    handleIntent(ChatIntent.ResolveAttachmentUrl(att.id, false))
-                }
-            }
         }.launchIn(viewModelScope)
 
-        chatEventHandler.observeEvents(chatId).onEach { event -> 
+        chatHistoryHandler.observeEvents(chatId).onEach { event -> 
             container.updateState { it.processDomainEvent(event) }
-            if (event is ru.kubsu.borshchevyk.core.model.domain.ChatEvent.NewMessage) {
-                event.message.attachments.forEach { att ->
-                    handleIntent(ChatIntent.ResolveAttachmentUrl(att.id, false))
-                }
-            }
         }.launchIn(viewModelScope)
 
-        chatEventHandler.observeChats().onEach { chats ->
+        chatHistoryHandler.observeChats().onEach { chats ->
             val chat = chats.find { it.id == chatId }
             if (chat != null) {
                 val isGroup = chat.type == ChatType.GROUP
@@ -145,33 +145,52 @@ class ChatViewModel @Inject constructor(
                 val forwardPayload = state.input.forwardPayload
                 if (intent.text.isBlank() && intent.attachments.isEmpty() && forwardPayload == null) return
 
-                val currentUserId = state.context.currentUserId
-                
-                val optimisticMessages = chatMessageHandler.createOptimisticMessages(
-                    chatId = chatId,
-                    text = intent.text,
-                    attachments = intent.attachments,
-                    currentUserId = currentUserId,
-                    forwardPayload = forwardPayload
-                )
+                viewModelScope.launch {
+                    try {
+                        val currentUserId = state.context.currentUserId
+                        val resolvedAttachments = intent.attachments.mapNotNull { localMediaInteractor.resolveAttachment(it) }
+                        
+                        val optimisticMessages = chatMessageHandler.createOptimisticMessages(
+                            chatId = chatId,
+                            text = intent.text,
+                            attachments = resolvedAttachments,
+                            currentUserId = currentUserId,
+                            forwardPayload = forwardPayload
+                        )
 
-                optimisticMessages.forEach { optData ->
-                    val failedData = FailedMessageData(optData.text, optData.attachments, optData.forwardPayload)
-                    container.updateState { it.setMessageSending(optData.tempId, optData.message, failedData) }
-                    performSendMessage(optData.tempId, optData.text, optData.attachments, optData.forwardPayload)
+                        optimisticMessages.forEach { optData ->
+                            val failedData = FailedMessageData(optData.text, optData.attachments, optData.forwardPayload)
+                            container.updateState { it.setMessageSending(optData.tempId, optData.message.toUiModel(), failedData) }
+                            performSendMessage(optData.tempId, optData.text, optData.attachments, optData.forwardPayload)
+                        }
+                    } catch (e: Exception) {
+                        sendEffect(ChatEffect.ShowError("Failed to prepare message"))
+                    }
                 }
             }
             is ChatIntent.SendVoice -> {
                 viewModelScope.launch {
                     try {
-                        mediaVoiceHandler.sendVoice(chatId, intent.bytes, intent.duration)
+                        val audioFile = localMediaInteractor.resolveAudio(intent.uri)
+                        if (audioFile != null) {
+                            val provider = localMediaInteractor.getInputStreamProvider(audioFile.uri)
+                            mediaVoiceHandler.sendVoice(chatId, provider, audioFile.sizeBytes, audioFile.duration?.toDouble() ?: 0.0)
+                        } else {
+                            sendEffect(ChatEffect.ShowError("Could not resolve audio"))
+                        }
                     } catch (e: Exception) { sendEffect(ChatEffect.ShowError("Voice send failed")) }
                 }
             }
             is ChatIntent.SendCircle -> {
                 viewModelScope.launch {
                     try {
-                        mediaVoiceHandler.sendCircle(chatId, intent.bytes, intent.duration)
+                        val circleFile = localMediaInteractor.resolveAttachment(intent.uri)
+                        if (circleFile != null) {
+                            val provider = localMediaInteractor.getInputStreamProvider(circleFile.uri)
+                            mediaVoiceHandler.sendCircle(chatId, provider, circleFile.sizeBytes, circleFile.duration?.toDouble() ?: 0.0)
+                        } else {
+                            sendEffect(ChatEffect.ShowError("Could not resolve circle video"))
+                        }
                     } catch (e: Exception) { sendEffect(ChatEffect.ShowError("Circle send failed")) }
                 }
             }
@@ -201,7 +220,7 @@ class ChatViewModel @Inject constructor(
             is ChatIntent.LoadReaders -> {
                 viewModelScope.launch {
                     try {
-                        val readers = chatEventHandler.getReaders(chatId, intent.messageId)
+                        val readers = chatHistoryHandler.getReaders(chatId, intent.messageId)
                         container.updateState { it.setReaders(intent.messageId, readers) }
                     } catch (e: Exception) { sendEffect(ChatEffect.ShowError("Readers load failed")) }
                 }
@@ -209,7 +228,7 @@ class ChatViewModel @Inject constructor(
             is ChatIntent.LoadComments -> {
                 viewModelScope.launch {
                     try {
-                        val comments = chatEventHandler.getComments(chatId, intent.messageId)
+                        val comments = chatHistoryHandler.getComments(chatId, intent.messageId)
                         container.updateState { it.setComments(intent.messageId, comments) }
                     } catch (e: Exception) { sendEffect(ChatEffect.ShowError("Comments load failed")) }
                 }
@@ -237,21 +256,18 @@ class ChatViewModel @Inject constructor(
                 }
             }
             is ChatIntent.ResolveAttachmentUrl -> {
-                if (intent.attachmentId.startsWith("temp_")) return
+                if (intent.attachment.id.startsWith("temp_")) return
                 if (state != null) {
-                    if (intent.isThumbnail && state.feed.thumbnailUrls.containsKey(intent.attachmentId)) return
-                    if (!intent.isThumbnail && state.feed.attachmentUrls.containsKey(intent.attachmentId)) return
+                    if (intent.isThumbnail && state.feed.thumbnailUrls.containsKey(intent.attachment.id)) return
+                    if (!intent.isThumbnail && state.feed.attachmentUrls.containsKey(intent.attachment.id)) return
                 }
                 viewModelScope.launch {
                     try {
-                        val attachment = state?.feed?.messages?.flatMap { it.attachments }?.find { it.id == intent.attachmentId }
-                        if (attachment != null) {
-                            val urls = chatEventHandler.resolveAttachmentUrls(attachment, intent.isThumbnail)
-                            urls.forEach { (id, url) ->
-                                val isThumb = id.endsWith("_thumb")
-                                val realId = id.removeSuffix("_thumb")
-                                container.updateState { it.updateAttachmentUrl(realId, url, isThumb) }
-                            }
+                        val urls = chatMediaHandler.resolveAttachmentUrls(intent.attachment, intent.isThumbnail)
+                        urls.forEach { (id, url) ->
+                            val isThumb = id.endsWith("_thumb")
+                            val realId = id.removeSuffix("_thumb")
+                            container.updateState { it.updateAttachmentUrl(realId, url, isThumb) }
                         }
                     } catch (e: Exception) { Log.w("ChatVM", "Resolve failed", e) }
                 }
@@ -259,7 +275,7 @@ class ChatViewModel @Inject constructor(
             is ChatIntent.DownloadAttachment -> {
                 viewModelScope.launch {
                     try {
-                        val result = chatEventHandler.exportAttachment(intent.attachmentId)
+                        val result = chatMediaHandler.exportAttachment(intent.attachmentId)
                         result.fold(
                             onSuccess = { sendEffect(ChatEffect.ShowError("File saved to Downloads")) },
                             onFailure = { sendEffect(ChatEffect.ShowError("Failed to download file")) }
@@ -298,6 +314,26 @@ class ChatViewModel @Inject constructor(
                     } catch (e: Exception) { sendEffect(ChatEffect.ShowError(e.message ?: "Call failed")) }
                 }
             }
+            is ChatIntent.StartRecording -> {
+                voiceRecorder.startRecording().onFailure { 
+                    sendEffect(ChatEffect.ShowError("Recording failed to start")) 
+                }.onSuccess {
+                    container.updateState { it.setRecordingVoice(true) }
+                }
+            }
+            is ChatIntent.StopRecording -> {
+                voiceRecorder.stopRecording().onFailure {
+                    sendEffect(ChatEffect.ShowError("Recording failed"))
+                    container.updateState { it.setRecordingVoice(false) }
+                }.onSuccess { uri ->
+                    container.updateState { it.setRecordingVoice(false) }
+                    handleIntent(ChatIntent.SendVoice(uri))
+                }
+            }
+            is ChatIntent.CancelRecording -> {
+                voiceRecorder.cancelRecording()
+                container.updateState { it.setRecordingVoice(false) }
+            }
         }
     }
 
@@ -313,5 +349,10 @@ class ChatViewModel @Inject constructor(
                 sendEffect(ChatEffect.ShowError("Failed to send: ${e.message}"))
             }
         }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        voiceRecorder.cancelRecording()
     }
 }

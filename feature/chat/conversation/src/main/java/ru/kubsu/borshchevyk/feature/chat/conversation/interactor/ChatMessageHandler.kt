@@ -14,7 +14,8 @@ import javax.inject.Inject
 
 class ChatMessageHandler @Inject constructor(
     private val messageUseCases: ChatMessageUseCases,
-    private val attachmentUseCases: ChatAttachmentUseCases
+    private val attachmentUseCases: ChatAttachmentUseCases,
+    private val localMediaInteractor: LocalMediaInteractor
 ) {
     suspend fun sendTypingEvent(chatId: String, isTyping: Boolean) {
         messageUseCases.sendTypingEvent(chatId, isTyping)
@@ -24,9 +25,11 @@ class ChatMessageHandler @Inject constructor(
         val attachmentIds = mutableListOf<String>()
         if (forwardPayload != null) attachmentIds.addAll(forwardPayload.attachmentIds)
         if (attachments.isNotEmpty()) {
-            val uploadedIds = attachments.map { file ->
+            val uploadedIds = attachments.mapNotNull { file ->
+                val provider = localMediaInteractor.getInputStreamProvider(file.uri)
                 attachmentUseCases.uploadAttachment(
-                    fileBytes = file.bytes,
+                    inputStreamProvider = provider,
+                    sizeBytes = file.sizeBytes,
                     originalFilename = file.originalFilename,
                     contentType = file.contentType,
                     extension = file.extension,
@@ -86,7 +89,7 @@ class ChatMessageHandler @Inject constructor(
         val messages = mutableListOf<OptimisticMessageData>()
         
         if (forwardPayload != null && (text.isNotBlank() || attachments.isNotEmpty())) {
-            val tempId1 = "temp_${System.currentTimeMillis()}_1"
+            val tempId1 = "temp_${java.util.UUID.randomUUID()}"
             val msg1 = Message(
                 id = tempId1,
                 chatId = chatId,
@@ -100,7 +103,7 @@ class ChatMessageHandler @Inject constructor(
             )
             messages.add(OptimisticMessageData(tempId1, msg1, "", emptyList(), forwardPayload))
 
-            val tempId2 = "temp_${System.currentTimeMillis()}_2"
+            val tempId2 = "temp_${java.util.UUID.randomUUID()}"
             val msg2 = Message(
                 id = tempId2,
                 chatId = chatId,
@@ -111,17 +114,17 @@ class ChatMessageHandler @Inject constructor(
                 source = MessageSource.ONLINE,
                 attachments = attachments.map { 
                     Attachment(
-                        id = "temp_${it.originalFilename}",
+                        id = "temp_att_${java.util.UUID.randomUUID()}",
                         type = it.toDomainAttachmentType(),
                         originalFilename = it.originalFilename,
                         extension = it.extension,
-                        sizeBytes = it.bytes.size.toLong()
+                        sizeBytes = it.sizeBytes
                     )
                 }
             )
             messages.add(OptimisticMessageData(tempId2, msg2, text, attachments, null))
         } else {
-            val tempId = "temp_${System.currentTimeMillis()}"
+            val tempId = "temp_${java.util.UUID.randomUUID()}"
             val msg = Message(
                 id = tempId,
                 chatId = chatId,
@@ -134,11 +137,11 @@ class ChatMessageHandler @Inject constructor(
                 forwardedFromUserId = forwardPayload?.fromUserId,
                 attachments = attachments.map { 
                     Attachment(
-                        id = "temp_${it.originalFilename}",
+                        id = "temp_att_${java.util.UUID.randomUUID()}",
                         type = it.toDomainAttachmentType(),
                         originalFilename = it.originalFilename,
                         extension = it.extension,
-                        sizeBytes = it.bytes.size.toLong()
+                        sizeBytes = it.sizeBytes
                     )
                 }
             )

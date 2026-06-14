@@ -3,6 +3,7 @@ package ru.kubsu.borshchevyk.feature.chat.conversation.mvi
 import kotlinx.collections.immutable.toPersistentList
 import ru.kubsu.borshchevyk.core.model.domain.ForwardPayload
 import ru.kubsu.borshchevyk.core.model.domain.Message
+import ru.kubsu.borshchevyk.feature.chat.conversation.ui.model.toUiModel
 
 fun ChatUiState.setLoading(isFullLoad: Boolean = true): ChatUiState = 
     if (isFullLoad) ChatUiState.Loading else this
@@ -15,7 +16,10 @@ fun ChatUiState.setInitialDataLoaded(
     chatAvatarUrl: String?, history: List<Message>, pinned: List<Message>, forwardPayload: ForwardPayload?
 ): ChatUiState = ChatUiState.Content(
     context = ChatContext(chatId, currentUserId, isGroup, chatTitle, chatAvatarUrl),
-    feed = MessageFeed(history.toPersistentList(), pinned.toPersistentList()),
+    feed = MessageFeed(
+        history.map { it.toUiModel() }.toPersistentList(), 
+        pinned.map { it.toUiModel() }.toPersistentList()
+    ),
     input = InputState(forwardPayload = forwardPayload)
 )
 

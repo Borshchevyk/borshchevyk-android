@@ -40,6 +40,7 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
 import coil.compose.SubcomposeAsyncImage
 import coil.request.ImageRequest
+import kotlinx.collections.immutable.PersistentMap
 import ru.kubsu.borshchevyk.core.model.domain.Attachment
 import ru.kubsu.borshchevyk.core.model.domain.DomainAttachmentType
 
@@ -47,8 +48,8 @@ import ru.kubsu.borshchevyk.core.model.domain.DomainAttachmentType
 @Composable
 internal fun MediaViewerDialog(
     attachment: Attachment,
-    attachmentUrls: Map<String, String>,
-    thumbnailUrls: Map<String, String>,
+    attachmentUrls: PersistentMap<String, String>,
+    thumbnailUrls: PersistentMap<String, String>,
     onResolveAttachmentUrl: (String, Boolean) -> Unit,
     onDismiss: () -> Unit
 ) {

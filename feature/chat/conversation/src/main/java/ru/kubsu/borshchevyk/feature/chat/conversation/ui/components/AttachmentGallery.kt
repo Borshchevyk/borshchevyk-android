@@ -28,6 +28,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import coil.compose.SubcomposeAsyncImage
 import coil.request.ImageRequest
+import kotlinx.collections.immutable.PersistentMap
 import ru.kubsu.borshchevyk.core.model.domain.Attachment
 import ru.kubsu.borshchevyk.core.model.domain.DomainAttachmentType
 import ru.kubsu.borshchevyk.core.ui.theme.BorshchevykTheme
@@ -35,8 +36,8 @@ import ru.kubsu.borshchevyk.core.ui.theme.BorshchevykTheme
 @Composable
 internal fun AttachmentGallery(
     attachments: List<Attachment>,
-    attachmentUrls: Map<String, String>,
-    thumbnailUrls: Map<String, String>,
+    attachmentUrls: PersistentMap<String, String>,
+    thumbnailUrls: PersistentMap<String, String>,
     onResolveAttachmentUrl: (String, Boolean) -> Unit,
     onAttachmentClick: (Attachment) -> Unit,
     onDownloadClick: (String) -> Unit = {},
@@ -62,8 +63,8 @@ internal fun AttachmentGallery(
 @Composable
 internal fun AttachmentItem(
     attachment: Attachment,
-    attachmentUrls: Map<String, String>,
-    thumbnailUrls: Map<String, String>,
+    attachmentUrls: PersistentMap<String, String>,
+    thumbnailUrls: PersistentMap<String, String>,
     onResolveAttachmentUrl: (String, Boolean) -> Unit,
     onAttachmentClick: (Attachment) -> Unit,
     onDownloadClick: (String) -> Unit = {},

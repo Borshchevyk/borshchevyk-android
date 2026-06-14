@@ -5,19 +5,20 @@ import android.media.MediaMetadataRetriever
 import android.net.Uri
 
 object MediaUtil {
-    fun extractDurationAndBytes(context: Context, uri: Uri): Pair<ByteArray?, Double> {
+    fun extractDuration(context: Context, uri: Uri): Double {
         var duration = 0.0
-        var bytes: ByteArray? = null
+        val retriever = MediaMetadataRetriever()
         try {
-            val retriever = MediaMetadataRetriever()
             retriever.setDataSource(context, uri)
             val time = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
             duration = time?.toLongOrNull()?.let { it / 1000.0 } ?: 0.0
-            retriever.release()
-            bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
         } catch (e: Exception) {
             // Error extracting metadata
+        } finally {
+            try {
+                retriever.release()
+            } catch (e: Exception) {}
         }
-        return Pair(bytes, duration)
+        return duration
     }
 }

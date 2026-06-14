@@ -158,7 +158,7 @@ internal fun VoiceMessagePlayer(
                     )
                 )
                 Text(
-                    text = String.format("0:%02d", (duration.toInt() % 60)),
+                    text = String.format("%d:%02d", (duration.toInt() / 60), (duration.toInt() % 60)),
                     style = BorshchevykTheme.typography.labelSmall,
                     color = if (isFromMe) BorshchevykTheme.colors.onPrimaryContainer else BorshchevykTheme.colors.onSurfaceVariant
                 )

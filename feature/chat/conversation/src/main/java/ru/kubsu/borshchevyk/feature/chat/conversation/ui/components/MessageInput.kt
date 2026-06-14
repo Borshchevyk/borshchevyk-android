@@ -1,6 +1,6 @@
 package ru.kubsu.borshchevyk.feature.chat.conversation.ui.components
 
-import android.provider.OpenableColumns
+import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -32,73 +32,46 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import androidx.core.content.FileProvider
+import kotlinx.collections.immutable.persistentListOf
 import ru.kubsu.borshchevyk.core.model.domain.ForwardPayload
-import ru.kubsu.borshchevyk.core.model.domain.Message
 import ru.kubsu.borshchevyk.core.ui.theme.BorshchevykTheme
-import ru.kubsu.borshchevyk.feature.chat.common.model.AttachmentFile
-import ru.kubsu.borshchevyk.feature.chat.common.util.MediaUtil
+import ru.kubsu.borshchevyk.feature.chat.conversation.ui.model.MessageUiModel
+import java.io.File
 
-/**
- * Input component for typing and sending messages, including text, voice, and circle videos.
- *
- * @param editingMessage The message currently being edited, if any.
- * @param isSending Whether a message is currently being sent.
- * @param onSendMessage Callback invoked when a text message with optional attachments is sent.
- * @param onSendVoice Callback invoked when a voice message is sent.
- * @param onSendCircle Callback invoked when a circle video message is sent.
- * @param onEditMessage Callback invoked when an existing message is edited.
- * @param onCancelEdit Callback invoked when message editing is canceled.
- * @param onTyping Callback invoked when the user is typing.
- * @param forwardPayload The payload of the message being forwarded, if any.
- */
 @Composable
 internal fun MessageInput(
-    editingMessage: Message?,
+    editingMessage: MessageUiModel?,
     isSending: Boolean,
-    onSendMessage: (String, List<AttachmentFile>) -> Unit,
-    onSendVoice: (ByteArray, Double) -> Unit,
-    onSendCircle: (ByteArray, Double) -> Unit,
+    isRecordingVoice: Boolean,
+    onSendMessage: (String, kotlinx.collections.immutable.PersistentList<Uri>) -> Unit,
+    onSendCircle: (Uri) -> Unit,
     onEditMessage: (String, String) -> Unit,
     onCancelEdit: () -> Unit,
     onTyping: () -> Unit,
+    onStartVoiceRecording: () -> Unit,
+    onStopVoiceRecording: () -> Unit,
     forwardPayload: ForwardPayload? = null
 ) {
     var text by remember { mutableStateOf("") }
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    val selectedAttachments = remember { mutableStateListOf<AttachmentFile>() }
+    var selectedAttachments by remember { mutableStateOf(persistentListOf<Uri>()) }
 
-    var isRecordingVoice by remember { mutableStateOf(false) }
-    var mediaRecorder by remember { mutableStateOf<android.media.MediaRecorder?>(null) }
-    var voiceFile by remember { mutableStateOf<java.io.File?>(null) }
-
-    DisposableEffect(Unit) {
-        onDispose {
-            mediaRecorder?.apply {
-                try {
-                    stop()
-                } catch (e: Exception) {
-                    // Ignore stop errors if it hasn't started properly
-                }
-                release()
-            }
-            mediaRecorder = null
+    val circleUri = remember { mutableStateOf<Uri?>(null) }
+    val circleCaptureLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CaptureVideo()
+    ) { success ->
+        if (success) {
+            circleUri.value?.let { onSendCircle(it) }
         }
     }
 
@@ -106,92 +79,14 @@ internal fun MessageInput(
         contract = ActivityResultContracts.RequestPermission()
     ) { granted ->
         if (granted) {
-            try {
-                val file = java.io.File(context.cacheDir, "voice_${System.currentTimeMillis()}.m4a")
-                voiceFile = file
-                val recorder = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
-                    android.media.MediaRecorder(context)
-                } else {
-                    @Suppress("DEPRECATION")
-                    android.media.MediaRecorder()
-                }
-                recorder.apply {
-                    setAudioSource(android.media.MediaRecorder.AudioSource.MIC)
-                    setOutputFormat(android.media.MediaRecorder.OutputFormat.MPEG_4)
-                    setAudioEncoder(android.media.MediaRecorder.AudioEncoder.AAC)
-                    setOutputFile(file.absolutePath)
-                    prepare()
-                    start()
-                }
-                mediaRecorder = recorder
-                isRecordingVoice = true
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        }
-    }
-
-    val circleUri = remember { mutableStateOf<android.net.Uri?>(null) }
-    val circleCaptureLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.CaptureVideo()
-    ) { success ->
-        if (success) {
-            circleUri.value?.let { uri ->
-                scope.launch(Dispatchers.IO) {
-                    val (bytes, duration) = MediaUtil.extractDurationAndBytes(context, uri)
-                    if (bytes != null) {
-                        withContext(Dispatchers.Main) {
-                            onSendCircle(bytes, duration)
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    val circlePermissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestMultiplePermissions()
-    ) { permissions ->
-        val cameraGranted = permissions[android.Manifest.permission.CAMERA] ?: false
-        val audioGranted = permissions[android.Manifest.permission.RECORD_AUDIO] ?: false
-        if (cameraGranted && audioGranted) {
-            val values = android.content.ContentValues().apply {
-                put(android.provider.MediaStore.Video.Media.DISPLAY_NAME, "circle_${System.currentTimeMillis()}.mp4")
-                put(android.provider.MediaStore.Video.Media.MIME_TYPE, "video/mp4")
-            }
-            val uri = context.contentResolver.insert(android.provider.MediaStore.Video.Media.EXTERNAL_CONTENT_URI, values)
-            circleUri.value = uri
-            if (uri != null) {
-                circleCaptureLauncher.launch(uri)
-            }
-        } else {
-            android.widget.Toast.makeText(context, "Permissions required for video recording", android.widget.Toast.LENGTH_SHORT).show()
+            onStartVoiceRecording()
         }
     }
 
     val filePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetMultipleContents()
     ) { uris ->
-        scope.launch(Dispatchers.IO) {
-            val newAttachments = uris.mapNotNull { uri ->
-                var fileName = "unknown"
-                context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
-                    val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
-                    if (cursor.moveToFirst() && nameIndex != -1) {
-                        fileName = cursor.getString(nameIndex)
-                    }
-                }
-                val contentType = context.contentResolver.getType(uri) ?: "application/octet-stream"
-                val extension = fileName.substringAfterLast('.', "")
-                val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
-                if (bytes != null) {
-                    AttachmentFile(uri = uri, bytes = bytes, originalFilename = fileName, contentType = contentType, extension = extension)
-                } else null
-            }
-            withContext(Dispatchers.Main) {
-                selectedAttachments.addAll(newAttachments)
-            }
-        }
+        selectedAttachments = selectedAttachments.addAll(uris)
     }
 
     LaunchedEffect(editingMessage) {
@@ -213,8 +108,8 @@ internal fun MessageInput(
             }
 
             AttachmentPreviewRow(
-                attachments = selectedAttachments.toList(),
-                onRemoveAttachment = { selectedAttachments.remove(it) }
+                attachments = selectedAttachments,
+                onRemoveAttachment = { selectedAttachments = selectedAttachments.remove(it) }
             )
 
             Row(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -230,16 +125,15 @@ internal fun MessageInput(
                         Text("Recording Voice...", color = BorshchevykTheme.colors.onSurface, style = BorshchevykTheme.typography.bodyMedium)
                     }
                 } else {
+                    val context = LocalContext.current
                     IconButton(onClick = { filePickerLauncher.launch("*/*") }, modifier = Modifier.padding(bottom = 4.dp, end = 4.dp)) {
                         Icon(Icons.Default.AttachFile, contentDescription = "Attach file", tint = BorshchevykTheme.colors.primary)
                     }
                     IconButton(onClick = { 
-                        circlePermissionLauncher.launch(
-                            arrayOf(
-                                android.Manifest.permission.CAMERA,
-                                android.Manifest.permission.RECORD_AUDIO
-                            )
-                        )
+                        val file = File(context.cacheDir, "circle_${System.currentTimeMillis()}.mp4")
+                        val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+                        circleUri.value = uri
+                        circleCaptureLauncher.launch(uri) 
                     }, modifier = Modifier.padding(bottom = 4.dp, end = 4.dp)) {
                         Icon(Icons.Default.Videocam, contentDescription = "Record Circle", tint = BorshchevykTheme.colors.primary)
                     }
@@ -268,28 +162,11 @@ internal fun MessageInput(
                 Spacer(modifier = Modifier.width(12.dp))
                 
                 if (text.isBlank() && selectedAttachments.isEmpty() && forwardPayload == null) {
-                    // Show Mic / Stop button
                     Box(
                         modifier = Modifier.size(48.dp).clip(CircleShape).background(if (isRecordingVoice) BorshchevykTheme.colors.error else BorshchevykTheme.colors.primary)
                             .clickable {
                                 if (isRecordingVoice) {
-                                    try {
-                                        mediaRecorder?.stop()
-                                        mediaRecorder?.release()
-                                    } catch (e: Exception) {}
-                                    mediaRecorder = null
-                                    isRecordingVoice = false
-
-                                    voiceFile?.let { file ->
-                                        scope.launch(Dispatchers.IO) {
-                                            val bytes = file.readBytes()
-                                            val uri = android.net.Uri.fromFile(file)
-                                            val (_, duration) = MediaUtil.extractDurationAndBytes(context, uri)
-                                            withContext(Dispatchers.Main) {
-                                                onSendVoice(bytes, duration)
-                                            }
-                                        }
-                                    }
+                                    onStopVoiceRecording()
                                 } else {
                                     audioPermissionLauncher.launch(android.Manifest.permission.RECORD_AUDIO)
                                 }
@@ -304,15 +181,14 @@ internal fun MessageInput(
                         )
                     }
                 } else {
-                    // Show Send Button
                     Box(
                         modifier = Modifier.size(48.dp).clip(CircleShape).background(if (isSending) BorshchevykTheme.colors.surfaceVariant else BorshchevykTheme.colors.primary)
                             .clickable(enabled = !isSending) {
                                 if (editingMessage != null) {
                                     onEditMessage(editingMessage.id, text)
                                 } else {
-                                    onSendMessage(text, selectedAttachments.toList())
-                                    selectedAttachments.clear()
+                                    onSendMessage(text, selectedAttachments)
+                                    selectedAttachments = persistentListOf()
                                 }
                                 text = ""
                             },

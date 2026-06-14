@@ -10,8 +10,8 @@ class MediaVoiceHandler @Inject constructor(
     private val uploadCircleUseCase: UploadCircleUseCase,
     private val messageUseCases: ChatMessageUseCases
 ) {
-    suspend fun sendVoice(chatId: String, bytes: ByteArray, duration: Double) {
-        val attachmentResponse = uploadVoiceUseCase(bytes, duration)
+    suspend fun sendVoice(chatId: String, inputStreamProvider: () -> java.io.InputStream?, sizeBytes: Long, duration: Double) {
+        val attachmentResponse = uploadVoiceUseCase(inputStreamProvider, sizeBytes, duration)
         messageUseCases.sendMessage(
             chatId = chatId,
             text = "",
@@ -21,8 +21,8 @@ class MediaVoiceHandler @Inject constructor(
         )
     }
 
-    suspend fun sendCircle(chatId: String, bytes: ByteArray, duration: Double) {
-        val attachmentResponse = uploadCircleUseCase(bytes, duration)
+    suspend fun sendCircle(chatId: String, inputStreamProvider: () -> java.io.InputStream?, sizeBytes: Long, duration: Double) {
+        val attachmentResponse = uploadCircleUseCase(inputStreamProvider, sizeBytes, duration)
         messageUseCases.sendMessage(
             chatId = chatId,
             text = "",

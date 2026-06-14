@@ -68,16 +68,17 @@ class MediaRepositoryImpl @Inject constructor(
     }
 
     /**
-     * Uploads the raw bytes of a file directly to the provided S3 pre-signed URL.
+     * Uploads the file data directly to the storage service using a provided URL.
      *
      * This method performs a PUT request to the storage provider using the URL obtained via [requestUploadUrl].
      *
      * @param url The pre-signed upload URL.
-     * @param fileBytes The byte array containing the file's content.
+     * @param inputStreamProvider A function providing the file stream.
+     * @param sizeBytes The size of the file.
      * @param contentType The MIME type of the file, must match the one provided during URL request.
      */
-    override suspend fun uploadToS3(url: String, fileBytes: ByteArray, contentType: String) {
-        networkDataSource.uploadToS3(url, fileBytes, contentType).getOrThrow()
+    override suspend fun uploadToS3(url: String, inputStreamProvider: () -> java.io.InputStream?, sizeBytes: Long, contentType: String) {
+        networkDataSource.uploadToS3(url, inputStreamProvider, sizeBytes, contentType).getOrThrow()
     }
 
     /**
@@ -116,23 +117,25 @@ class MediaRepositoryImpl @Inject constructor(
     /**
      * Uploads a voice message directly to the server.
      *
-     * @param fileBytes The byte array of the audio recording.
+     * @param inputStreamProvider A function providing the input stream.
+     * @param sizeBytes The size of the file.
      * @param duration The length of the voice message in seconds.
      * @return A [DomainAttachmentResponse] containing the uploaded voice message details.
      */
-    override suspend fun uploadVoice(fileBytes: ByteArray, duration: Double): DomainAttachmentResponse {
-        return networkDataSource.uploadVoice(fileBytes, duration).getOrThrow().toDomain()
+    override suspend fun uploadVoice(inputStreamProvider: () -> java.io.InputStream?, sizeBytes: Long, duration: Double): DomainAttachmentResponse {
+        return networkDataSource.uploadVoice(inputStreamProvider, sizeBytes, duration).getOrThrow().toDomain()
     }
 
     /**
      * Uploads a video circle (video message) directly to the server.
      *
-     * @param fileBytes The byte array of the video recording.
+     * @param inputStreamProvider A function providing the input stream.
+     * @param sizeBytes The size of the file.
      * @param duration The length of the video circle in seconds.
      * @return A [DomainAttachmentResponse] containing the uploaded video circle details.
      */
-    override suspend fun uploadCircle(fileBytes: ByteArray, duration: Double): DomainAttachmentResponse {
-        return networkDataSource.uploadCircle(fileBytes, duration).getOrThrow().toDomain()
+    override suspend fun uploadCircle(inputStreamProvider: () -> java.io.InputStream?, sizeBytes: Long, duration: Double): DomainAttachmentResponse {
+        return networkDataSource.uploadCircle(inputStreamProvider, sizeBytes, duration).getOrThrow().toDomain()
     }
 
     /**
