@@ -66,16 +66,31 @@ class MeshMediaTransferManager @Inject constructor(
         val pending = pendingPayloads[payloadId] ?: return
         if (completedPayloads[payloadId] != true) return
 
-        val payloadFile = pending.payload.asFile()?.asJavaFile()
-        if (payloadFile != null) {
+        // Use ParcelFileDescriptor to read the received file.
+        // This is necessary on Android 10+ due to Scoped Storage restrictions
+        // when accessing files in the Downloads folder via raw paths.
+        val pfd = pending.payload.asFile()?.asParcelFileDescriptor()
+        if (pfd != null) {
             val destFile = File(context.cacheDir, "mesh_${metadata.attachmentId}")
-            if (payloadFile.absolutePath != destFile.absolutePath) {
-                payloadFile.copyTo(destFile, overwrite = true)
-                try { payloadFile.delete() } catch (e: Exception) {}
+            try {
+                pfd.use { parcelFd ->
+                    java.io.FileInputStream(parcelFd.fileDescriptor).use { input ->
+                        destFile.outputStream().use { output ->
+                            input.copyTo(output)
+                        }
+                    }
+                }
+                Log.d(TAG, "Successfully finalized file transfer $payloadId (${metadata.filename})")
+                localFiles[metadata.attachmentId] = destFile
+                _incomingFiles.tryEmit(ReceivedFile(pending.endpointId, destFile, metadata))
+                
+                // Try to cleanup the original file in Downloads/.nearby/ if possible
+                try { pending.payload.asFile()?.asJavaFile()?.delete() } catch (e: Exception) {}
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to copy received file payload $payloadId", e)
             }
-            Log.d(TAG, "Successfully finalized file transfer $payloadId (${metadata.filename})")
-            localFiles[metadata.attachmentId] = destFile
-            _incomingFiles.tryEmit(ReceivedFile(pending.endpointId, destFile, metadata))
+        } else {
+            Log.e(TAG, "Payload $payloadId asFile() or asParcelFileDescriptor() returned null")
         }
 
         // Cleanup
