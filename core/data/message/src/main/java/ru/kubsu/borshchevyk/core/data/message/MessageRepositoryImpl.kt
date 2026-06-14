@@ -2,10 +2,12 @@ package ru.kubsu.borshchevyk.core.data.message
 
 import android.util.Log
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.buffer
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.withContext
@@ -25,6 +27,7 @@ import ru.kubsu.borshchevyk.core.model.domain.GlobalChatAction
 import ru.kubsu.borshchevyk.core.model.domain.Message
 import ru.kubsu.borshchevyk.core.model.domain.MessageStatus
 import ru.kubsu.borshchevyk.core.network.client.getOrThrow
+import ru.kubsu.borshchevyk.core.network.di.ApplicationScope
 import ru.kubsu.borshchevyk.core.network.di.IoDispatcher
 import ru.kubsu.borshchevyk.core.network.dto.EditMessageRequest
 import ru.kubsu.borshchevyk.core.network.dto.SendMessageRequest
@@ -55,11 +58,14 @@ class MessageRepositoryImpl @Inject constructor(
     private val userDao: UserDao,
     private val meshProfileListener: MeshProfileListener,
     private val signatureService: MeshSignatureService,
-    @IoDispatcher private val ioDispatcher: CoroutineDispatcher
+    @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
+    @ApplicationScope private val scope: CoroutineScope
 ) : MessageRepository {
 
     init {
         meshProfileListener.startListening()
+        // Ensure that Mesh chat events are processed even when the UI is not active.
+        observeChatEvents().launchIn(scope)
     }
 
     /**
