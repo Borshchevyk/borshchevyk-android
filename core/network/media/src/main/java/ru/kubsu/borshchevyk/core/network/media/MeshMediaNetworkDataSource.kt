@@ -4,6 +4,7 @@ import android.content.Context
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import ru.kubsu.borshchevyk.core.network.client.NetworkResult
 import ru.kubsu.borshchevyk.core.network.dto.AttachmentResponse
@@ -35,6 +36,10 @@ class MeshMediaNetworkDataSource @Inject constructor(
 
     override fun observeAttachmentProgress(attachmentId: String): Flow<Float> {
         return transferManager.observeProgress(attachmentId)
+    }
+
+    override fun observeIncomingFiles(): Flow<String> {
+        return transferManager.incomingFiles.map { it.metadata?.attachmentId ?: "" }
     }
 
     override suspend fun requestUploadUrl(request: RequestUploadUrlRequest): NetworkResult<UploadUrlResult> {
@@ -130,6 +135,7 @@ class MeshMediaNetworkDataSource @Inject constructor(
             extension = "ogg",
             contentType = "audio/ogg",
             sizeBytes = sizeBytes,
+            duration = duration,
             status = AttachmentStatus.READY,
             createdAt = java.time.Instant.now().toString()
         )
@@ -162,6 +168,7 @@ class MeshMediaNetworkDataSource @Inject constructor(
             extension = "mp4",
             contentType = "video/mp4",
             sizeBytes = sizeBytes,
+            duration = duration,
             status = AttachmentStatus.READY,
             createdAt = java.time.Instant.now().toString()
         )

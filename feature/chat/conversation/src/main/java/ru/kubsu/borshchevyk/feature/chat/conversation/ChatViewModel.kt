@@ -128,6 +128,33 @@ class ChatViewModel @Inject constructor(
                 handleIntent(ChatIntent.ChatDeletedLocally)
             }
         }.launchIn(viewModelScope)
+
+        chatMediaHandler.observeIncomingFiles().onEach { incomingAttachmentId ->
+            val state = uiState.value as? ChatUiState.Content ?: return@onEach
+            val message = state.feed.messages.find { it.attachments.any { att -> att.id == incomingAttachmentId } }
+            if (message != null) {
+                val attachment = message.attachments.find { it.id == incomingAttachmentId }
+                if (attachment != null) {
+                    val domainAttachment = ru.kubsu.borshchevyk.core.model.domain.Attachment(
+                        id = attachment.id,
+                        type = attachment.type,
+                        url = attachment.url,
+                        originalFilename = attachment.originalFilename,
+                        sizeBytes = attachment.sizeBytes,
+                        duration = attachment.duration,
+                        width = attachment.width,
+                        height = attachment.height
+                    )
+                    handleIntent(ChatIntent.ResolveAttachmentUrl(domainAttachment, false))
+                    if (attachment.type == ru.kubsu.borshchevyk.core.model.domain.DomainAttachmentType.PHOTO ||
+                        attachment.type == ru.kubsu.borshchevyk.core.model.domain.DomainAttachmentType.VIDEO ||
+                        attachment.type == ru.kubsu.borshchevyk.core.model.domain.DomainAttachmentType.CIRCLE
+                    ) {
+                        handleIntent(ChatIntent.ResolveAttachmentUrl(domainAttachment, true))
+                    }
+                }
+            }
+        }.launchIn(viewModelScope)
     }
 
     fun handleIntent(intent: ChatIntent) {
@@ -264,10 +291,6 @@ class ChatViewModel @Inject constructor(
             }
             is ChatIntent.ResolveAttachmentUrl -> {
                 if (intent.attachment.id.startsWith("temp_")) return
-                if (state != null) {
-                    if (intent.isThumbnail && state.feed.thumbnailUrls.containsKey(intent.attachment.id)) return
-                    if (!intent.isThumbnail && state.feed.attachmentUrls.containsKey(intent.attachment.id)) return
-                }
                 viewModelScope.launch {
                     try {
                         val urls = chatMediaHandler.resolveAttachmentUrls(intent.attachment, intent.isThumbnail)

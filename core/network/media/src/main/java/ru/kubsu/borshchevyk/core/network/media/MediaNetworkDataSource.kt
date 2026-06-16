@@ -22,6 +22,12 @@ interface MediaNetworkDataSource {
     fun observeAttachmentProgress(attachmentId: String): Flow<Float>
 
     /**
+     * Observes the incoming files completed over the mesh network.
+     * Emits the attachment IDs of the downloaded files.
+     */
+    fun observeIncomingFiles(): Flow<String>
+
+    /**
      * Requests a pre-signed URL from the server to upload a file directly to storage (e.g., S3).
      *
      * @param request The metadata of the file to be uploaded.

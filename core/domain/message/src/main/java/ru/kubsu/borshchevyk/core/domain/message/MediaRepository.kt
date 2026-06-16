@@ -22,6 +22,12 @@ interface MediaRepository {
     fun observeAttachmentProgress(attachmentId: String): Flow<Float>
 
     /**
+     * Observes the incoming files completed over the mesh network.
+     * Emits the attachment IDs of the downloaded files.
+     */
+    fun observeIncomingFiles(): Flow<String>
+
+    /**
      * Requests a pre-signed upload URL for securely uploading a file to storage.
      *
      * @param originalFilename The original name of the file being uploaded.

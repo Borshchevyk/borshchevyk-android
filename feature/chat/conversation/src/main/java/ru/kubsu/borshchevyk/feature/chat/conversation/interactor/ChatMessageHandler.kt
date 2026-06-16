@@ -118,7 +118,10 @@ class ChatMessageHandler @Inject constructor(
                         type = it.toDomainAttachmentType(),
                         originalFilename = it.originalFilename,
                         extension = it.extension,
-                        sizeBytes = it.sizeBytes
+                        sizeBytes = it.sizeBytes,
+                        duration = it.duration?.toDouble(),
+                        width = it.width,
+                        height = it.height
                     )
                 }
             )
@@ -141,7 +144,10 @@ class ChatMessageHandler @Inject constructor(
                         type = it.toDomainAttachmentType(),
                         originalFilename = it.originalFilename,
                         extension = it.extension,
-                        sizeBytes = it.sizeBytes
+                        sizeBytes = it.sizeBytes,
+                        duration = it.duration?.toDouble(),
+                        width = it.width,
+                        height = it.height
                     )
                 }
             )

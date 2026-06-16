@@ -31,6 +31,10 @@ class MediaRepositoryImpl @Inject constructor(
         return networkDataSource.observeAttachmentProgress(attachmentId)
     }
 
+    override fun observeIncomingFiles(): Flow<String> {
+        return networkDataSource.observeIncomingFiles()
+    }
+
     /**
      * Requests a pre-signed URL from the backend to directly upload a media file to S3 storage.
      *

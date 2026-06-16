@@ -12,6 +12,10 @@ class ChatMediaHandler @Inject constructor(
         return attachmentUseCases.observeAttachmentProgress(attachmentId)
     }
 
+    fun observeIncomingFiles(): Flow<String> {
+        return attachmentUseCases.observeIncomingFiles()
+    }
+
     suspend fun resolveAttachmentUrls(attachment: ru.kubsu.borshchevyk.core.model.domain.Attachment, isThumbnail: Boolean): Map<String, String> {
         val urls = mutableMapOf<String, String>()
         if (attachment.type == DomainAttachmentType.VIDEO || attachment.type == DomainAttachmentType.PHOTO || attachment.type == DomainAttachmentType.CIRCLE) {

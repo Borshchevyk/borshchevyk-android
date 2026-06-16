@@ -30,6 +30,9 @@ class ProxyMediaNetworkDataSource @Inject constructor(
     override fun observeAttachmentProgress(attachmentId: String): Flow<Float> =
         currentDataSource.observeAttachmentProgress(attachmentId)
 
+    override fun observeIncomingFiles(): Flow<String> =
+        currentDataSource.observeIncomingFiles()
+
     override suspend fun requestUploadUrl(request: RequestUploadUrlRequest): NetworkResult<UploadUrlResult> =
         currentDataSource.requestUploadUrl(request)
 

@@ -66,12 +66,25 @@ internal fun MessageInput(
     var text by remember { mutableStateOf("") }
     var selectedAttachments by remember { mutableStateOf(persistentListOf<Uri>()) }
 
+    val context = LocalContext.current
+
     val circleUri = remember { mutableStateOf<Uri?>(null) }
     val circleCaptureLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CaptureVideo()
     ) { success ->
         if (success) {
             circleUri.value?.let { onSendCircle(it) }
+        }
+    }
+
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            val file = File(context.cacheDir, "circle_${System.currentTimeMillis()}.mp4")
+            val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+            circleUri.value = uri
+            circleCaptureLauncher.launch(uri)
         }
     }
 
@@ -125,15 +138,11 @@ internal fun MessageInput(
                         Text("Recording Voice...", color = BorshchevykTheme.colors.onSurface, style = BorshchevykTheme.typography.bodyMedium)
                     }
                 } else {
-                    val context = LocalContext.current
                     IconButton(onClick = { filePickerLauncher.launch("*/*") }, modifier = Modifier.padding(bottom = 4.dp, end = 4.dp)) {
                         Icon(Icons.Default.AttachFile, contentDescription = "Attach file", tint = BorshchevykTheme.colors.primary)
                     }
                     IconButton(onClick = { 
-                        val file = File(context.cacheDir, "circle_${System.currentTimeMillis()}.mp4")
-                        val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
-                        circleUri.value = uri
-                        circleCaptureLauncher.launch(uri) 
+                        cameraPermissionLauncher.launch(android.Manifest.permission.CAMERA) 
                     }, modifier = Modifier.padding(bottom = 4.dp, end = 4.dp)) {
                         Icon(Icons.Default.Videocam, contentDescription = "Record Circle", tint = BorshchevykTheme.colors.primary)
                     }

@@ -16,6 +16,7 @@ import io.ktor.utils.io.close
 import io.ktor.utils.io.writeFully
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -39,6 +40,10 @@ class KtorMediaNetworkDataSource @Inject constructor(
 
     override fun observeAttachmentProgress(attachmentId: String): Flow<Float> {
         return flowOf(0f)
+    }
+
+    override fun observeIncomingFiles(): Flow<String> {
+        return emptyFlow()
     }
 
     override suspend fun uploadAvatar(fileBytes: ByteArray, filename: String, contentType: String): NetworkResult<AttachmentUrlResult> {

@@ -133,7 +133,10 @@ class MeshMessageNetworkDataSource @Inject constructor(
                         type = it.type,
                         originalFilename = it.originalFilename,
                         extension = it.extension,
-                        sizeBytes = it.sizeBytes
+                        sizeBytes = it.sizeBytes,
+                        duration = it.duration,
+                        width = it.width,
+                        height = it.height
                     )
                 },
                 status = "SENT"

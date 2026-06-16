@@ -15,5 +15,6 @@ class ChatAttachmentUseCases @Inject constructor(
     val uploadAttachment: UploadAttachmentUseCase,
     val getAttachmentUrl: GetAttachmentUrlUseCase,
     val exportAttachment: ExportAttachmentUseCase,
-    val observeAttachmentProgress: ObserveAttachmentProgressUseCase
+    val observeAttachmentProgress: ObserveAttachmentProgressUseCase,
+    val observeIncomingFiles: ObserveIncomingFilesUseCase
 )
