@@ -400,10 +400,11 @@ class MessageRepositoryImpl @Inject constructor(
      * @param forAll Whether to delete the message for everyone or just the local user.
      */
     override suspend fun deleteMessage(chatId: String, messageId: String, forAll: Boolean) {
-        networkDataSource.deleteMessage(chatId, messageId, forAll).getOrThrow()
+        val result = networkDataSource.deleteMessage(chatId, messageId, forAll)
         withContext(ioDispatcher) {
             messageDao.deleteMessage(messageId)
         }
+        result.getOrThrow()
     }
 
     /**

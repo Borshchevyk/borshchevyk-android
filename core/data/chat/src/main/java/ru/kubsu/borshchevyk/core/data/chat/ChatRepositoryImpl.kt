@@ -6,6 +6,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -21,6 +22,7 @@ import ru.kubsu.borshchevyk.core.model.domain.DomainTargetUserParam
 import ru.kubsu.borshchevyk.core.model.domain.DomainUpdateChatInfoParam
 import ru.kubsu.borshchevyk.core.model.domain.DomainUpdatePermissionsParam
 import ru.kubsu.borshchevyk.core.model.domain.GlobalSearchResults
+import ru.kubsu.borshchevyk.core.model.domain.User
 import ru.kubsu.borshchevyk.core.network.chat.ChatNetworkDataSource
 import ru.kubsu.borshchevyk.core.network.client.getOrThrow
 import ru.kubsu.borshchevyk.core.network.di.IoDispatcher
@@ -45,6 +47,8 @@ class ChatRepositoryImpl @Inject constructor(
     private val networkDataSource: ChatNetworkDataSource,
     private val chatDao: ChatDao,
     private val messageDao: MessageDao,
+    private val chatMemberDao: ru.kubsu.borshchevyk.core.database.dao.ChatMemberDao,
+    private val userDao: ru.kubsu.borshchevyk.core.database.dao.UserDao,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher
 ) : ChatRepository {
 
@@ -66,16 +70,23 @@ class ChatRepositoryImpl @Inject constructor(
      * @return The ID of the newly created chat.
      */
     override suspend fun createChat(request: DomainCreateChatParam): String = withContext(ioDispatcher) {
-        val chatEntity = networkDataSource.createChat(
+        val chatResponse = networkDataSource.createChat(
             CreateChatRequest(
                 type = request.type,
                 title = request.title,
                 description = request.description,
                 initialMemberIds = request.initialMemberIds
             )
-        ).getOrThrow().toEntity()
-        chatDao.upsertChat(chatEntity)
-        chatEntity.id
+        ).getOrThrow()
+        
+        // In Mesh mode, the NetworkDataSource already upserts the Entity with LWW timestamps.
+        // We only upsert if it doesn't already exist to prevent wiping out those timestamps.
+        val existing = chatDao.getChat(chatResponse.id)
+        if (existing == null) {
+            chatDao.upsertChat(chatResponse.toEntity())
+        }
+        
+        chatResponse.id
     }
 
     /**
@@ -98,7 +109,22 @@ class ChatRepositoryImpl @Inject constructor(
     override suspend fun syncUserChats() {
         withContext(ioDispatcher) {
             val networkChats = networkDataSource.getUserChats().getOrThrow()
-            chatDao.upsertChats(networkChats.map { it.toEntity() })
+            
+            // Only overwrite if it's not a Mesh group, or preserve the local LWW timestamps if it is.
+            val mergedEntities = networkChats.map { dto ->
+                val entity = dto.toEntity()
+                val existing = chatDao.getChat(entity.id)
+                if (existing != null && entity.type == ChatType.GROUP) {
+                    entity.copy(
+                        titleUpdatedAt = existing.titleUpdatedAt,
+                        descriptionUpdatedAt = existing.descriptionUpdatedAt
+                    )
+                } else {
+                    entity
+                }
+            }
+            
+            chatDao.upsertChats(mergedEntities)
             chatDao.deleteChatsNotIn(networkChats.map { it.id })
         }
     }
@@ -192,6 +218,43 @@ class ChatRepositoryImpl @Inject constructor(
             totalPages = response.totalPages,
             last = response.content.isEmpty() // simplified last check
         )
+    }
+
+    /**
+     * Observes the list of members for a specific chat from the local database.
+     *
+     * @param chatId The ID of the chat.
+     * @return A [Flow] emitting the latest list of [ChatMember]s.
+     */
+    override fun observeChatMembers(chatId: String): Flow<List<ChatMember>> {
+        return chatMemberDao.getActiveMembers(chatId).map { members ->
+            members.map { member ->
+                val user = userDao.getUser(member.userId)
+                val shortUser = user?.let {
+                    ru.kubsu.borshchevyk.core.network.dto.ShortUserDto(
+                        id = it.userId,
+                        firstName = it.firstName,
+                        lastName = it.lastName,
+                        tag = it.tag,
+                        avatarUrl = it.avatarUrl
+                    )
+                } ?: ru.kubsu.borshchevyk.core.network.dto.ShortUserDto(id = member.userId)
+                
+                ru.kubsu.borshchevyk.core.network.dto.ChatMemberResponse(
+                    chatId = member.chatId,
+                    userId = member.userId,
+                    userDetails = shortUser,
+                    role = member.role,
+                    joinedAt = member.joinedAt,
+                    canSendMessages = member.canSendMessages,
+                    canDeleteMessages = member.canDeleteMessages,
+                    canInviteUsers = member.canInviteUsers,
+                    canChangeInfo = member.canChangeInfo,
+                    isPinned = false,
+                    historyClearedAt = null
+                ).toDomain()
+            }
+        }.flowOn(ioDispatcher)
     }
 
     /**
@@ -291,7 +354,7 @@ class ChatRepositoryImpl @Inject constructor(
         val response = networkDataSource.globalSearch(query).getOrThrow()
         return GlobalSearchResults(
             users = response.users.map { 
-                ru.kubsu.borshchevyk.core.model.domain.User(
+                User(
                     userId = it.id,
                     firstName = it.firstName,
                     lastName = it.lastName,

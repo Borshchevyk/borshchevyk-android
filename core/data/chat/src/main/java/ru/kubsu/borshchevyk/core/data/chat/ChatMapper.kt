@@ -2,10 +2,10 @@ package ru.kubsu.borshchevyk.core.data.chat
 
 import ru.kubsu.borshchevyk.core.database.entity.ChatEntity
 import ru.kubsu.borshchevyk.core.model.domain.Chat
-import ru.kubsu.borshchevyk.core.network.dto.ChatResponse
-import ru.kubsu.borshchevyk.core.network.dto.ChatMemberResponse
 import ru.kubsu.borshchevyk.core.model.domain.ChatMember
 import ru.kubsu.borshchevyk.core.model.domain.ChatMemberRole
+import ru.kubsu.borshchevyk.core.network.dto.ChatMemberResponse
+import ru.kubsu.borshchevyk.core.network.dto.ChatResponse
 
 /**
  * Maps a network [ChatResponse] DTO to a local [ChatEntity].
@@ -96,5 +96,6 @@ fun ChatMemberResponse.toDomain(): ChatMember = ChatMember(
     canDeleteMessages = canDeleteMessages,
     canInviteUsers = canInviteUsers,
     canChangeInfo = canChangeInfo,
+    isPinned = isPinned,
     historyClearedAt = historyClearedAt
 )

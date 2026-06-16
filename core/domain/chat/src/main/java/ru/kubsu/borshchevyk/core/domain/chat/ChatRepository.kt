@@ -1,5 +1,6 @@
 package ru.kubsu.borshchevyk.core.domain.chat
 
+import kotlinx.coroutines.flow.Flow
 import ru.kubsu.borshchevyk.core.model.domain.Chat
 import ru.kubsu.borshchevyk.core.model.domain.ChatMember
 import ru.kubsu.borshchevyk.core.model.domain.DomainCreateChatParam
@@ -8,8 +9,6 @@ import ru.kubsu.borshchevyk.core.model.domain.DomainTargetUserParam
 import ru.kubsu.borshchevyk.core.model.domain.DomainUpdateChatInfoParam
 import ru.kubsu.borshchevyk.core.model.domain.DomainUpdatePermissionsParam
 import ru.kubsu.borshchevyk.core.model.domain.GlobalSearchResults
-
-import kotlinx.coroutines.flow.Flow
 
 /**
  * Repository interface for managing chats and their associated metadata.
@@ -102,6 +101,14 @@ interface ChatRepository {
      * @return A [DomainPage] containing the requested chunk of [ChatMember]s.
      */
     suspend fun getChatMembers(chatId: String, page: Int, size: Int): DomainPage<ChatMember>
+
+    /**
+     * Observes the list of members for a specific chat.
+     *
+     * @param chatId The ID of the chat.
+     * @return A [Flow] emitting the latest list of [ChatMember]s.
+     */
+    fun observeChatMembers(chatId: String): Flow<List<ChatMember>>
 
     /**
      * Invites a new user to an existing chat.

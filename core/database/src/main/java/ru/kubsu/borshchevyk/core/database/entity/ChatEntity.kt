@@ -41,5 +41,9 @@ data class ChatEntity(
     val allowedReactions: Set<String>?,
     val isDeletable: Boolean,
     val isPinned: Boolean,
-    val createdAt: String
+    val createdAt: String,
+    
+    // CRDT LWW Timestamps for Mesh group updates
+    val titleUpdatedAt: Long = 0,
+    val descriptionUpdatedAt: Long = 0
 )

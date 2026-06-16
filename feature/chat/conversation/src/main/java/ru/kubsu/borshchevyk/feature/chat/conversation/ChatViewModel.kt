@@ -124,6 +124,8 @@ class ChatViewModel @Inject constructor(
                 val isGroup = chat.type == ChatType.GROUP
                 val chatTitle = chat.title ?: chat.partnerName ?: if (isGroup) "Group Chat" else "Private Chat"
                 container.updateState { it.updateTitle(chatTitle, chat.partnerAvatarUrl) }
+            } else {
+                handleIntent(ChatIntent.ChatDeletedLocally)
             }
         }.launchIn(viewModelScope)
     }

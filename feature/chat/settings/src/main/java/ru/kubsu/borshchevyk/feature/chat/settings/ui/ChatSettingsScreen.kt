@@ -212,6 +212,8 @@ internal fun ChatSettingsScreen(
 
         if (showUpdateInfoDialog) {
             UpdateChatInfoDialog(
+                initialTitle = uiState.chatName,
+                initialDescription = uiState.chatDescription ?: "",
                 onDismiss = { showUpdateInfoDialog = false },
                 onConfirm = { title, desc ->
                     onIntent(ChatSettingsIntent.UpdateChatInfo(title ?: "", desc))

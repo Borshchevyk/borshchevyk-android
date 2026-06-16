@@ -5,7 +5,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.collections.immutable.toPersistentList
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
+import ru.kubsu.borshchevyk.core.domain.chat.ChatRepository
+import ru.kubsu.borshchevyk.core.domain.chat.ObserveUserChatsUseCase
 import ru.kubsu.borshchevyk.core.ui.mvi.mviContainer
 import ru.kubsu.borshchevyk.feature.chat.settings.interactor.ChatSettingsDataLoader
 import ru.kubsu.borshchevyk.feature.chat.settings.interactor.ChatSettingsHandler
@@ -20,7 +24,9 @@ class ChatSettingsViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val dataLoader: ChatSettingsDataLoader,
     private val chatSettingsHandler: ChatSettingsHandler,
-    private val contactHandler: ContactHandler
+    private val contactHandler: ContactHandler,
+    private val observeUserChatsUseCase: ObserveUserChatsUseCase,
+    private val chatRepository: ChatRepository
 ) : ViewModel() {
 
     private val container = mviContainer<ChatSettingsUiState, ChatSettingsEffect>(ChatSettingsUiState(isLoading = true), viewModelScope)
@@ -35,6 +41,24 @@ class ChatSettingsViewModel @Inject constructor(
 
     init {
         handleIntent(ChatSettingsIntent.LoadData)
+        
+        observeUserChatsUseCase().onEach { chats ->
+            val chat = chats.find { it.id == chatId }
+            if (chat == null && !uiState.value.isLoading) {
+                container.updateState { it.copy(isChatDeleted = true) }
+            } else if (chat != null) {
+                container.updateState { it.copy(
+                    chatName = if (it.isGroupChat) chat.title ?: "" else chat.partnerName ?: "",
+                    chatDescription = chat.description
+                ) }
+            }
+        }.launchIn(viewModelScope)
+
+        chatRepository.observeChatMembers(chatId).onEach { members ->
+            if (members.isNotEmpty()) {
+                container.updateState { it.copy(members = members.toPersistentList()) }
+            }
+        }.launchIn(viewModelScope)
     }
 
     private suspend fun reloadData() {

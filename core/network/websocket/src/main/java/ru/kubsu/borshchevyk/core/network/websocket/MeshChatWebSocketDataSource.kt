@@ -1,14 +1,30 @@
 package ru.kubsu.borshchevyk.core.network.websocket
 
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.mapNotNull
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import ru.kubsu.borshchevyk.core.database.dao.ChatDao
+import ru.kubsu.borshchevyk.core.database.dao.ChatMemberDao
+import ru.kubsu.borshchevyk.core.database.dao.MessageDao
 import ru.kubsu.borshchevyk.core.database.dao.PendingEnvelopeDao
+import ru.kubsu.borshchevyk.core.database.entity.ChatEntity
+import ru.kubsu.borshchevyk.core.database.entity.ChatMemberEntity
 import ru.kubsu.borshchevyk.core.database.entity.PendingEnvelopeEntity
+import ru.kubsu.borshchevyk.core.model.domain.ChatType
+import ru.kubsu.borshchevyk.core.network.di.ApplicationScope
+import ru.kubsu.borshchevyk.core.network.dto.CrdtChatUpdateEvent
+import ru.kubsu.borshchevyk.core.network.dto.CrdtMemberUpdateEvent
 import ru.kubsu.borshchevyk.core.network.dto.EditMessageEvent
+import ru.kubsu.borshchevyk.core.network.dto.FullStateSyncEvent
 import ru.kubsu.borshchevyk.core.network.dto.NotificationDto
 import ru.kubsu.borshchevyk.core.network.dto.ReactionEvent
 import ru.kubsu.borshchevyk.core.network.dto.ReadReceiptEvent
@@ -29,8 +45,106 @@ class MeshChatWebSocketDataSource @Inject constructor(
     private val gossipProtocol: MeshFloodingProtocol,
     private val json: Json,
     private val signatureService: MeshSignatureService,
-    private val pendingEnvelopeDao: PendingEnvelopeDao
+    private val pendingEnvelopeDao: PendingEnvelopeDao,
+    private val chatDao: ChatDao,
+    private val chatMemberDao: ChatMemberDao,
+    private val messageDao: MessageDao,
+    @ApplicationScope private val scope: CoroutineScope
 ) : ChatWebSocketDataSource {
+
+    init {
+        observeCrdtEvents().launchIn(scope)
+    }
+
+    private fun observeCrdtEvents(): Flow<MeshEnvelope> {
+        return gossipProtocol.incomingEnvelopes
+            .filter { it.action in setOf("CRDT_MEMBER_UPDATE", "CRDT_CHAT_UPDATE", "FULL_STATE_SYNC") }
+            .onEach { envelope ->
+                try {
+                    val decryptedPayloadString = decryptPayloadIfNeeded(envelope.payload)
+                    val localUserId = signatureService.getUserId() ?: "self"
+                    when (envelope.action) {
+                        "CRDT_MEMBER_UPDATE" -> {
+                            val event = json.decodeFromString<CrdtMemberUpdateEvent>(decryptedPayloadString)
+                            applyCrdtMemberUpdate(event, localUserId)
+                        }
+                        "CRDT_CHAT_UPDATE" -> {
+                            val event = json.decodeFromString<CrdtChatUpdateEvent>(decryptedPayloadString)
+                            applyCrdtChatUpdate(event, allowCreation = false)
+                        }
+                        "FULL_STATE_SYNC" -> {
+                            val event = json.decodeFromString<FullStateSyncEvent>(decryptedPayloadString)
+                            val amIInvited = event.memberUpdates.any { it.targetUserId == localUserId && it.status == "ACTIVE" }
+                            applyCrdtChatUpdate(event.chatUpdate, allowCreation = amIInvited)
+                            event.memberUpdates.forEach { applyCrdtMemberUpdate(it, localUserId) }
+                        }
+                    }
+                } catch (e: NotForMeException) {
+                    // Ignore, not for us
+                } catch (e: kotlinx.serialization.SerializationException) {
+                    android.util.Log.e("MeshChatWebSocket", "Failed to deserialize event: ${e.message}. Dropping envelope.")
+                } catch (e: Exception) {
+                    android.util.Log.e("MeshChatWebSocket", "Failed to parse CRDT event. Saving as pending: ${e.message}")
+                    saveAsPending(envelope)
+                }
+            }
+            .flowOn(Dispatchers.IO)
+    }
+
+    private fun applyCrdtMemberUpdate(event: CrdtMemberUpdateEvent, localUserId: String) {
+        val existing = chatMemberDao.getMember(event.chatId, event.targetUserId)
+        val newStatus = event.status ?: existing?.status ?: "ACTIVE"
+        val entity = ChatMemberEntity(
+            chatId = event.chatId,
+            userId = event.targetUserId,
+            role = event.role ?: existing?.role ?: "MEMBER",
+            joinedAt = existing?.joinedAt ?: Instant.now().toString(),
+            status = newStatus,
+            canSendMessages = event.canSendMessages ?: existing?.canSendMessages ?: true,
+            canDeleteMessages = event.canDeleteMessages ?: existing?.canDeleteMessages ?: false,
+            canInviteUsers = event.canInviteUsers ?: existing?.canInviteUsers ?: false,
+            canChangeInfo = event.canChangeInfo ?: existing?.canChangeInfo ?: false,
+            roleUpdatedAt = event.roleUpdatedAt,
+            statusUpdatedAt = event.statusUpdatedAt,
+            permissionsUpdatedAt = event.permissionsUpdatedAt
+        )
+        chatMemberDao.upsertMemberWithLWW(entity)
+        
+        // Remove the chat from our local DB if we were kicked or left
+        if (event.targetUserId == localUserId && (newStatus == "KICKED" || newStatus == "LEFT")) {
+            chatDao.deleteChat(event.chatId)
+        }
+    }
+
+    private fun applyCrdtChatUpdate(event: CrdtChatUpdateEvent, allowCreation: Boolean = false) {
+        val existing = chatDao.getChat(event.chatId)
+        if (existing == null && !allowCreation) return
+        
+        val chatToUpsert = existing?.copy(
+            title = event.title,
+            titleUpdatedAt = event.titleUpdatedAt,
+            description = event.description,
+            descriptionUpdatedAt = event.descriptionUpdatedAt
+        ) ?: ChatEntity(
+            id = event.chatId,
+            type = ChatType.GROUP,
+            title = event.title,
+            description = event.description,
+            partnerId = null,
+            partnerName = null,
+            partnerAvatarUrl = null,
+            partnerLastOnline = null,
+            lastMessage = null,
+            unreadCount = 0,
+            allowedReactions = null,
+            isDeletable = true,
+            isPinned = false,
+            createdAt = Instant.now().toString(),
+            titleUpdatedAt = event.titleUpdatedAt,
+            descriptionUpdatedAt = event.descriptionUpdatedAt
+        )
+        chatDao.upsertChatWithLWW(chatToUpsert)
+    }
 
     class NotForMeException : Exception("E2EE payload decryption failed. Envelope is likely not intended for this node.")
 
@@ -54,7 +168,7 @@ class MeshChatWebSocketDataSource @Inject constructor(
     }
 
     private suspend fun saveAsPending(envelope: MeshEnvelope) {
-        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+        withContext(Dispatchers.IO) {
             pendingEnvelopeDao.insert(
                 PendingEnvelopeEntity(
                     envelopeId = envelope.envelopeId,
@@ -112,7 +226,7 @@ class MeshChatWebSocketDataSource @Inject constructor(
                 try {
                     val decryptedPayloadString = decryptPayloadIfNeeded(envelope.payload)
                     val chatEvent = json.decodeFromString<NotificationDto.ChatEventDto>(decryptedPayloadString)
-                    if (chatEvent.chat.type == ru.kubsu.borshchevyk.core.model.domain.ChatType.PRIVATE) {
+                    if (chatEvent.chat.type == ChatType.PRIVATE) {
                         // The sender correctly inverted the partnerName and partnerAvatarUrl before broadcasting,
                         // so we only need to securely enforce the partnerId matches the envelope's origin.
                         chatEvent.copy(
@@ -143,7 +257,21 @@ class MeshChatWebSocketDataSource @Inject constructor(
                 try {
                     val decryptedPayloadString = decryptPayloadIfNeeded(envelope.payload)
                     val payload = json.decodeFromString<DeleteMessagePayload>(decryptedPayloadString)
-                    if (payload.forAll) payload.messageId else ""
+                    if (payload.forAll) {
+                        val senderId = envelope.originEndpointId
+                        val messageWithDetails = messageDao.getMessage(payload.messageId)
+                        if (messageWithDetails != null) {
+                            val chatId = messageWithDetails.message.chatId
+                            val chat = chatDao.getChat(chatId)
+                            if (chat?.type == ChatType.GROUP) {
+                                val member = chatMemberDao.getMember(chatId, senderId)
+                                if (member?.canDeleteMessages != true && member?.role != "OWNER" && member?.role != "ADMIN") {
+                                    return@mapNotNull null // Reject unauthorized deletion
+                                }
+                            }
+                        }
+                        payload.messageId 
+                    } else ""
                 } catch (e: NotForMeException) {
                     null
                 } catch (e: Exception) {
@@ -152,6 +280,7 @@ class MeshChatWebSocketDataSource @Inject constructor(
                 }
             }
             .filter { it.isNotEmpty() }
+            .flowOn(Dispatchers.IO)
     }
 
     override fun observeTyping(chatId: String): Flow<TypingEvent> {

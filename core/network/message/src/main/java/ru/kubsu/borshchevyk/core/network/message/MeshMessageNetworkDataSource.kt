@@ -7,6 +7,10 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import ru.kubsu.borshchevyk.core.database.dao.ChatDao
+import ru.kubsu.borshchevyk.core.database.dao.ChatMemberDao
+import ru.kubsu.borshchevyk.core.database.dao.MessageDao
+import ru.kubsu.borshchevyk.core.model.domain.ChatType
 import ru.kubsu.borshchevyk.core.model.domain.MessageSource
 import ru.kubsu.borshchevyk.core.network.client.NetworkResult
 import ru.kubsu.borshchevyk.core.network.di.ApplicationScope
@@ -36,6 +40,9 @@ class MeshMessageNetworkDataSource @Inject constructor(
     private val gossipProtocol: MeshFloodingProtocol,
     private val mediaDataSource: MeshMediaNetworkDataSource,
     private val signatureService: MeshSignatureService,
+    private val chatDao: ChatDao,
+    private val chatMemberDao: ChatMemberDao,
+    private val messageDao: MessageDao,
     @ApplicationScope private val scope: CoroutineScope,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher
 ) : MessageNetworkDataSource {
@@ -102,6 +109,15 @@ class MeshMessageNetworkDataSource @Inject constructor(
 
     override suspend fun sendMessage(chatId: String, request: SendMessageRequest): NetworkResult<MessageResponse> {
         return withContext(ioDispatcher) {
+            val chat = chatDao.getChat(chatId)
+            if (chat != null && chat.type == ChatType.GROUP) {
+                val localUserId = signatureService.getUserId() ?: "self"
+                val member = chatMemberDao.getMember(chatId, localUserId)
+                if (member?.canSendMessages != true && member?.role != "OWNER" && member?.role != "ADMIN") {
+                    return@withContext NetworkResult.Error(403, "No permission to send messages")
+                }
+            }
+
             val attachments = request.attachmentIds?.mapNotNull { mediaDataSource.getCachedAttachment(it) } ?: emptyList()
             val userId = signatureService.getUserId() ?: "self"
             
@@ -152,6 +168,15 @@ class MeshMessageNetworkDataSource @Inject constructor(
 
     override suspend fun editMessage(chatId: String, messageId: String, request: EditMessageRequest): NetworkResult<MessageResponse> {
         return withContext(ioDispatcher) {
+            val chat = chatDao.getChat(chatId)
+            if (chat != null && chat.type == ChatType.GROUP) {
+                val localUserId = signatureService.getUserId() ?: "self"
+                val member = chatMemberDao.getMember(chatId, localUserId)
+                if (member?.canSendMessages != true && member?.role != "OWNER" && member?.role != "ADMIN") {
+                    return@withContext NetworkResult.Error(403, "No permission to edit messages")
+                }
+            }
+
             val userId = signatureService.getUserId() ?: "self"
             val event = EditMessageEvent(
                 messageId = messageId,
@@ -194,7 +219,18 @@ class MeshMessageNetworkDataSource @Inject constructor(
 
     override suspend fun deleteMessage(chatId: String, messageId: String, forAll: Boolean): NetworkResult<Unit> {
         return withContext(ioDispatcher) {
-             if (forAll) {
+             val chat = chatDao.getChat(chatId)
+             var canDeleteForAll = true
+             
+             if (forAll && chat != null && chat.type == ChatType.GROUP) {
+                 val localUserId = signatureService.getUserId() ?: "self"
+                 val member = chatMemberDao.getMember(chatId, localUserId)
+                 if (member?.canDeleteMessages != true && member?.role != "OWNER" && member?.role != "ADMIN") {
+                     canDeleteForAll = false
+                 }
+             }
+
+             if (forAll && canDeleteForAll) {
                  val payloadString = "{\"messageId\":\"$messageId\",\"forAll\":$forAll}"
                  val finalPayload = encryptPayloadIfNeeded(chatId, payloadString)
                  val envelope = GossipEnvelope(
@@ -205,7 +241,12 @@ class MeshMessageNetworkDataSource @Inject constructor(
                  )
                  gossipProtocol.broadcast(envelope)
              }
-             NetworkResult.Success(Unit)
+             
+             if (forAll && !canDeleteForAll) {
+                 NetworkResult.Error(403, "Deleted locally. No permission to delete for everyone.")
+             } else {
+                 NetworkResult.Success(Unit)
+             }
         }
     }
 

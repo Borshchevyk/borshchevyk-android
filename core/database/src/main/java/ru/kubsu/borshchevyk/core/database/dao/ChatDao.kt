@@ -88,4 +88,26 @@ interface ChatDao {
      */
     @Query("DELETE FROM chats")
     fun deleteAll()
+    
+    @androidx.room.Transaction
+    fun upsertChatWithLWW(incoming: ChatEntity) {
+        val existing = getChat(incoming.id)
+        if (existing == null) {
+            upsertChat(incoming)
+        } else {
+            val updatedTitle = if (incoming.titleUpdatedAt > existing.titleUpdatedAt) incoming.title else existing.title
+            val updatedTitleTs = kotlin.math.max(incoming.titleUpdatedAt, existing.titleUpdatedAt)
+            
+            val updatedDesc = if (incoming.descriptionUpdatedAt > existing.descriptionUpdatedAt) incoming.description else existing.description
+            val updatedDescTs = kotlin.math.max(incoming.descriptionUpdatedAt, existing.descriptionUpdatedAt)
+            
+            val merged = existing.copy(
+                title = updatedTitle,
+                titleUpdatedAt = updatedTitleTs,
+                description = updatedDesc,
+                descriptionUpdatedAt = updatedDescTs
+            )
+            upsertChat(merged)
+        }
+    }
 }

@@ -214,11 +214,13 @@ internal fun AddContactDialog(
 
 @Composable
 internal fun UpdateChatInfoDialog(
+    initialTitle: String,
+    initialDescription: String,
     onDismiss: () -> Unit,
     onConfirm: (String?, String?) -> Unit
 ) {
-    var title by remember { mutableStateOf("") }
-    var description by remember { mutableStateOf("") }
+    var title by remember { mutableStateOf(initialTitle) }
+    var description by remember { mutableStateOf(initialDescription) }
 
     AlertDialog(
         onDismissRequest = onDismiss,

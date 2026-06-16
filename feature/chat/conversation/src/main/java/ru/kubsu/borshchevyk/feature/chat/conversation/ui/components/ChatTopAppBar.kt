@@ -26,6 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import ru.kubsu.borshchevyk.core.ui.theme.BorshchevykTheme
@@ -84,7 +85,9 @@ fun ChatTopAppBar(
                     Text(
                         text = context.chatName,
                         style = BorshchevykTheme.typography.titleMedium,
-                        color = BorshchevykTheme.colors.onSurface
+                        color = BorshchevykTheme.colors.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                     ChatStatusLine(context, typingUsers)
                 }

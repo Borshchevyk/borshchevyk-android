@@ -9,6 +9,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import ru.kubsu.borshchevyk.core.database.AppDatabase
 import ru.kubsu.borshchevyk.core.database.dao.ChatDao
+import ru.kubsu.borshchevyk.core.database.dao.ChatMemberDao
 import ru.kubsu.borshchevyk.core.database.dao.MessageDao
 import ru.kubsu.borshchevyk.core.database.dao.PendingEnvelopeDao
 import ru.kubsu.borshchevyk.core.database.dao.PublicKeyDao
@@ -56,6 +57,16 @@ object DatabaseModule {
     @Provides
     @Singleton
     fun provideChatDao(database: AppDatabase): ChatDao = database.chatDao()
+
+    /**
+     * Provides the [ChatMemberDao] implementation.
+     *
+     * @param database The [AppDatabase] instance.
+     * @return The [ChatMemberDao] implementation.
+     */
+    @Provides
+    @Singleton
+    fun provideChatMemberDao(database: AppDatabase): ChatMemberDao = database.chatMemberDao()
 
     /**
      * Provides the [MessageDao] implementation.

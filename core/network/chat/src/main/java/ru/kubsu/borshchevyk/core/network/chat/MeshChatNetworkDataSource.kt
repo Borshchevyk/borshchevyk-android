@@ -6,14 +6,19 @@ import kotlinx.coroutines.withContext
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import ru.kubsu.borshchevyk.core.database.dao.ChatDao
+import ru.kubsu.borshchevyk.core.database.dao.ChatMemberDao
 import ru.kubsu.borshchevyk.core.database.dao.UserDao
 import ru.kubsu.borshchevyk.core.database.entity.ChatEntity
+import ru.kubsu.borshchevyk.core.database.entity.ChatMemberEntity
 import ru.kubsu.borshchevyk.core.model.domain.ChatType
 import ru.kubsu.borshchevyk.core.network.client.NetworkResult
 import ru.kubsu.borshchevyk.core.network.di.IoDispatcher
 import ru.kubsu.borshchevyk.core.network.dto.ChatMemberResponse
 import ru.kubsu.borshchevyk.core.network.dto.ChatResponse
+import ru.kubsu.borshchevyk.core.network.dto.CrdtChatUpdateEvent
+import ru.kubsu.borshchevyk.core.network.dto.CrdtMemberUpdateEvent
 import ru.kubsu.borshchevyk.core.network.dto.CreateChatRequest
+import ru.kubsu.borshchevyk.core.network.dto.FullStateSyncEvent
 import ru.kubsu.borshchevyk.core.network.dto.GlobalSearchResponse
 import ru.kubsu.borshchevyk.core.network.dto.NotificationDto
 import ru.kubsu.borshchevyk.core.network.dto.PageResponse
@@ -24,12 +29,15 @@ import ru.kubsu.borshchevyk.core.network.dto.UpdatePermissionsRequest
 import ru.kubsu.borshchevyk.core.network.mesh.MeshEnvelope
 import ru.kubsu.borshchevyk.core.network.mesh.MeshFloodingProtocol
 import ru.kubsu.borshchevyk.core.network.mesh.MeshSignatureService
+import java.security.MessageDigest
+import java.time.Instant
 import java.util.UUID
 import javax.inject.Inject
 
 class MeshChatNetworkDataSource @Inject constructor(
     private val userDao: UserDao,
     private val chatDao: ChatDao,
+    private val chatMemberDao: ChatMemberDao,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
     private val gossipProtocol: MeshFloodingProtocol,
     private val signatureService: MeshSignatureService,
@@ -47,7 +55,76 @@ class MeshChatNetworkDataSource @Inject constructor(
     }
 
     override suspend fun createChat(request: CreateChatRequest): NetworkResult<ChatResponse> {
-        return NetworkResult.Error(501, "Not implemented in Mesh mode yet")
+        return withContext(ioDispatcher) {
+            val localUserId = signatureService.getUserId() ?: "self"
+            val groupId = UUID.randomUUID().toString()
+            val now = System.currentTimeMillis()
+            val createdAtIso = Instant.now().toString()
+
+            val chatEntity = ChatEntity(
+                id = groupId,
+                type = ChatType.GROUP,
+                title = request.title ?: "New Group",
+                description = request.description,
+                partnerId = null,
+                partnerName = null,
+                partnerAvatarUrl = null,
+                partnerLastOnline = null,
+                lastMessage = null,
+                unreadCount = 0,
+                allowedReactions = null,
+                isDeletable = true,
+                isPinned = false,
+                createdAt = createdAtIso,
+                titleUpdatedAt = now,
+                descriptionUpdatedAt = now
+            )
+            chatDao.upsertChat(chatEntity)
+
+            val creatorMember = ChatMemberEntity(
+                chatId = groupId,
+                userId = localUserId,
+                role = "OWNER",
+                joinedAt = createdAtIso,
+                status = "ACTIVE",
+                canSendMessages = true,
+                canDeleteMessages = true,
+                canInviteUsers = true,
+                canChangeInfo = true,
+                roleUpdatedAt = now,
+                statusUpdatedAt = now,
+                permissionsUpdatedAt = now
+            )
+            chatMemberDao.upsertMemberWithLWW(creatorMember)
+
+            val chatUpdate = CrdtChatUpdateEvent(
+                chatId = groupId,
+                title = chatEntity.title,
+                description = chatEntity.description,
+                titleUpdatedAt = chatEntity.titleUpdatedAt,
+                descriptionUpdatedAt = chatEntity.descriptionUpdatedAt
+            )
+
+            val envelope = MeshEnvelope(
+                envelopeId = UUID.randomUUID().toString(),
+                originEndpointId = localUserId,
+                action = "CRDT_CHAT_UPDATE",
+                payload = json.encodeToString(chatUpdate)
+            )
+            gossipProtocol.broadcast(envelope)
+
+            NetworkResult.Success(
+                ChatResponse(
+                    id = chatEntity.id,
+                    type = chatEntity.type,
+                    title = chatEntity.title,
+                    description = chatEntity.description,
+                    createdAt = chatEntity.createdAt,
+                    isDeletable = chatEntity.isDeletable,
+                    isPinned = chatEntity.isPinned
+                )
+            )
+        }
     }
 
     override suspend fun createPrivateChat(request: TargetUserRequest): NetworkResult<ChatResponse> {
@@ -73,7 +150,7 @@ class MeshChatNetworkDataSource @Inject constructor(
             
             val localUserId = signatureService.getUserId() ?: "self"
             val sortedIds = listOf(localUserId, request.targetUserId).sorted()
-            val deterministicId = java.security.MessageDigest.getInstance("SHA-256")
+            val deterministicId = MessageDigest.getInstance("SHA-256")
                 .digest(sortedIds.joinToString("_").toByteArray(Charsets.UTF_8))
                 .joinToString("") { "%02x".format(it) }
 
@@ -182,23 +259,98 @@ class MeshChatNetworkDataSource @Inject constructor(
         targetUserId: String,
         request: UpdatePermissionsRequest
     ): NetworkResult<Unit> {
-         return NetworkResult.Success(Unit)
+        return withContext(ioDispatcher) {
+            val localUserId = signatureService.getUserId() ?: "self"
+            val callerMember = chatMemberDao.getMember(chatId, localUserId)
+            if (callerMember?.role != "OWNER" && callerMember?.role != "ADMIN") {
+                return@withContext NetworkResult.Error(403, "Only admins can update permissions")
+            }
+
+            val now = System.currentTimeMillis()
+            val existing = chatMemberDao.getMember(chatId, targetUserId)
+            
+            val updateEvent = CrdtMemberUpdateEvent(
+                chatId = chatId,
+                targetUserId = targetUserId,
+                canSendMessages = request.canSendMessages ?: existing?.canSendMessages ?: true,
+                canDeleteMessages = request.canDeleteMessages ?: existing?.canDeleteMessages ?: false,
+                canInviteUsers = request.canInviteUsers ?: existing?.canInviteUsers ?: false,
+                canChangeInfo = request.canChangeInfo ?: existing?.canChangeInfo ?: false,
+                permissionsUpdatedAt = now
+            )
+            
+            val mergedEntity = ChatMemberEntity(
+                chatId = chatId,
+                userId = targetUserId,
+                role = existing?.role ?: "MEMBER",
+                joinedAt = existing?.joinedAt ?: Instant.now().toString(),
+                status = existing?.status ?: "ACTIVE",
+                canSendMessages = updateEvent.canSendMessages ?: true,
+                canDeleteMessages = updateEvent.canDeleteMessages ?: false,
+                canInviteUsers = updateEvent.canInviteUsers ?: false,
+                canChangeInfo = updateEvent.canChangeInfo ?: false,
+                roleUpdatedAt = existing?.roleUpdatedAt ?: 0L,
+                statusUpdatedAt = existing?.statusUpdatedAt ?: 0L,
+                permissionsUpdatedAt = now
+            )
+            
+            chatMemberDao.upsertMemberWithLWW(mergedEntity)
+            
+            val envelope = MeshEnvelope(
+                envelopeId = UUID.randomUUID().toString(),
+                originEndpointId = signatureService.getUserId() ?: "self",
+                action = "CRDT_MEMBER_UPDATE",
+                payload = json.encodeToString(updateEvent)
+            )
+            gossipProtocol.broadcast(envelope)
+            
+            NetworkResult.Success(Unit)
+        }
     }
 
     override suspend fun updateChatInfo(
         chatId: String,
         request: UpdateChatInfoRequest
     ): NetworkResult<Unit> {
-        val chat = ChatResponse(id = chatId, type = ChatType.GROUP, createdAt = "", title = request.title, description = request.description)
-        val event = NotificationDto.ChatEventDto(chat, "UPDATE_CHAT")
-        val envelope = MeshEnvelope(
-            envelopeId = UUID.randomUUID().toString(),
-            originEndpointId = "self",
-            action = "UPDATE_CHAT",
-            payload = json.encodeToString(event)
-        )
-        gossipProtocol.broadcast(envelope)
-        return NetworkResult.Success(Unit)
+        return withContext(ioDispatcher) {
+            val existingChat = chatDao.getChat(chatId)
+            if (existingChat != null && existingChat.type == ChatType.GROUP) {
+                val localUserId = signatureService.getUserId() ?: "self"
+                val callerMember = chatMemberDao.getMember(chatId, localUserId)
+                if (callerMember?.canChangeInfo != true && callerMember?.role != "OWNER" && callerMember?.role != "ADMIN") {
+                    return@withContext NetworkResult.Error(403, "No permission to change chat info")
+                }
+            }
+
+            val now = System.currentTimeMillis()
+            
+            val updateEvent = CrdtChatUpdateEvent(
+                chatId = chatId,
+                title = request.title,
+                description = request.description,
+                titleUpdatedAt = now,
+                descriptionUpdatedAt = now
+            )
+            
+            if (existingChat != null) {
+                chatDao.upsertChat(existingChat.copy(
+                    title = request.title,
+                    description = request.description,
+                    titleUpdatedAt = now,
+                    descriptionUpdatedAt = now
+                ))
+            }
+            
+            val envelope = MeshEnvelope(
+                envelopeId = UUID.randomUUID().toString(),
+                originEndpointId = signatureService.getUserId() ?: "self",
+                action = "CRDT_CHAT_UPDATE",
+                payload = json.encodeToString(updateEvent)
+            )
+            gossipProtocol.broadcast(envelope)
+            
+            NetworkResult.Success(Unit)
+        }
     }
 
     override suspend fun clearChatHistory(chatId: String, forAll: Boolean): NetworkResult<Unit> {
@@ -207,6 +359,11 @@ class MeshChatNetworkDataSource @Inject constructor(
                 val existingChat = chatDao.getChat(chatId)
                 if (existingChat != null) {
                     val localUserId = signatureService.getUserId() ?: "self"
+                    val callerMember = chatMemberDao.getMember(chatId, localUserId)
+                    if (existingChat.type == ChatType.GROUP && callerMember?.role != "OWNER" && callerMember?.role != "ADMIN") {
+                        return@withContext NetworkResult.Error(403, "No permission to clear history for all")
+                    }
+
                     val localUser = userDao.getUser(localUserId)
                     val localName = localUser?.let { "${it.firstName.orEmpty()} ${it.lastName.orEmpty()}".trim().takeIf { name -> name.isNotEmpty() } ?: it.tag } ?: "Unknown"
 
@@ -242,10 +399,15 @@ class MeshChatNetworkDataSource @Inject constructor(
     }
 
     override suspend fun deleteChat(chatId: String): NetworkResult<Unit> {
-        withContext(ioDispatcher) {
+        return withContext(ioDispatcher) {
             val existingChat = chatDao.getChat(chatId)
             if (existingChat != null) {
                 val localUserId = signatureService.getUserId() ?: "self"
+                val callerMember = chatMemberDao.getMember(chatId, localUserId)
+                if (existingChat.type == ChatType.GROUP && callerMember?.role != "OWNER") {
+                    return@withContext NetworkResult.Error(403, "Only the owner can delete the group chat")
+                }
+
                 val localUser = userDao.getUser(localUserId)
                 val localName = localUser?.let { "${it.firstName.orEmpty()} ${it.lastName.orEmpty()}".trim().takeIf { name -> name.isNotEmpty() } ?: it.tag } ?: "Unknown"
 
@@ -275,8 +437,8 @@ class MeshChatNetworkDataSource @Inject constructor(
                 )
                 gossipProtocol.broadcast(envelope)
             }
+            NetworkResult.Success(Unit)
         }
-        return NetworkResult.Success(Unit)
     }
 
     override suspend fun getChatMembers(
@@ -284,37 +446,205 @@ class MeshChatNetworkDataSource @Inject constructor(
         page: Int,
         size: Int
     ): NetworkResult<PageResponse<ChatMemberResponse>> {
-        return NetworkResult.Error(501, "Not implemented in Mesh mode yet")
+        return withContext(ioDispatcher) {
+            val activeMembers = chatMemberDao.getActiveMembersSync(chatId)
+            val responses = activeMembers.map { member ->
+                val user = userDao.getUser(member.userId)
+                val shortUser = user?.let {
+                    ShortUserDto(
+                        id = it.userId,
+                        firstName = it.firstName,
+                        lastName = it.lastName,
+                        tag = it.tag,
+                        avatarUrl = it.avatarUrl
+                    )
+                } ?: ShortUserDto(id = member.userId)
+                
+                ChatMemberResponse(
+                    chatId = member.chatId,
+                    userId = member.userId,
+                    userDetails = shortUser,
+                    role = member.role,
+                    joinedAt = member.joinedAt,
+                    canSendMessages = member.canSendMessages,
+                    canDeleteMessages = member.canDeleteMessages,
+                    canInviteUsers = member.canInviteUsers,
+                    canChangeInfo = member.canChangeInfo,
+                    isPinned = false,
+                    historyClearedAt = null
+                )
+            }
+            NetworkResult.Success(
+                PageResponse(
+                    content = responses,
+                    totalElements = responses.size.toLong(),
+                    totalPages = 1,
+                    size = responses.size,
+                    number = 0
+                )
+            )
+        }
     }
 
     override suspend fun inviteUser(chatId: String, request: TargetUserRequest): NetworkResult<Unit> {
-        val chat = ChatResponse(id = chatId, type = ChatType.GROUP, createdAt = "", partnerId = request.targetUserId)
-        val event = NotificationDto.ChatEventDto(chat, "INVITE_USER")
-        val envelope = MeshEnvelope(
-            envelopeId = UUID.randomUUID().toString(),
-            originEndpointId = "self",
-            action = "INVITE_USER",
-            payload = json.encodeToString(event)
-        )
-        gossipProtocol.broadcast(envelope)
-        return NetworkResult.Success(Unit)
+        return withContext(ioDispatcher) {
+            val localUserId = signatureService.getUserId() ?: "self"
+            val callerMember = chatMemberDao.getMember(chatId, localUserId)
+            if (callerMember?.canInviteUsers != true && callerMember?.role != "OWNER" && callerMember?.role != "ADMIN") {
+                return@withContext NetworkResult.Error(403, "No permission to invite users")
+            }
+
+            val now = System.currentTimeMillis()
+            
+            val updateEvent = CrdtMemberUpdateEvent(
+                chatId = chatId,
+                targetUserId = request.targetUserId,
+                role = "MEMBER",
+                status = "ACTIVE",
+                canSendMessages = true,
+                canDeleteMessages = false,
+                canInviteUsers = false,
+                canChangeInfo = false,
+                roleUpdatedAt = now,
+                statusUpdatedAt = now,
+                permissionsUpdatedAt = now
+            )
+            
+            val newMemberEntity = ChatMemberEntity(
+                chatId = chatId,
+                userId = request.targetUserId,
+                role = "MEMBER",
+                joinedAt = Instant.now().toString(),
+                status = "ACTIVE",
+                canSendMessages = true,
+                canDeleteMessages = false,
+                canInviteUsers = false,
+                canChangeInfo = false,
+                roleUpdatedAt = now,
+                statusUpdatedAt = now,
+                permissionsUpdatedAt = now
+            )
+            
+            chatMemberDao.upsertMemberWithLWW(newMemberEntity)
+            
+            val envelope = MeshEnvelope(
+                envelopeId = UUID.randomUUID().toString(),
+                originEndpointId = localUserId,
+                action = "CRDT_MEMBER_UPDATE",
+                payload = json.encodeToString(updateEvent)
+            )
+            gossipProtocol.broadcast(envelope)
+            
+            // Broadcast FULL_STATE_SYNC for the new user to get up to speed
+            val chat = chatDao.getChat(chatId)
+            if (chat != null) {
+                val activeMembers = chatMemberDao.getActiveMembersSync(chatId)
+                val memberUpdates = activeMembers.map {
+                    CrdtMemberUpdateEvent(
+                        chatId = it.chatId,
+                        targetUserId = it.userId,
+                        role = it.role,
+                        status = it.status,
+                        canSendMessages = it.canSendMessages,
+                        canDeleteMessages = it.canDeleteMessages,
+                        canInviteUsers = it.canInviteUsers,
+                        canChangeInfo = it.canChangeInfo,
+                        roleUpdatedAt = it.roleUpdatedAt,
+                        statusUpdatedAt = it.statusUpdatedAt,
+                        permissionsUpdatedAt = it.permissionsUpdatedAt
+                    )
+                }
+                val chatUpdate = CrdtChatUpdateEvent(
+                    chatId = chat.id,
+                    title = chat.title,
+                    description = chat.description,
+                    titleUpdatedAt = chat.titleUpdatedAt,
+                    descriptionUpdatedAt = chat.descriptionUpdatedAt
+                )
+                val syncEvent = FullStateSyncEvent(chatUpdate, memberUpdates)
+                
+                val syncEnvelope = MeshEnvelope(
+                    envelopeId = UUID.randomUUID().toString(),
+                    originEndpointId = localUserId,
+                    action = "FULL_STATE_SYNC",
+                    payload = json.encodeToString(syncEvent)
+                )
+                gossipProtocol.broadcast(syncEnvelope)
+            }
+            
+            NetworkResult.Success(Unit)
+        }
     }
 
     override suspend fun kickUser(chatId: String, targetUserId: String): NetworkResult<Unit> {
-        val chat = ChatResponse(id = chatId, type = ChatType.GROUP, createdAt = "", partnerId = targetUserId)
-        val event = NotificationDto.ChatEventDto(chat, "KICK_USER")
-        val envelope = MeshEnvelope(
-            envelopeId = UUID.randomUUID().toString(),
-            originEndpointId = "self",
-            action = "KICK_USER",
-            payload = json.encodeToString(event)
-        )
-        gossipProtocol.broadcast(envelope)
-        return NetworkResult.Success(Unit)
+        return withContext(ioDispatcher) {
+            val localUserId = signatureService.getUserId() ?: "self"
+            val callerMember = chatMemberDao.getMember(chatId, localUserId)
+            if (callerMember?.role != "OWNER" && callerMember?.role != "ADMIN") {
+                return@withContext NetworkResult.Error(403, "Only admins can kick users")
+            }
+
+            val now = System.currentTimeMillis()
+            val existing = chatMemberDao.getMember(chatId, targetUserId)
+            
+            val updateEvent = CrdtMemberUpdateEvent(
+                chatId = chatId,
+                targetUserId = targetUserId,
+                status = "KICKED",
+                statusUpdatedAt = now
+            )
+            
+            if (existing != null) {
+                val kickedEntity = existing.copy(
+                    status = "KICKED",
+                    statusUpdatedAt = now
+                )
+                chatMemberDao.upsertMemberWithLWW(kickedEntity)
+            }
+            
+            val envelope = MeshEnvelope(
+                envelopeId = UUID.randomUUID().toString(),
+                originEndpointId = signatureService.getUserId() ?: "self",
+                action = "CRDT_MEMBER_UPDATE",
+                payload = json.encodeToString(updateEvent)
+            )
+            gossipProtocol.broadcast(envelope)
+            
+            NetworkResult.Success(Unit)
+        }
     }
 
     override suspend fun leaveChat(chatId: String): NetworkResult<Unit> {
-        return NetworkResult.Success(Unit)
+        return withContext(ioDispatcher) {
+            val now = System.currentTimeMillis()
+            val localUserId = signatureService.getUserId() ?: "self"
+            val existing = chatMemberDao.getMember(chatId, localUserId)
+            
+            val updateEvent = CrdtMemberUpdateEvent(
+                chatId = chatId,
+                targetUserId = localUserId,
+                status = "LEFT",
+                statusUpdatedAt = now
+            )
+            
+            if (existing != null) {
+                val leftEntity = existing.copy(
+                    status = "LEFT",
+                    statusUpdatedAt = now
+                )
+                chatMemberDao.upsertMemberWithLWW(leftEntity)
+            }
+            
+            val envelope = MeshEnvelope(
+                envelopeId = UUID.randomUUID().toString(),
+                originEndpointId = localUserId,
+                action = "CRDT_MEMBER_UPDATE",
+                payload = json.encodeToString(updateEvent)
+            )
+            gossipProtocol.broadcast(envelope)
+            
+            NetworkResult.Success(Unit)
+        }
     }
 
     override suspend fun generateInviteLink(chatId: String): NetworkResult<String> {

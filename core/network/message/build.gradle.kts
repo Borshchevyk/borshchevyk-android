@@ -24,6 +24,7 @@ dependencies {
     implementation(project(":core:network:ktor"))
     implementation(project(":core:network:mesh"))
     implementation(project(":core:network:media"))
+    implementation(project(":core:database"))
     implementation(libs.ktor.client.core)
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.serialization.json)
