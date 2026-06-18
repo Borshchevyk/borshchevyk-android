@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -29,6 +30,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
@@ -46,8 +48,20 @@ internal fun ChatSharedMediaSection(
     onLoadNextPage: () -> Unit,
     onMessageClick: (Message) -> Unit,
     onResolveUrl: (String, Boolean) -> Unit,
+    onOpenMediaViewer: (ru.kubsu.borshchevyk.core.model.domain.Attachment) -> Unit,
+    onCloseMediaViewer: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    if (uiState.selectedAttachmentForViewing != null) {
+        MediaViewerDialog(
+            attachment = uiState.selectedAttachmentForViewing,
+            attachmentUrls = uiState.attachmentUrls,
+            thumbnailUrls = uiState.attachmentUrls, // Using the same map for thumbnails as a simplification for now
+            onResolveAttachmentUrl = onResolveUrl,
+            onDismiss = onCloseMediaViewer
+        )
+    }
+
     Column(modifier = modifier.padding(start = 16.dp, end = 16.dp, top = 24.dp).fillMaxWidth()) {
         SectionHeader("Shared Media")
         Card(
@@ -104,7 +118,15 @@ internal fun ChatSharedMediaSection(
                                 type = uiState.selectedTab,
                                 attachmentUrls = uiState.attachmentUrls,
                                 onResolveUrl = onResolveUrl,
-                                onClick = { onMessageClick(message) }
+                                onClick = { 
+                                    val attachment = message.attachments.firstOrNull()
+                                    val currentTab = uiState.selectedTab
+                                    if (attachment != null && (currentTab == MediaType.PHOTO || currentTab == MediaType.VIDEO || currentTab == MediaType.CIRCLE)) {
+                                        onOpenMediaViewer(attachment)
+                                    } else {
+                                        onMessageClick(message)
+                                    }
+                                }
                             )
                         }
 
@@ -152,12 +174,30 @@ private fun AttachmentItem(
             onResolveUrl(idToResolve, isThumbnail)
         }
     }
+    
+    // Always resolve the full URL for Voice or File if not a thumbnail, 
+    // because we need the raw file URL to play or open it without tapping first.
+    val fullUrlKey = idToResolve
+    val fullUrl = fullUrlKey?.let { attachmentUrls[it] } ?: ""
+    if (!isThumbnail && idToResolve != null && fullUrl.isEmpty()) {
+         LaunchedEffect("${idToResolve}_full") {
+            onResolveUrl(idToResolve, false)
+        }
+    }
 
-    Box(
-        modifier = Modifier
+    val modifierForBox = if (type == MediaType.VOICE) {
+        Modifier
+            .width(250.dp)
+            .height(72.dp)
+    } else {
+        Modifier
             .size(100.dp)
             .background(BorshchevykTheme.colors.surfaceVariant, shape = MaterialTheme.shapes.medium)
-            .clickable(onClick = onClick),
+            .clickable(onClick = onClick)
+    }
+
+    Box(
+        modifier = modifierForBox,
         contentAlignment = Alignment.Center
     ) {
         when (type) {
@@ -166,7 +206,7 @@ private fun AttachmentItem(
                     model = url,
                     contentDescription = "Photo Attachment",
                     contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize()
+                    modifier = Modifier.fillMaxSize().clip(MaterialTheme.shapes.medium)
                 )
             }
             MediaType.VIDEO -> {
@@ -226,20 +266,12 @@ private fun AttachmentItem(
                 }
             }
             MediaType.VOICE -> {
-                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(8.dp)) {
-                    Text(
-                        text = "Voice",
-                        style = BorshchevykTheme.typography.bodyMedium,
-                        color = BorshchevykTheme.colors.onSurfaceVariant
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "Voice Message",
-                        style = BorshchevykTheme.typography.labelSmall,
-                        color = BorshchevykTheme.colors.onSurface,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
-                    )
+                Box(modifier = Modifier.padding(8.dp)) {
+                   VoiceMessagePlayer(
+                       url = fullUrl.ifEmpty { null },
+                       duration = attachment?.duration?.toDouble() ?: 0.0,
+                       isFromMe = false
+                   )
                 }
             }
         }

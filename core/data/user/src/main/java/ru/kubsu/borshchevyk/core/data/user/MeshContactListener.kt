@@ -73,10 +73,13 @@ class MeshContactListener @Inject constructor(
                     }
                     MeshContactActions.CONTACT_DELETE -> {
                         try {
-                            val deletedContactId = envelope.payload
+                            val deletedContactId = envelope.payload.trim().removeSurrounding("\"")
+                            Log.d("MeshContactListener", "Incoming CONTACT_DELETE. Payload: '$deletedContactId', origin: '${envelope.originEndpointId}', localUserId: '$localUserId'")
                             if (deletedContactId == localUserId) {
-                                Log.d("MeshContactListener", "Incoming CONTACT_DELETE from ${envelope.originEndpointId}.")
+                                Log.d("MeshContactListener", "Processing CONTACT_DELETE from ${envelope.originEndpointId}. Deleting local contact.")
                                 contactDao.deleteContact(localUserId, envelope.originEndpointId)
+                            } else {
+                                Log.w("MeshContactListener", "Ignoring CONTACT_DELETE because payload '$deletedContactId' != localUserId '$localUserId'")
                             }
                         } catch (e: Exception) {
                             Log.e("MeshContactListener", "Failed to process CONTACT_DELETE", e)

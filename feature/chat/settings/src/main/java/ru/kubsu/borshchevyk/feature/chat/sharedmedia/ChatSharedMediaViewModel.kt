@@ -93,18 +93,21 @@ class ChatSharedMediaViewModel @Inject constructor(
                 }
             }
             is SharedMediaIntent.ResolveUrl -> {
-                if (uiState.value.attachmentUrls.containsKey(intent.attachmentId)) return
+                val key = if (intent.isThumbnail) "${intent.attachmentId}_thumb" else intent.attachmentId
+                if (uiState.value.attachmentUrls.containsKey(key)) return
                 viewModelScope.launch {
                     try {
                         val url = handler.resolveUrl(intent.attachmentId, intent.isThumbnail)
                         container.updateState { current ->
                             val builder = current.attachmentUrls.builder()
-                            builder[intent.attachmentId] = url
+                            builder[key] = url
                             current.copy(attachmentUrls = builder.build())
                         }
                     } catch (e: Exception) { Log.w("SharedMedia", "Resolve failed", e) }
                 }
             }
+            is SharedMediaIntent.OpenMediaViewer -> container.updateState { it.copy(selectedAttachmentForViewing = intent.attachment) }
+            is SharedMediaIntent.CloseMediaViewer -> container.updateState { it.copy(selectedAttachmentForViewing = null) }
         }
     }
 }

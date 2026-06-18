@@ -118,10 +118,12 @@ internal fun ChatSettingsScreen(
                     onTabSelected = { onSharedMediaIntent(SharedMediaIntent.SelectTab(it)) },
                     onLoadNextPage = { onSharedMediaIntent(SharedMediaIntent.LoadNextPage) },
                     onMessageClick = onMessageClick,
-                    onResolveUrl = { id, thumb -> onSharedMediaIntent(SharedMediaIntent.ResolveUrl(id, thumb)) }
+                    onResolveUrl = { id, isThumb -> onSharedMediaIntent(SharedMediaIntent.ResolveUrl(id, isThumb)) },
+                    onOpenMediaViewer = { onSharedMediaIntent(SharedMediaIntent.OpenMediaViewer(it)) },
+                    onCloseMediaViewer = { onSharedMediaIntent(SharedMediaIntent.CloseMediaViewer) },
+                    modifier = Modifier.padding(bottom = 16.dp)
                 )
             }
-
             if (uiState.isGroupChat) {
                 item {
                     Row(

@@ -188,7 +188,9 @@ class MeshMediaNetworkDataSource @Inject constructor(
     }
 
     override suspend fun getAttachmentThumbnailUrl(attachmentId: String): NetworkResult<AttachmentUrlResult> {
-        return NetworkResult.Success(AttachmentUrlResult("mesh://thumbnail/$attachmentId"))
+        // In mesh mode, there is no server to generate thumbnails.
+        // We simply return the full file URL so Coil can decode and downsample it locally.
+        return getAttachmentUrl(attachmentId)
     }
 
     override suspend fun deleteAttachment(attachmentId: String): NetworkResult<Unit> {

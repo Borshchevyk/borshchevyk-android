@@ -24,7 +24,8 @@ data class ChatSharedMediaUiState(
     val isVoiceEndReached: Boolean = false,
     val isFileEndReached: Boolean = false,
     val attachmentUrls: PersistentMap<String, String> = persistentMapOf(),
-    val pages: PersistentMap<MediaType, Int> = MediaType.entries.associateWith { 0 }.toPersistentMap()
+    val pages: PersistentMap<MediaType, Int> = MediaType.entries.associateWith { 0 }.toPersistentMap(),
+    val selectedAttachmentForViewing: ru.kubsu.borshchevyk.core.model.domain.Attachment? = null
 ) {
     val currentItems: PersistentList<Message>
         get() = when (selectedTab) {
