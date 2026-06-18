@@ -10,6 +10,7 @@ import dagger.hilt.components.SingletonComponent
 import ru.kubsu.borshchevyk.core.database.AppDatabase
 import ru.kubsu.borshchevyk.core.database.dao.ChatDao
 import ru.kubsu.borshchevyk.core.database.dao.ChatMemberDao
+import ru.kubsu.borshchevyk.core.database.dao.ContactDao
 import ru.kubsu.borshchevyk.core.database.dao.MessageDao
 import ru.kubsu.borshchevyk.core.database.dao.PendingEnvelopeDao
 import ru.kubsu.borshchevyk.core.database.dao.PublicKeyDao
@@ -107,4 +108,14 @@ object DatabaseModule {
     @Provides
     @Singleton
     fun providePendingEnvelopeDao(database: AppDatabase): PendingEnvelopeDao = database.pendingEnvelopeDao()
+
+    /**
+     * Provides the [ContactDao] implementation.
+     *
+     * @param database The [AppDatabase] instance.
+     * @return The [ContactDao] implementation.
+     */
+    @Provides
+    @Singleton
+    fun provideContactDao(database: AppDatabase): ContactDao = database.contactDao()
 }

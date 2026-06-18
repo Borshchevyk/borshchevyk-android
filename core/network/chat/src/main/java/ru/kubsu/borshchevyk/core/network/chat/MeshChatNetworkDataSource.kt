@@ -166,6 +166,9 @@ class MeshChatNetworkDataSource @Inject constructor(
             )
             
             // Save it locally so the UI doesn't crash when opening the chat
+            val now = System.currentTimeMillis()
+            val createdAtIso = Instant.now().toString()
+            
             chatDao.upsertChat(
                 ChatEntity(
                     id = chatResponse.id,
@@ -182,6 +185,46 @@ class MeshChatNetworkDataSource @Inject constructor(
                     isDeletable = chatResponse.isDeletable,
                     isPinned = chatResponse.isPinned,
                     createdAt = chatResponse.createdAt
+                )
+            )
+
+            // CRITICAL: Add entries to chat_members even for private chats in Mesh mode.
+            // This allows ChatSettingsDataLoader to resolve partner metadata (tags, etc.)
+            // using the same code path as group chats.
+            
+            // 1. Add local user
+            chatMemberDao.upsertMemberWithLWW(
+                ChatMemberEntity(
+                    chatId = chatResponse.id,
+                    userId = localUserId,
+                    role = "OWNER",
+                    joinedAt = createdAtIso,
+                    status = "ACTIVE",
+                    canSendMessages = true,
+                    canDeleteMessages = true,
+                    canInviteUsers = true,
+                    canChangeInfo = true,
+                    roleUpdatedAt = now,
+                    statusUpdatedAt = now,
+                    permissionsUpdatedAt = now
+                )
+            )
+
+            // 2. Add partner
+            chatMemberDao.upsertMemberWithLWW(
+                ChatMemberEntity(
+                    chatId = chatResponse.id,
+                    userId = request.targetUserId,
+                    role = "MEMBER",
+                    joinedAt = createdAtIso,
+                    status = "ACTIVE",
+                    canSendMessages = true,
+                    canDeleteMessages = false,
+                    canInviteUsers = false,
+                    canChangeInfo = false,
+                    roleUpdatedAt = now,
+                    statusUpdatedAt = now,
+                    permissionsUpdatedAt = now
                 )
             )
 
@@ -216,18 +259,20 @@ class MeshChatNetworkDataSource @Inject constructor(
         return withContext(ioDispatcher) {
             val localChats = chatDao.observeAllChats().firstOrNull() ?: emptyList()
             val responses = localChats.map { entity ->
+                var resolvedPartnerId = entity.partnerId
                 var resolvedPartnerName = entity.partnerName
                 var resolvedAvatar = entity.partnerAvatarUrl
                 
-                val currentPartnerId = entity.partnerId
-                if (entity.type == ChatType.PRIVATE && currentPartnerId != null) {
-                    val user = userDao.getUser(currentPartnerId)
+                if (entity.type == ChatType.PRIVATE && resolvedPartnerId != null) {
+                    val user = userDao.getUser(resolvedPartnerId)
                     if (user != null) {
-                        resolvedPartnerName = "${user.firstName.orEmpty()} ${user.lastName.orEmpty()}".trim().takeIf { it.isNotEmpty() } ?: user.tag
-                        resolvedAvatar = user.avatarUrl
+                        val newName = "${user.firstName.orEmpty()} ${user.lastName.orEmpty()}".trim().takeIf { it.isNotEmpty() } ?: user.tag
+                        val newAvatar = user.avatarUrl
                         
-                        // Self-heal the database
-                        if (resolvedPartnerName != entity.partnerName || resolvedAvatar != entity.partnerAvatarUrl) {
+                        // Self-heal the database if name or avatar changed/missing
+                        if (newName != resolvedPartnerName || newAvatar != resolvedAvatar) {
+                            resolvedPartnerName = newName
+                            resolvedAvatar = newAvatar
                             chatDao.upsertChat(entity.copy(partnerName = resolvedPartnerName, partnerAvatarUrl = resolvedAvatar))
                         }
                     }
@@ -239,7 +284,7 @@ class MeshChatNetworkDataSource @Inject constructor(
                     title = entity.title,
                     description = entity.description,
                     createdAt = entity.createdAt,
-                    partnerId = entity.partnerId,
+                    partnerId = resolvedPartnerId,
                     partnerName = resolvedPartnerName,
                     partnerAvatarUrl = resolvedAvatar,
                     partnerLastOnline = entity.partnerLastOnline,

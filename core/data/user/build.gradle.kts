@@ -21,8 +21,10 @@ dependencies {
     implementation(project(":core:domain:user"))
     implementation(project(":core:network:user"))
     implementation(project(":core:network:client"))
+    implementation(project(":core:network:mesh"))
     
     implementation(libs.kotlinx.coroutines.core)
+    implementation(libs.kotlinx.serialization.json)
     implementation(project(":core:database"))
     
     implementation(libs.hilt.android)

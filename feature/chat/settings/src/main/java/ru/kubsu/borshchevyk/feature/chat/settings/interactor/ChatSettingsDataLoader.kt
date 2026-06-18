@@ -1,11 +1,14 @@
 package ru.kubsu.borshchevyk.feature.chat.settings.interactor
 
+import android.util.Log
 import kotlinx.coroutines.flow.firstOrNull
 import ru.kubsu.borshchevyk.core.domain.auth.GetUserIdUseCase
 import ru.kubsu.borshchevyk.core.domain.chat.GetChatMembersUseCase
 import ru.kubsu.borshchevyk.core.domain.chat.GetUserChatsUseCase
+import ru.kubsu.borshchevyk.core.domain.user.GetUserProfileUseCase
 import ru.kubsu.borshchevyk.core.model.domain.ChatMember
 import ru.kubsu.borshchevyk.core.model.domain.ChatType
+import ru.kubsu.borshchevyk.core.model.domain.displayTag
 import javax.inject.Inject
 
 data class ChatSettingsData(
@@ -27,6 +30,7 @@ class ChatSettingsDataLoader @Inject constructor(
     private val getChatMembersUseCase: GetChatMembersUseCase,
     private val getUserChatsUseCase: GetUserChatsUseCase,
     private val getUserIdUseCase: GetUserIdUseCase,
+    private val getUserProfileUseCase: GetUserProfileUseCase,
     private val contactHandler: ContactHandler
 ) {
     suspend fun loadData(chatId: String): ChatSettingsData {
@@ -35,27 +39,49 @@ class ChatSettingsDataLoader @Inject constructor(
         val membersPage = getChatMembersUseCase(chatId, 0, 100)
         
         val isPrivate = chat?.type == ChatType.PRIVATE
-        val isContact = if (isPrivate && chat?.partnerId != null) {
-            contactHandler.isContact(chat.partnerId!!)
+        val partnerId = chat?.partnerId
+        
+        Log.d("ChatSettingsDataLoader", "Loading settings for chat: $chatId, isPrivate: $isPrivate, partnerId: $partnerId")
+
+        var partnerTag: String? = null
+        var partnerFirstName = chat?.partnerName?.substringBefore(" ")
+        var partnerLastName = chat?.partnerName?.substringAfter(" ", missingDelimiterValue = "")
+        var chatAvatarUrl = if (isPrivate) chat?.partnerAvatarUrl else null
+
+        if (isPrivate && partnerId != null) {
+            try {
+                val partnerProfile = getUserProfileUseCase(partnerId)
+                partnerTag = partnerProfile.displayTag
+                partnerFirstName = partnerProfile.firstName ?: partnerFirstName
+                partnerLastName = partnerProfile.lastName ?: partnerLastName
+                chatAvatarUrl = partnerProfile.avatarUrl ?: chatAvatarUrl
+                Log.d("ChatSettingsDataLoader", "Resolved partner profile via Domain Layer: $partnerTag")
+            } catch (e: Exception) {
+                Log.w("ChatSettingsDataLoader", "Failed to fetch partner profile for $partnerId", e)
+                val partnerMember = membersPage.content.find { it.userId == partnerId }
+                partnerTag = partnerMember?.user?.tag?.let { if (it.startsWith("@")) it else "@$it" }
+            }
+        }
+
+        val isContact = if (isPrivate && partnerId != null) {
+            contactHandler.isContact(partnerId)
         } else false
 
-        val chatName = if (isPrivate) chat?.partnerName ?: "" else chat?.title ?: ""
-        val chatAvatarUrl = if (isPrivate) chat?.partnerAvatarUrl else null
-        
-        val partnerTag = if (isPrivate) {
-            val partnerMember = membersPage.content.find { it.userId == chat?.partnerId }
-            partnerMember?.user?.tag
-        } else null
+        val chatName = if (isPrivate) {
+            "${partnerFirstName.orEmpty()} ${partnerLastName.orEmpty()}".trim().ifBlank { chat?.partnerName ?: "Unknown User" }
+        } else {
+            chat?.title ?: ""
+        }
 
         return ChatSettingsData(
             currentUserId = userId,
             isGroupChat = chat?.type == ChatType.GROUP,
             members = membersPage.content,
             isContact = isContact,
-            partnerId = chat?.partnerId,
+            partnerId = partnerId,
             partnerTag = partnerTag,
-            partnerFirstName = chat?.partnerName?.substringBefore(" "),
-            partnerLastName = chat?.partnerName?.substringAfter(" ", missingDelimiterValue = ""),
+            partnerFirstName = partnerFirstName,
+            partnerLastName = partnerLastName,
             isDeletable = chat?.isDeletable ?: true,
             chatName = chatName,
             chatDescription = chat?.description,

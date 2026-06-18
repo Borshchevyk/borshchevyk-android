@@ -49,7 +49,11 @@ class ChatSettingsViewModel @Inject constructor(
             } else if (chat != null) {
                 container.updateState { it.copy(
                     chatName = if (it.isGroupChat) chat.title ?: "" else chat.partnerName ?: "",
-                    chatDescription = chat.description
+                    chatDescription = chat.description,
+                    partnerId = chat.partnerId,
+                    partnerFirstName = chat.partnerName?.substringBefore(" "),
+                    partnerLastName = chat.partnerName?.substringAfter(" ", missingDelimiterValue = ""),
+                    chatAvatarUrl = if (!it.isGroupChat) chat.partnerAvatarUrl else it.chatAvatarUrl
                 ) }
             }
         }.launchIn(viewModelScope)

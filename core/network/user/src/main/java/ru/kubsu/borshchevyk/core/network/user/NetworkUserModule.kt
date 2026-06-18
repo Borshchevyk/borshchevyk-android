@@ -15,5 +15,5 @@ interface NetworkUserModule {
 
     @Binds
     @Singleton
-    fun bindContactNetworkDataSource(impl: KtorContactNetworkDataSource): ContactNetworkDataSource
+    fun bindContactNetworkDataSource(impl: ProxyContactNetworkDataSource): ContactNetworkDataSource
 }

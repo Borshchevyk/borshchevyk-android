@@ -25,3 +25,12 @@ data class User(
     val avatarUrl: String? = null,
     val avatars: List<String> = emptyList()
 )
+
+val User.displayName: String
+    get() = "${firstName.orEmpty()} ${lastName.orEmpty()}".trim().ifBlank { displayTag }
+
+val User.displayTag: String
+    get() {
+        val cleanTag = tag.removePrefix("offline_user_")
+        return if (cleanTag.startsWith("@")) cleanTag else "@$cleanTag"
+    }
