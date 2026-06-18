@@ -64,16 +64,24 @@ interface UserRepository {
      * @return The updated [User] profile reflecting the new avatar.
      */
     suspend fun updateAvatar(request: DomainUpdateAvatarParam): User
+/**
+ * Retrieves the privacy settings for the current user.
+ *
+ * @return The [PrivacySettings] of the user.
+ */
+suspend fun getPrivacySettings(): PrivacySettings
 
-    /**
-     * Retrieves the privacy settings for the current user.
-     *
-     * @return The [PrivacySettings] of the user.
-     */
-    suspend fun getPrivacySettings(): PrivacySettings
+/**
+ * Observes the privacy settings for the given [userId].
+ *
+ * @param userId The unique identifier of the user.
+ * @return A [Flow] emitting the [PrivacySettings] or `null`.
+ */
+fun observePrivacySettings(userId: String): Flow<PrivacySettings?>
 
-    /**
-     * Updates the privacy settings of the current user.
+/**
+ * Updates the privacy settings of the current user.
+...
      *
      * @param request The parameters containing the updated privacy settings.
      * @return The updated [PrivacySettings].

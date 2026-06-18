@@ -102,8 +102,6 @@ class UserRepositoryImpl @Inject constructor(
     override suspend fun getPrivacySettings(): PrivacySettings = withContext(ioDispatcher) {
         val isGlobal = transportModeManager.networkMode.value == NetworkMode.GLOBAL
         
-        // In Mesh mode or as a first step, we try to get settings from the network data source
-        // (which resolves locally in Mesh mode).
         val networkResponse = networkDataSource.getPrivacySettings().getOrThrow()
         val userId = networkResponse.userId
         
@@ -125,6 +123,9 @@ class UserRepositoryImpl @Inject constructor(
         privacySettingsDao.upsertPrivacySettings(settings.toEntity())
         settings
     }
+
+    override fun observePrivacySettings(userId: String): Flow<PrivacySettings?> =
+        privacySettingsDao.observePrivacySettings(userId).map { it?.toDomain() }
 
     override suspend fun updatePrivacySettings(request: DomainUpdatePrivacySettingsParam): PrivacySettings = withContext(ioDispatcher) {
         val settings = networkDataSource.updatePrivacySettings(

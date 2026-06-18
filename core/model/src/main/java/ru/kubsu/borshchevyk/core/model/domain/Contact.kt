@@ -22,5 +22,6 @@ data class Contact(
     val contactUserId: String,
     val contactFirstName: String? = null,
     val contactLastName: String? = null,
-    val addedAt: String
+    val addedAt: String,
+    val contactAvatarUrl: String? = null
 )

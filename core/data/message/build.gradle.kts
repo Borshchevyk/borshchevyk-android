@@ -25,6 +25,7 @@ dependencies {
     implementation(project(":core:network:mesh"))
     implementation(project(":core:network:message"))
     implementation(project(":core:network:media"))
+    implementation(project(":core:network:user"))
     implementation(project(":core:network:websocket"))
     
     implementation(project(":core:database"))

@@ -19,5 +19,6 @@ data class EnrichedUserResponse(
     val lastName: String? = null,
     val tag: String? = null,
     val avatarUrl: String? = null,
-    val publicKey: String? = null
+    val publicKey: String? = null,
+    val timestamp: Long = 0L
 )

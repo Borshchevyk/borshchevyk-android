@@ -258,24 +258,17 @@ class MeshChatNetworkDataSource @Inject constructor(
     override suspend fun getUserChats(): NetworkResult<List<ChatResponse>> {
         return withContext(ioDispatcher) {
             val localChats = chatDao.observeAllChats().firstOrNull() ?: emptyList()
-            val responses = localChats.map { entity ->
+            val responses = localChats.map { chatWithPartner ->
+                val entity = chatWithPartner.chat
+                val partner = chatWithPartner.partner
+                
                 var resolvedPartnerId = entity.partnerId
                 var resolvedPartnerName = entity.partnerName
                 var resolvedAvatar = entity.partnerAvatarUrl
                 
-                if (entity.type == ChatType.PRIVATE && resolvedPartnerId != null) {
-                    val user = userDao.getUser(resolvedPartnerId)
-                    if (user != null) {
-                        val newName = "${user.firstName.orEmpty()} ${user.lastName.orEmpty()}".trim().takeIf { it.isNotEmpty() } ?: user.tag
-                        val newAvatar = user.avatarUrl
-                        
-                        // Self-heal the database if name or avatar changed/missing
-                        if (newName != resolvedPartnerName || newAvatar != resolvedAvatar) {
-                            resolvedPartnerName = newName
-                            resolvedAvatar = newAvatar
-                            chatDao.upsertChat(entity.copy(partnerName = resolvedPartnerName, partnerAvatarUrl = resolvedAvatar))
-                        }
-                    }
+                if (entity.type == ChatType.PRIVATE && partner != null) {
+                    resolvedPartnerName = "${partner.firstName.orEmpty()} ${partner.lastName.orEmpty()}".trim().takeIf { it.isNotEmpty() } ?: partner.tag
+                    resolvedAvatar = partner.avatarUrl
                 }
 
                 ChatResponse(

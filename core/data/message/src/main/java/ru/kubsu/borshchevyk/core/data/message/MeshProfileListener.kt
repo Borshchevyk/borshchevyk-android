@@ -20,7 +20,9 @@ import ru.kubsu.borshchevyk.core.network.mesh.MeshConnectionManager
 import ru.kubsu.borshchevyk.core.network.mesh.MeshEnvelope
 import ru.kubsu.borshchevyk.core.network.mesh.MeshFloodingProtocol
 import ru.kubsu.borshchevyk.core.network.mesh.MeshSignatureService
+import ru.kubsu.borshchevyk.core.network.user.MeshProfileBroadcaster
 import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -35,8 +37,15 @@ class MeshProfileListener @Inject constructor(
     @ApplicationScope private val scope: CoroutineScope,
     private val meshConnectionManager: MeshConnectionManager,
     private val signatureService: MeshSignatureService
-) {
+) : MeshProfileBroadcaster {
     private val TAG = "MeshProfileListener"
+
+    /**
+     * Maps user IDs to the timestamp of the last received profile update
+     * to implement Last-Write-Wins (LWW) conflict resolution.
+     * Uses ConcurrentHashMap for thread safety across multiple coroutine collections.
+     */
+    private val lastUpdateTimestamps = ConcurrentHashMap<String, Long>()
 
     fun startListening() {
         gossipProtocol.incomingEnvelopes
@@ -46,9 +55,14 @@ class MeshProfileListener @Inject constructor(
                     try {
                         val payload = json.decodeFromString<EnrichedUserResponse>(envelope.payload)
                         
+                        // LWW: Ignore if we already have a newer or same-time update
+                        val lastTimestamp = lastUpdateTimestamps[payload.id] ?: 0L
+                        if (payload.timestamp <= lastTimestamp && lastTimestamp != 0L) {
+                            Log.d(TAG, "Dropped older profile update for ${payload.id} (Received: ${payload.timestamp}, Current: $lastTimestamp)")
+                            return@onEach
+                        }
+
                         // SECURITY: Root of Trust verification
-                        // We must verify that the envelope was actually signed by the public key inside the payload
-                        // before we trust this key and save it to the database.
                         val incomingPubKey = payload.publicKey
                         val signature = envelope.signature
                         
@@ -80,11 +94,13 @@ class MeshProfileListener @Inject constructor(
                                 )
                             )
                             
+                            lastUpdateTimestamps[payload.id] = payload.timestamp
+                            
                             // Save the securely verified public key
                             publicKeyDao.insertPublicKey(PublicKeyEntity(payload.id, incomingPubKey))
                             Log.d(TAG, "Saved VERIFIED public key for mesh user: ${payload.id}")
                             
-                            // Retry pending envelopes for this user now that we have their verified public key
+                            // Retry pending envelopes for this user
                             val pendingEnvelopes = pendingEnvelopeDao.getPendingEnvelopesForUser(payload.id)
                             if (pendingEnvelopes.isNotEmpty()) {
                                     Log.d(TAG, "Found ${pendingEnvelopes.size} pending envelopes for ${payload.id}. Verifying and replaying...")
@@ -132,14 +148,16 @@ class MeshProfileListener @Inject constructor(
             .launchIn(scope)
     }
 
-    private suspend fun broadcastLocalProfile() {
+    /**
+     * Broadcasts the current user's profile to the Mesh network.
+     * This implements [MeshProfileBroadcaster] for network layer triggers.
+     */
+    override suspend fun broadcastLocalProfile() {
         withContext(ioDispatcher) {
             val userId = signatureService.getUserId() ?: return@withContext
             val localUser = userDao.getUser(userId)
             val localPubKey = signatureService.getLocalPublicKey()
             
-            // If the user hasn't synced with the DB yet, we still must send our tag and pubkey
-            // so others can verify our signatures and find us in search!
             val fallbackTag = if (userId.startsWith("offline_user_")) userId.removePrefix("offline_user_") else "Unknown"
 
             val profilePayload = EnrichedUserResponse(
@@ -148,12 +166,13 @@ class MeshProfileListener @Inject constructor(
                 lastName = localUser?.lastName,
                 tag = localUser?.tag ?: fallbackTag,
                 avatarUrl = localUser?.avatarUrl,
-                publicKey = localPubKey
+                publicKey = localPubKey,
+                timestamp = System.currentTimeMillis()
             )
             
             val payloadString = json.encodeToString(profilePayload)
             Log.d(TAG, "OUTGOING USER_PROFILE: $payloadString")
-            val envelope = ru.kubsu.borshchevyk.core.network.mesh.MeshEnvelope(
+            val envelope = MeshEnvelope(
                 envelopeId = UUID.randomUUID().toString(),
                 originEndpointId = "", 
                 action = "USER_PROFILE",

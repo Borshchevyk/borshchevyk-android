@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import ru.kubsu.borshchevyk.core.database.dao.ContactDao
 import ru.kubsu.borshchevyk.core.database.entity.ContactEntity
+import ru.kubsu.borshchevyk.core.database.entity.ContactWithUser
 import ru.kubsu.borshchevyk.core.domain.user.ContactRepository
 import ru.kubsu.borshchevyk.core.model.domain.Contact
 import ru.kubsu.borshchevyk.core.model.domain.DomainAddContactParam
@@ -75,9 +76,6 @@ class ContactRepositoryImpl @Inject constructor(
                 contactDao.upsertContacts(entities)
             }
             
-            // Optional: for Global mode, we might want to remove contacts that are no longer on the server.
-            // For now, keeping it simple and additive.
-            
             remoteContacts.map { it.toDomain() }
         } catch (e: Exception) {
             // Fallback to local DB if network is unavailable
@@ -129,7 +127,8 @@ class ContactRepositoryImpl @Inject constructor(
         contactUserId = contactUserId,
         contactFirstName = contactFirstName,
         contactLastName = contactLastName,
-        addedAt = addedAt
+        addedAt = addedAt ?: "",
+        contactAvatarUrl = null
     )
     
     /**
@@ -153,6 +152,21 @@ class ContactRepositoryImpl @Inject constructor(
         contactUserId = contactUserId,
         contactFirstName = contactFirstName,
         contactLastName = contactLastName,
-        addedAt = addedAt
+        addedAt = addedAt,
+        contactAvatarUrl = null
+    )
+
+    /**
+     * Extension to map [ContactWithUser] to its domain equivalent [Contact].
+     * This prioritizes reactive data from the UserEntity.
+     */
+    private fun ContactWithUser.toDomain(): Contact = Contact(
+        id = contact.id,
+        ownerId = contact.ownerId,
+        contactUserId = contact.contactUserId,
+        contactFirstName = user?.firstName ?: contact.contactFirstName,
+        contactLastName = user?.lastName ?: contact.contactLastName,
+        addedAt = contact.addedAt,
+        contactAvatarUrl = user?.avatarUrl
     )
 }

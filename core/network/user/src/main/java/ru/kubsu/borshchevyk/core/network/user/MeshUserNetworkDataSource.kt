@@ -14,19 +14,24 @@ import ru.kubsu.borshchevyk.core.network.dto.UpdateAvatarRequest
 import ru.kubsu.borshchevyk.core.network.dto.UpdatePrivacySettingsRequest
 import ru.kubsu.borshchevyk.core.network.dto.UpdateProfileRequest
 import ru.kubsu.borshchevyk.core.network.dto.UserProfileResponse
+import ru.kubsu.borshchevyk.core.network.mesh.MeshMediaTransferManager
 import ru.kubsu.borshchevyk.core.network.mesh.MeshSignatureService
+import java.io.File
 import javax.inject.Inject
 
 /**
  * Mesh-specific implementation of [UserNetworkDataSource].
  *
  * In Mesh mode, user data and privacy settings are predominantly local.
- * This implementation updates the local database directly for "me" operations.
+ * This implementation updates the local database directly for "me" operations
+ * and broadcasts updates to the Mesh network via [MeshProfileBroadcaster].
  */
 class MeshUserNetworkDataSource @Inject constructor(
     private val userDao: UserDao,
     private val privacySettingsDao: PrivacySettingsDao,
     private val signatureService: MeshSignatureService,
+    private val profileBroadcaster: MeshProfileBroadcaster,
+    private val meshMediaTransferManager: MeshMediaTransferManager,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher
 ) : UserNetworkDataSource {
 
@@ -63,6 +68,10 @@ class MeshUserNetworkDataSource @Inject constructor(
             )
             
             userDao.upsertUser(updatedUser)
+            
+            // Broadcast updated profile to Mesh network
+            profileBroadcaster.broadcastLocalProfile()
+            
             NetworkResult.Success(updatedUser.toResponse())
         }
     }
@@ -72,8 +81,33 @@ class MeshUserNetworkDataSource @Inject constructor(
             val localUserId = signatureService.getUserId() ?: "self"
             val user = userDao.getUser(localUserId)
             if (user != null) {
-                val updatedUser = user.copy(avatarUrl = request.avatarUrl)
+                val avatarUrl = request.avatarUrl
+                
+                // If it's a local file, register it for P2P sharing
+                if (avatarUrl.startsWith("/")) {
+                    val file = File(avatarUrl)
+                    if (file.exists()) {
+                        val attachmentId = "avatar_${localUserId}_${System.currentTimeMillis()}"
+                        meshMediaTransferManager.shareLocalFile(
+                            attachmentId = attachmentId,
+                            file = file,
+                            contentType = "image/jpeg", // Assuming JPEG for avatars
+                            originalFilename = file.name
+                        )
+                        // Update avatarUrl to the mesh-specific attachment ID
+                        val updatedUser = user.copy(avatarUrl = attachmentId)
+                        userDao.upsertUser(updatedUser)
+                        profileBroadcaster.broadcastLocalProfile()
+                        return@withContext NetworkResult.Success(updatedUser.toResponse())
+                    }
+                }
+
+                val updatedUser = user.copy(avatarUrl = avatarUrl)
                 userDao.upsertUser(updatedUser)
+                
+                // Broadcast updated profile to Mesh network
+                profileBroadcaster.broadcastLocalProfile()
+                
                 NetworkResult.Success(updatedUser.toResponse())
             } else {
                 NetworkResult.Exception(Exception("Current user profile not found for avatar update"))

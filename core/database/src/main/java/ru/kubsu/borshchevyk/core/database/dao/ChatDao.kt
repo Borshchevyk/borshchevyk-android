@@ -6,6 +6,7 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import kotlinx.coroutines.flow.Flow
 import ru.kubsu.borshchevyk.core.database.entity.ChatEntity
+import ru.kubsu.borshchevyk.core.database.entity.ChatWithPartner
 
 /**
  * Data Access Object (DAO) for handling [ChatEntity] operations in the Borshchevyk messenger.
@@ -16,21 +17,23 @@ import ru.kubsu.borshchevyk.core.database.entity.ChatEntity
 @Dao
 interface ChatDao {
     /**
-     * Observes a list of all chats, ordered by creation time descending.
+     * Observes a list of all chats with their partners, ordered by creation time descending.
      *
-     * @return A [Flow] emitting the list of [ChatEntity]s.
+     * @return A [Flow] emitting the list of [ChatWithPartner] objects.
      */
+    @androidx.room.Transaction
     @Query("SELECT * FROM chats ORDER BY createdAt DESC")
-    fun observeAllChats(): Flow<List<ChatEntity>>
+    fun observeAllChats(): Flow<List<ChatWithPartner>>
 
     /**
-     * Observes a specific chat by its ID.
+     * Observes a specific chat by its ID, including partner details.
      *
      * @param chatId The unique ID of the chat.
-     * @return A [Flow] emitting the [ChatEntity] or null if not found.
+     * @return A [Flow] emitting the [ChatWithPartner] or null if not found.
      */
+    @androidx.room.Transaction
     @Query("SELECT * FROM chats WHERE id = :chatId")
-    fun observeChat(chatId: String): Flow<ChatEntity?>
+    fun observeChat(chatId: String): Flow<ChatWithPartner?>
 
     /**
      * Retrieves a specific chat by its ID synchronously.

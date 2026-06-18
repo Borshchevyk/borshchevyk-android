@@ -7,13 +7,15 @@ import androidx.room.Query
 import androidx.room.Transaction
 import kotlinx.coroutines.flow.Flow
 import ru.kubsu.borshchevyk.core.database.entity.ChatMemberEntity
+import ru.kubsu.borshchevyk.core.database.entity.ChatMemberWithUser
 import kotlin.math.max
 
 @Dao
 interface ChatMemberDao {
 
+    @androidx.room.Transaction
     @Query("SELECT * FROM chat_members WHERE chatId = :chatId AND status = 'ACTIVE'")
-    fun getActiveMembers(chatId: String): Flow<List<ChatMemberEntity>>
+    fun getActiveMembers(chatId: String): Flow<List<ChatMemberWithUser>>
 
     @Query("SELECT * FROM chat_members WHERE chatId = :chatId AND status = 'ACTIVE'")
     fun getActiveMembersSync(chatId: String): List<ChatMemberEntity>

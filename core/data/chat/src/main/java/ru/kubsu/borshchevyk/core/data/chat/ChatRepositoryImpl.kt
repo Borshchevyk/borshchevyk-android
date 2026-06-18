@@ -228,8 +228,9 @@ class ChatRepositoryImpl @Inject constructor(
      */
     override fun observeChatMembers(chatId: String): Flow<List<ChatMember>> {
         return chatMemberDao.getActiveMembers(chatId).map { members ->
-            members.map { member ->
-                val user = userDao.getUser(member.userId)
+            members.map { memberWithUser ->
+                val member = memberWithUser.member
+                val user = memberWithUser.user
                 val shortUser = user?.let {
                     ru.kubsu.borshchevyk.core.network.dto.ShortUserDto(
                         id = it.userId,
@@ -298,7 +299,7 @@ class ChatRepositoryImpl @Inject constructor(
      */
     override suspend fun updateChatInfo(chatId: String, request: DomainUpdateChatInfoParam) {
         networkDataSource.updateChatInfo(
-            chatId, 
+            chatId,
             UpdateChatInfoRequest(
                 title = request.title,
                 description = request.description
@@ -353,7 +354,7 @@ class ChatRepositoryImpl @Inject constructor(
     override suspend fun globalSearch(query: String): GlobalSearchResults {
         val response = networkDataSource.globalSearch(query).getOrThrow()
         return GlobalSearchResults(
-            users = response.users.map { 
+            users = response.users.map {
                 User(
                     userId = it.id,
                     firstName = it.firstName,

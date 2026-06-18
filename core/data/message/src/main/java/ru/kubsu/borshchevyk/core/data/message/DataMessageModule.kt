@@ -6,6 +6,7 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import ru.kubsu.borshchevyk.core.domain.message.MediaRepository
 import ru.kubsu.borshchevyk.core.domain.message.MessageRepository
+import ru.kubsu.borshchevyk.core.network.user.MeshProfileBroadcaster
 import javax.inject.Singleton
 
 /**
@@ -30,4 +31,11 @@ interface DataMessageModule {
     @Binds
     @Singleton
     fun bindMediaRepository(impl: MediaRepositoryImpl): MediaRepository
+
+    /**
+     * Binds the [MeshProfileListener] implementation to the [MeshProfileBroadcaster] interface.
+     */
+    @Binds
+    @Singleton
+    fun bindMeshProfileBroadcaster(impl: MeshProfileListener): MeshProfileBroadcaster
 }

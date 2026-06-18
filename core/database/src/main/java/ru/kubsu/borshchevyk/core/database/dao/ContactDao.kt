@@ -6,11 +6,13 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import kotlinx.coroutines.flow.Flow
 import ru.kubsu.borshchevyk.core.database.entity.ContactEntity
+import ru.kubsu.borshchevyk.core.database.entity.ContactWithUser
 
 @Dao
 interface ContactDao {
+    @androidx.room.Transaction
     @Query("SELECT * FROM contacts WHERE owner_id = :ownerId ORDER BY added_at DESC")
-    fun observeContacts(ownerId: String): Flow<List<ContactEntity>>
+    fun observeContacts(ownerId: String): Flow<List<ContactWithUser>>
 
     @Query("SELECT * FROM contacts WHERE owner_id = :ownerId ORDER BY added_at DESC")
     fun getContacts(ownerId: String): List<ContactEntity>
