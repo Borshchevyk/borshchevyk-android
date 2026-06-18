@@ -9,6 +9,7 @@ import ru.kubsu.borshchevyk.core.database.dao.ChatMemberDao
 import ru.kubsu.borshchevyk.core.database.dao.ContactDao
 import ru.kubsu.borshchevyk.core.database.dao.MessageDao
 import ru.kubsu.borshchevyk.core.database.dao.PendingEnvelopeDao
+import ru.kubsu.borshchevyk.core.database.dao.PrivacySettingsDao
 import ru.kubsu.borshchevyk.core.database.dao.PublicKeyDao
 import ru.kubsu.borshchevyk.core.database.dao.UserDao
 import ru.kubsu.borshchevyk.core.database.entity.AttachmentEntity
@@ -18,6 +19,7 @@ import ru.kubsu.borshchevyk.core.database.entity.ContactEntity
 import ru.kubsu.borshchevyk.core.database.entity.MessageEntity
 import ru.kubsu.borshchevyk.core.database.entity.MessageReaderEntity
 import ru.kubsu.borshchevyk.core.database.entity.PendingEnvelopeEntity
+import ru.kubsu.borshchevyk.core.database.entity.PrivacySettingsEntity
 import ru.kubsu.borshchevyk.core.database.entity.PublicKeyEntity
 import ru.kubsu.borshchevyk.core.database.entity.ReactionEntity
 import ru.kubsu.borshchevyk.core.database.entity.UserEntity
@@ -36,6 +38,7 @@ import ru.kubsu.borshchevyk.core.database.entity.UserEntity
  * @property messageDao Data Access Object for message, attachment, and reaction operations.
  * @property userDao Data Access Object for user-related operations.
  * @property contactDao Data Access Object for contact-related operations.
+ * @property privacySettingsDao Data Access Object for privacy settings operations.
  */
 @Database(
     entities = [
@@ -48,9 +51,10 @@ import ru.kubsu.borshchevyk.core.database.entity.UserEntity
         MessageReaderEntity::class,
         PublicKeyEntity::class,
         PendingEnvelopeEntity::class,
-        ContactEntity::class
+        ContactEntity::class,
+        PrivacySettingsEntity::class
     ],
-    version = 7,
+    version = 8,
     exportSchema = false
 )
 @TypeConverters(DatabaseConverters::class)
@@ -62,4 +66,5 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun publicKeyDao(): PublicKeyDao
     abstract fun pendingEnvelopeDao(): PendingEnvelopeDao
     abstract fun contactDao(): ContactDao
+    abstract fun privacySettingsDao(): PrivacySettingsDao
 }

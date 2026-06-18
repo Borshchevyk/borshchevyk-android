@@ -13,6 +13,7 @@ import ru.kubsu.borshchevyk.core.database.dao.ChatMemberDao
 import ru.kubsu.borshchevyk.core.database.dao.ContactDao
 import ru.kubsu.borshchevyk.core.database.dao.MessageDao
 import ru.kubsu.borshchevyk.core.database.dao.PendingEnvelopeDao
+import ru.kubsu.borshchevyk.core.database.dao.PrivacySettingsDao
 import ru.kubsu.borshchevyk.core.database.dao.PublicKeyDao
 import ru.kubsu.borshchevyk.core.database.dao.UserDao
 import javax.inject.Singleton
@@ -118,4 +119,14 @@ object DatabaseModule {
     @Provides
     @Singleton
     fun provideContactDao(database: AppDatabase): ContactDao = database.contactDao()
+
+    /**
+     * Provides the [PrivacySettingsDao] implementation.
+     *
+     * @param database The [AppDatabase] instance.
+     * @return The [PrivacySettingsDao] implementation.
+     */
+    @Provides
+    @Singleton
+    fun providePrivacySettingsDao(database: AppDatabase): PrivacySettingsDao = database.privacySettingsDao()
 }

@@ -3,20 +3,20 @@ package ru.kubsu.borshchevyk.feature.profile
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.firstOrNull
-import kotlinx.coroutines.flow.receiveAsFlow
-import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
-import ru.kubsu.borshchevyk.core.model.domain.PrivacySettings
-import ru.kubsu.borshchevyk.core.model.domain.Visibility
+import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.joinAll
+import kotlinx.coroutines.launch
 import ru.kubsu.borshchevyk.core.domain.auth.GetTagUseCase
 import ru.kubsu.borshchevyk.core.domain.auth.GetUserIdUseCase
 import ru.kubsu.borshchevyk.core.domain.auth.LogoutUseCase
@@ -26,8 +26,9 @@ import ru.kubsu.borshchevyk.core.domain.user.GetUserProfileUseCase
 import ru.kubsu.borshchevyk.core.domain.user.UpdateAvatarUseCase
 import ru.kubsu.borshchevyk.core.domain.user.UpdatePrivacySettingsUseCase
 import ru.kubsu.borshchevyk.core.domain.user.UpdateProfileUseCase
+import ru.kubsu.borshchevyk.core.model.domain.PrivacySettings
+import ru.kubsu.borshchevyk.core.model.domain.Visibility
 import javax.inject.Inject
-import kotlinx.coroutines.FlowPreview
 
 /**
  * ViewModel for managing the user's profile screen.
@@ -121,26 +122,31 @@ class ProfileViewModel @Inject constructor(
     private fun loadData(isRefreshing: Boolean = false) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = !isRefreshing, isRefreshing = isRefreshing) }
-            try {
-                val userId = getUserIdUseCase().firstOrNull() ?: ""
-                val tag = getTagUseCase().firstOrNull() ?: ""
-                
-                val profile = getUserProfileUseCase(userId.ifBlank { tag })
-                val settings = getPrivacySettingsUseCase()
-                
-                _uiState.update { 
-                    it.copy(
-                        userId = userId, 
-                        user = profile, 
-                        privacySettings = settings,
-                        isLoading = false,
-                        isRefreshing = false
-                    ) 
+            
+            val userId = getUserIdUseCase().firstOrNull() ?: ""
+            val tag = getTagUseCase().firstOrNull() ?: ""
+            _uiState.update { it.copy(userId = userId) }
+
+            val profileJob = launch {
+                try {
+                    val profile = getUserProfileUseCase(userId.ifBlank { tag })
+                    _uiState.update { it.copy(user = profile) }
+                } catch (e: Exception) {
+                    sendEffect(ProfileEffect.ShowError(e.message ?: "Failed to load profile"))
                 }
-            } catch (e: Exception) {
-                _uiState.update { it.copy(isLoading = false, isRefreshing = false) }
-                sendEffect(ProfileEffect.ShowError(e.message ?: "Failed to load profile"))
             }
+
+            val settingsJob = launch {
+                try {
+                    val settings = getPrivacySettingsUseCase()
+                    _uiState.update { it.copy(privacySettings = settings) }
+                } catch (e: Exception) {
+                    sendEffect(ProfileEffect.ShowError(e.message ?: "Failed to load privacy settings"))
+                }
+            }
+
+            joinAll(profileJob, settingsJob)
+            _uiState.update { it.copy(isLoading = false, isRefreshing = false) }
         }
     }
 
