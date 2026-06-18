@@ -14,10 +14,15 @@ data class AttachmentFile(
     val duration: Int? = null
 ) {
     fun toDomainAttachmentType(): DomainAttachmentType {
+        val videoExtensions = setOf("mp4", "mkv", "mov", "avi", "webm", "3gp")
+        val audioExtensions = setOf("mp3", "m4a", "wav", "ogg", "flac", "aac")
+        val imageExtensions = setOf("jpg", "jpeg", "png", "gif", "webp", "bmp", "heic")
+        val ext = extension.lowercase()
+
         return when {
-            contentType.startsWith("image/") -> DomainAttachmentType.PHOTO
-            contentType.startsWith("video/") -> DomainAttachmentType.VIDEO
-            contentType.startsWith("audio/") -> DomainAttachmentType.VOICE
+            contentType.startsWith("image/") || imageExtensions.contains(ext) -> DomainAttachmentType.PHOTO
+            contentType.startsWith("video/") || videoExtensions.contains(ext) -> DomainAttachmentType.VIDEO
+            contentType.startsWith("audio/") || audioExtensions.contains(ext) -> DomainAttachmentType.VOICE
             else -> DomainAttachmentType.FILE
         }
     }

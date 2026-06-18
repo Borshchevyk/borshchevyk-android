@@ -1,5 +1,6 @@
 package ru.kubsu.borshchevyk.feature.chat.conversation.ui.components
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -139,23 +140,29 @@ internal fun AttachmentItem(
                     },
                     error = {
                         loadError = true
-                        FileAttachmentCard(attachment, isFromMe, progress) { onDownloadClick(attachment.id) }
+                        FileAttachmentCard(attachment, isFromMe, progress, onCardClick = { onAttachmentClick(attachment) }) { onDownloadClick(attachment.id) }
                     }
                 )
             } else {
-                FileAttachmentCard(attachment, isFromMe, progress) { onDownloadClick(attachment.id) }
+                FileAttachmentCard(attachment, isFromMe, progress, onCardClick = { onAttachmentClick(attachment) }) { onDownloadClick(attachment.id) }
             }
         }
         DomainAttachmentType.VIDEO -> {
-            if ((url != null || thumbnailUrl != null) && !loadError) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth(0.8f)
-                        .aspectRatio(16f / 9f)
-                        .clip(RoundedCornerShape(12.dp))
-                        .clickable { onAttachmentClick(attachment) },
-                    contentAlignment = Alignment.Center
-                ) {
+            // Only try to load an image if the server provided an explicit thumbnailKey.
+            // This prevents Coil from using VideoFrameDecoder on the full video file,
+            // which causes infinite spinners even for downloaded/local files.
+            val hasExplicitThumbnail = attachment.thumbnailKey != null && thumbnailUrl != null
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(0.8f)
+                    .aspectRatio(16f / 9f)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(androidx.compose.ui.graphics.Color.Black)
+                    .clickable { onAttachmentClick(attachment) },
+                contentAlignment = Alignment.Center
+            ) {
+                if (hasExplicitThumbnail) {
                     SubcomposeAsyncImage(
                         model = imageRequest,
                         contentDescription = "Video Attachment",
@@ -178,31 +185,26 @@ internal fun AttachmentItem(
                             }
                         },
                         error = {
-                            loadError = true
+                            // Silently fail, leaving the black background visible
                         }
                     )
-                    
-                    if (!loadError) {
-                        Surface(
-                            shape = RoundedCornerShape(percent = 50),
-                            color = BorshchevykTheme.colors.surface.copy(alpha = 0.7f),
-                            modifier = Modifier.size(48.dp)
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Icon(
-                                    imageVector = Icons.Default.PlayArrow,
-                                    contentDescription = "Play Video",
-                                    tint = BorshchevykTheme.colors.onSurface,
-                                    modifier = Modifier.size(24.dp)
-                                )
-                            }
-                        }
-                    } else {
-                        FileAttachmentCard(attachment, isFromMe, progress) { onDownloadClick(attachment.id) }
+                }
+                
+                // Play button always visible
+                Surface(
+                    shape = RoundedCornerShape(percent = 50),
+                    color = BorshchevykTheme.colors.surface.copy(alpha = 0.7f),
+                    modifier = Modifier.size(48.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Default.PlayArrow,
+                            contentDescription = "Play Video",
+                            tint = BorshchevykTheme.colors.onSurface,
+                            modifier = Modifier.size(24.dp)
+                        )
                     }
                 }
-            } else {
-                FileAttachmentCard(attachment, isFromMe, progress) { onDownloadClick(attachment.id) }
             }
         }
         DomainAttachmentType.CIRCLE -> {
@@ -223,7 +225,7 @@ internal fun AttachmentItem(
             )
         }
         else -> {
-            FileAttachmentCard(attachment, isFromMe, progress) { onDownloadClick(attachment.id) }
+            FileAttachmentCard(attachment, isFromMe, progress, onCardClick = { onAttachmentClick(attachment) }) { onDownloadClick(attachment.id) }
         }
     }
 }

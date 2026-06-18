@@ -199,7 +199,13 @@ private fun VideoPlayerFullscreen(url: String, onDismiss: () -> Unit) {
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
+        
+        val activity = context as? android.app.Activity
+        val originalOrientation = activity?.requestedOrientation ?: android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+        activity?.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR
+        
         onDispose {
+            activity?.requestedOrientation = originalOrientation
             lifecycleOwner.lifecycle.removeObserver(observer)
             exoPlayer.release()
         }
@@ -210,10 +216,12 @@ private fun VideoPlayerFullscreen(url: String, onDismiss: () -> Unit) {
             factory = { ctx ->
                 PlayerView(ctx).apply {
                     player = exoPlayer
+                    useController = true
                     setShowNextButton(false)
                     setShowPreviousButton(false)
-                    setShowFastForwardButton(false)
-                    setShowRewindButton(false)
+                    setShowFastForwardButton(true)
+                    setShowRewindButton(true)
+                    controllerShowTimeoutMs = 3000
                 }
             },
             modifier = Modifier.fillMaxSize()

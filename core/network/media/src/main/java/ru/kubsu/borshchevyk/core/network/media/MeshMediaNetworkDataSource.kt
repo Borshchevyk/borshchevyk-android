@@ -101,13 +101,13 @@ class MeshMediaNetworkDataSource @Inject constructor(
     }
 
     override suspend fun uploadAvatar(fileBytes: ByteArray, filename: String, contentType: String): NetworkResult<AttachmentUrlResult> {
-        val fakeId = UUID.randomUUID().toString()
-        val file = File(context.cacheDir, "mesh_$fakeId")
+        val fakeId = "avatar/${UUID.randomUUID()}"
+        val file = File(context.cacheDir, "mesh_${fakeId.replace("/", "_")}")
         withContext(Dispatchers.IO) {
             file.writeBytes(fileBytes)
         }
         transferManager.shareLocalFile(fakeId, file, contentType, filename)
-        return NetworkResult.Success(AttachmentUrlResult("mesh://avatar/$fakeId"))
+        return NetworkResult.Success(AttachmentUrlResult("mesh://$fakeId"))
     }
 
     override suspend fun uploadVoice(inputStreamProvider: () -> java.io.InputStream?, sizeBytes: Long, duration: Double): NetworkResult<AttachmentResponse> {

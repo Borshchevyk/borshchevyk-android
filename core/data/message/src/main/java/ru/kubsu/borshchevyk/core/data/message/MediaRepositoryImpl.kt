@@ -116,7 +116,7 @@ class MediaRepositoryImpl @Inject constructor(
      */
     override suspend fun uploadAvatar(fileBytes: ByteArray, filename: String, contentType: String): String {
         val url = networkDataSource.uploadAvatar(fileBytes, filename, contentType).getOrThrow().url
-        return if (url.startsWith("http")) {
+        return if (url.startsWith("http") || url.startsWith("mesh") || url.startsWith("file")) {
             url
         } else {
             "${NetworkConstants.BASE_URL}${if (url.startsWith("/")) "" else "/"}$url"

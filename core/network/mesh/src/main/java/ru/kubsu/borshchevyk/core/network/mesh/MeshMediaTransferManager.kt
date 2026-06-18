@@ -71,7 +71,7 @@ class MeshMediaTransferManager @Inject constructor(
         // when accessing files in the Downloads folder via raw paths.
         val pfd = pending.payload.asFile()?.asParcelFileDescriptor()
         if (pfd != null) {
-            val destFile = File(context.cacheDir, "mesh_${metadata.attachmentId}")
+            val destFile = File(context.cacheDir, "mesh_${metadata.attachmentId.replace("/", "_")}")
             try {
                 pfd.use { parcelFd ->
                     java.io.FileInputStream(parcelFd.fileDescriptor).use { input ->
@@ -189,7 +189,7 @@ class MeshMediaTransferManager @Inject constructor(
         val cached = localFiles[attachmentId]
         if (cached != null && cached.exists()) return cached
         
-        val diskFile = File(context.cacheDir, "mesh_$attachmentId")
+        val diskFile = File(context.cacheDir, "mesh_${attachmentId.replace("/", "_")}")
         if (diskFile.exists() && diskFile.length() > 0) {
             localFiles[attachmentId] = diskFile
             return diskFile
@@ -324,6 +324,9 @@ class MeshMediaTransferManager @Inject constructor(
     fun handleIncomingFilePayload(endpointId: String, payload: Payload) {
         Log.d(TAG, "Started receiving file payload ${payload.id} from $endpointId")
         pendingPayloads[payload.id] = PendingPayload(endpointId, payload)
-        tryFinalize(payload.id)
+        
+        // If the payload was already fully received before the header (or if the header 
+        // arrived and marked it complete), tryFinalize will be called via payloadRouter updates.
+        // We do NOT call tryFinalize here, as the payload transfer status is not yet SUCCESS.
     }
 }

@@ -21,10 +21,15 @@ class MeshFetcher(
 ) : Fetcher {
 
     override suspend fun fetch(): FetchResult? {
-        val attachmentId = data.lastPathSegment ?: return null
+        // Correctly extract the full ID from mesh://... URI
+        // For mesh://avatar/UUID, schemeSpecificPart is //avatar/UUID -> avatar/UUID
+        // For mesh:///avatar/UUID, schemeSpecificPart is ///avatar/UUID -> avatar/UUID
+        val attachmentId = data.schemeSpecificPart.removePrefix("///").removePrefix("//")
         
+        if (attachmentId.isBlank()) return null
+
         var file = meshMediaTransferManager.getLocalFile(attachmentId)
-        
+
         if (file == null) {
             // Trigger a pull just in case
             meshMediaTransferManager.pullFile(attachmentId)

@@ -19,6 +19,7 @@ import ru.kubsu.borshchevyk.core.network.dto.EnrichedUserResponse
 import ru.kubsu.borshchevyk.core.network.mesh.MeshConnectionManager
 import ru.kubsu.borshchevyk.core.network.mesh.MeshEnvelope
 import ru.kubsu.borshchevyk.core.network.mesh.MeshFloodingProtocol
+import ru.kubsu.borshchevyk.core.network.mesh.MeshMediaTransferManager
 import ru.kubsu.borshchevyk.core.network.mesh.MeshSignatureService
 import ru.kubsu.borshchevyk.core.network.user.MeshProfileBroadcaster
 import java.util.UUID
@@ -36,7 +37,8 @@ class MeshProfileListener @Inject constructor(
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
     @ApplicationScope private val scope: CoroutineScope,
     private val meshConnectionManager: MeshConnectionManager,
-    private val signatureService: MeshSignatureService
+    private val signatureService: MeshSignatureService,
+    private val meshMediaTransferManager: MeshMediaTransferManager
 ) : MeshProfileBroadcaster {
     private val TAG = "MeshProfileListener"
 
@@ -81,6 +83,15 @@ class MeshProfileListener @Inject constructor(
 
                         withContext(ioDispatcher) {
                             val existingUser = userDao.getUser(payload.id)
+                            
+                            // Sanitize avatarUrl: remove any potential server URL prefix and normalize to mesh://
+                            val sanitizedAvatarUrl = payload.avatarUrl?.let { url ->
+                                val id = if (url.contains("mesh://")) url.substringAfter("mesh://")
+                                         else url.substringAfter("https://dev.borshchevik.su/")
+                                
+                                if (id.startsWith("avatar/") || id.startsWith("avatar_")) "mesh://$id" else url
+                            }
+
                             userDao.upsertUser(
                                 UserEntity(
                                     userId = payload.id,
@@ -89,12 +100,23 @@ class MeshProfileListener @Inject constructor(
                                     firstName = payload.firstName ?: existingUser?.firstName,
                                     lastName = payload.lastName ?: existingUser?.lastName,
                                     bio = existingUser?.bio,
-                                    avatarUrl = payload.avatarUrl ?: existingUser?.avatarUrl,
+                                    avatarUrl = sanitizedAvatarUrl, 
                                     avatars = existingUser?.avatars ?: emptyList()
                                 )
                             )
                             
                             lastUpdateTimestamps[payload.id] = payload.timestamp
+                            
+                            // Proactively pull avatar if it's a mesh attachment
+                            sanitizedAvatarUrl?.let { avatarUrl ->
+                                if (avatarUrl.startsWith("mesh://")) {
+                                    val attachmentId = avatarUrl.removePrefix("mesh://")
+                                    if (attachmentId.startsWith("avatar/") || attachmentId.startsWith("avatar_")) {
+                                        Log.d(TAG, "Proactively pulling avatar: $attachmentId")
+                                        meshMediaTransferManager.pullFile(attachmentId)
+                                    }
+                                }
+                            }
                             
                             // Save the securely verified public key
                             publicKeyDao.insertPublicKey(PublicKeyEntity(payload.id, incomingPubKey))
@@ -165,7 +187,13 @@ class MeshProfileListener @Inject constructor(
                 firstName = localUser?.firstName,
                 lastName = localUser?.lastName,
                 tag = localUser?.tag ?: fallbackTag,
-                avatarUrl = localUser?.avatarUrl,
+                // Sanitize: ensure only the mesh ID part is sent, normalized.
+                avatarUrl = localUser?.avatarUrl?.let { url ->
+                    val id = if (url.contains("mesh://")) url.substringAfter("mesh://")
+                             else url.substringAfter("https://dev.borshchevik.su/")
+                    
+                    if (id.startsWith("avatar/") || id.startsWith("avatar_")) id else url
+                },
                 publicKey = localPubKey,
                 timestamp = System.currentTimeMillis()
             )

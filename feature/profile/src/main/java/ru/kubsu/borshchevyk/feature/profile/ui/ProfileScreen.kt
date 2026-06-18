@@ -73,7 +73,10 @@ internal fun ProfileScreen(
                 val avatarUrl = uiState.user?.avatarUrl
                 if (!avatarUrl.isNullOrBlank()) {
                     SubcomposeAsyncImage(
-                        model = avatarUrl,
+                        model = coil.request.ImageRequest.Builder(androidx.compose.ui.platform.LocalContext.current)
+                            .data(avatarUrl)
+                            .setParameter("timestamp", System.currentTimeMillis())
+                            .build(),
                         contentDescription = "Avatar",
                         modifier = Modifier.fillMaxSize(),
                         contentScale = ContentScale.Crop,

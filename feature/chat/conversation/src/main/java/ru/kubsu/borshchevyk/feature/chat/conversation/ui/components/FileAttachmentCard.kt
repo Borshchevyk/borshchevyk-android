@@ -35,6 +35,7 @@ internal fun FileAttachmentCard(
     attachment: Attachment,
     isFromMe: Boolean,
     downloadProgress: Float = 0f,
+    onCardClick: () -> Unit = {},
     onDownloadClick: () -> Unit = {}
 ) {
     val formattedSize = remember(attachment.sizeBytes) {
@@ -48,6 +49,7 @@ internal fun FileAttachmentCard(
     }
 
     Card(
+        onClick = onCardClick,
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (isFromMe) BorshchevykTheme.colors.primaryContainer else BorshchevykTheme.colors.background

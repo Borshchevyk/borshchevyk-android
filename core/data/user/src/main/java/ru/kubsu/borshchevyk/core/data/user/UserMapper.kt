@@ -23,7 +23,7 @@ fun UserProfileResponse.toEntity(): UserEntity = UserEntity(
 /**
  * Maps a local [UserEntity] to a domain [User] model.
  *
- * @return The mapped domain model.
+ * @return The mapped domain model, with mesh:// scheme prepended to mesh attachment IDs.
  */
 fun UserEntity.toDomain(): User = User(
     userId = userId,
@@ -32,7 +32,9 @@ fun UserEntity.toDomain(): User = User(
     firstName = firstName,
     lastName = lastName,
     bio = bio,
-    avatarUrl = avatarUrl,
+    avatarUrl = avatarUrl?.let { 
+        if (it.startsWith("avatar/") || it.startsWith("avatar_")) "mesh://$it" else it 
+    },
     avatars = avatars
 )
 
