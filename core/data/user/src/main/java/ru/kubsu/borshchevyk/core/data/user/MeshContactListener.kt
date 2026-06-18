@@ -3,6 +3,8 @@ package ru.kubsu.borshchevyk.core.data.user
 import android.util.Log
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.takeWhile
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import ru.kubsu.borshchevyk.core.database.dao.ContactDao
@@ -44,13 +46,10 @@ class MeshContactListener @Inject constructor(
                     MeshContactActions.CONTACT_ADD -> {
                         try {
                             val contactResponse = json.decodeFromString<ContactResponse>(envelope.payload)
-                            // If they added us, they are the owner in their response, and we are the contactUserId.
-                            // We want to add them to our contacts, so we swap.
                             if (contactResponse.contactUserId == localUserId) {
                                 val senderId = contactResponse.ownerId
-                                Log.d("MeshContactListener", "Incoming CONTACT_ADD from $senderId. Processing reciprocal contact.")
+                                Log.d("MeshContactListener", "Incoming CONTACT_ADD from $senderId.")
                                 
-                                // Fix: Resolve sender's actual name from our local UserDao instead of using their payload's name for us.
                                 val senderProfile = userDao.getUser(senderId)
                                 
                                 val newContact = ContactEntity(
@@ -62,6 +61,11 @@ class MeshContactListener @Inject constructor(
                                     addedAt = contactResponse.addedAt ?: ""
                                 )
                                 contactDao.upsertContact(newContact)
+
+                                // Profile Watcher: If the name is unknown, wait for profile discovery
+                                if (newContact.contactFirstName == "Unknown") {
+                                    watchProfileAndHealContact(senderId, localUserId)
+                                }
                             }
                         } catch (e: Exception) {
                             Log.e("MeshContactListener", "Failed to parse CONTACT_ADD payload", e)
@@ -70,9 +74,8 @@ class MeshContactListener @Inject constructor(
                     MeshContactActions.CONTACT_DELETE -> {
                         try {
                             val deletedContactId = envelope.payload
-                            // If they deleted us, we remove them from our reciprocal contacts
                             if (deletedContactId == localUserId) {
-                                Log.d("MeshContactListener", "Incoming CONTACT_DELETE from ${envelope.originEndpointId}. Removing them from our contacts.")
+                                Log.d("MeshContactListener", "Incoming CONTACT_DELETE from ${envelope.originEndpointId}.")
                                 contactDao.deleteContact(localUserId, envelope.originEndpointId)
                             }
                         } catch (e: Exception) {
@@ -81,6 +84,28 @@ class MeshContactListener @Inject constructor(
                     }
                 }
             }
+        }
+    }
+
+    private fun watchProfileAndHealContact(userId: String, ownerId: String) {
+        applicationScope.launch(ioDispatcher) {
+            Log.d("MeshContactListener", "Starting profile watcher for unknown contact: $userId")
+            userDao.observeUser(userId)
+                .takeWhile { user -> 
+                    val isHealed = user != null && (user.firstName != null || user.tag.isNotEmpty())
+                    if (isHealed) {
+                        Log.d("MeshContactListener", "Healing contact $userId with discovered profile data.")
+                        val existing = contactDao.getContact(ownerId, userId)
+                        if (existing != null) {
+                            contactDao.upsertContact(existing.copy(
+                                contactFirstName = user?.firstName ?: user?.tag ?: "Unknown",
+                                contactLastName = user?.lastName
+                            ))
+                        }
+                    }
+                    !isHealed // Continue while NOT healed
+                }
+                .collect { } 
         }
     }
 }

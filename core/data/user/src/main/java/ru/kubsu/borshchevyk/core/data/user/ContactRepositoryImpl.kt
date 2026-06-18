@@ -1,6 +1,10 @@
 package ru.kubsu.borshchevyk.core.data.user
 
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import ru.kubsu.borshchevyk.core.database.dao.ContactDao
 import ru.kubsu.borshchevyk.core.database.entity.ContactEntity
@@ -24,6 +28,8 @@ import javax.inject.Inject
  * @property networkDataSource Source for contact-related REST/Mesh API operations.
  * @property contactDao Source for local persistence operations.
  * @property signatureService Service for obtaining current local user ID.
+ * @property meshContactListener Background listener for P2P contact events.
+ * @property ioDispatcher Coroutine dispatcher for I/O operations.
  */
 class ContactRepositoryImpl @Inject constructor(
     private val networkDataSource: ContactNetworkDataSource,
@@ -38,8 +44,22 @@ class ContactRepositoryImpl @Inject constructor(
     }
 
     /**
+     * Observes the user's contact list in real-time from the local database.
+     *
+     * @return A [Flow] emitting the current list of [Contact] objects.
+     */
+    override fun observeContacts(): Flow<List<Contact>> = flow {
+        val localUserId = signatureService.getUserId() ?: "self"
+        emitAll(
+            contactDao.observeContacts(localUserId).map { entities ->
+                entities.map { it.toDomain() }
+            }
+        )
+    }
+
+    /**
      * Fetches the current user's contact list from the backend and updates the local cache.
-     * Returns the local cache if the network fails.
+     * Uses an additive sync strategy to avoid UI 'blinking'.
      *
      * @return A list of [Contact] objects.
      */
@@ -47,17 +67,16 @@ class ContactRepositoryImpl @Inject constructor(
         val localUserId = signatureService.getUserId() ?: "self"
         
         try {
-            val networkResult = networkDataSource.getContacts()
-            val remoteContacts = networkResult.getOrThrow()
+            val remoteContacts = networkDataSource.getContacts().getOrThrow()
             
-            // Sync with local db: we update our local knowledge with what the network says.
-            // For a production app, we'd do a proper diff here. 
-            // For now, we update local cache atomically.
+            // Additive Sync: only update or insert, don't clear everything to avoid UI flicker.
             val entities = remoteContacts.map { it.toEntity() }
-            if (entities.isNotEmpty() || remoteContacts.isEmpty()) {
-                contactDao.clearContacts(localUserId)
+            if (entities.isNotEmpty()) {
                 contactDao.upsertContacts(entities)
             }
+            
+            // Optional: for Global mode, we might want to remove contacts that are no longer on the server.
+            // For now, keeping it simple and additive.
             
             remoteContacts.map { it.toDomain() }
         } catch (e: Exception) {

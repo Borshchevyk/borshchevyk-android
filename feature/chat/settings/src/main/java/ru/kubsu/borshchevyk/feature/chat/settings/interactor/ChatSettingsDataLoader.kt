@@ -8,6 +8,7 @@ import ru.kubsu.borshchevyk.core.domain.chat.GetUserChatsUseCase
 import ru.kubsu.borshchevyk.core.domain.user.GetUserProfileUseCase
 import ru.kubsu.borshchevyk.core.model.domain.ChatMember
 import ru.kubsu.borshchevyk.core.model.domain.ChatType
+import ru.kubsu.borshchevyk.core.model.domain.displayName
 import ru.kubsu.borshchevyk.core.model.domain.displayTag
 import javax.inject.Inject
 
@@ -47,17 +48,21 @@ class ChatSettingsDataLoader @Inject constructor(
         var partnerFirstName = chat?.partnerName?.substringBefore(" ")
         var partnerLastName = chat?.partnerName?.substringAfter(" ", missingDelimiterValue = "")
         var chatAvatarUrl = if (isPrivate) chat?.partnerAvatarUrl else null
+        var chatName = if (isPrivate) chat?.partnerName ?: "Unknown User" else chat?.title ?: ""
 
         if (isPrivate && partnerId != null) {
             try {
+                // Use the UseCase (Domain Layer) with clean mapping
                 val partnerProfile = getUserProfileUseCase(partnerId)
                 partnerTag = partnerProfile.displayTag
                 partnerFirstName = partnerProfile.firstName ?: partnerFirstName
                 partnerLastName = partnerProfile.lastName ?: partnerLastName
                 chatAvatarUrl = partnerProfile.avatarUrl ?: chatAvatarUrl
+                chatName = partnerProfile.displayName
                 Log.d("ChatSettingsDataLoader", "Resolved partner profile via Domain Layer: $partnerTag")
             } catch (e: Exception) {
                 Log.w("ChatSettingsDataLoader", "Failed to fetch partner profile for $partnerId", e)
+                // Fallback to searching in members if profile fetch fails
                 val partnerMember = membersPage.content.find { it.userId == partnerId }
                 partnerTag = partnerMember?.user?.tag?.let { if (it.startsWith("@")) it else "@$it" }
             }
@@ -66,12 +71,6 @@ class ChatSettingsDataLoader @Inject constructor(
         val isContact = if (isPrivate && partnerId != null) {
             contactHandler.isContact(partnerId)
         } else false
-
-        val chatName = if (isPrivate) {
-            "${partnerFirstName.orEmpty()} ${partnerLastName.orEmpty()}".trim().ifBlank { chat?.partnerName ?: "Unknown User" }
-        } else {
-            chat?.title ?: ""
-        }
 
         return ChatSettingsData(
             currentUserId = userId,

@@ -1,5 +1,6 @@
 package ru.kubsu.borshchevyk.core.domain.user
 
+import kotlinx.coroutines.flow.Flow
 import ru.kubsu.borshchevyk.core.model.domain.Contact
 import ru.kubsu.borshchevyk.core.model.domain.DomainAddContactParam
 
@@ -11,6 +12,13 @@ import ru.kubsu.borshchevyk.core.model.domain.DomainAddContactParam
  * and any remote backend or P2P network.
  */
 interface ContactRepository {
+    /**
+     * Observes the user's contact list in real-time from the local database.
+     *
+     * @return A [Flow] emitting the current list of [Contact] objects.
+     */
+    fun observeContacts(): Flow<List<Contact>>
+
     /**
      * Retrieves the complete list of contacts for the current user.
      *
