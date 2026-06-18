@@ -151,7 +151,9 @@ class MessageRepositoryImpl @Inject constructor(
     }
 
     /**
-     * Retrieves a paginated list of messages containing attachments of a specific category from the remote server.
+     * Retrieves a paginated list of messages containing attachments of a specific category.
+     * Attempts to fetch from the network first. If the network returns empty (e.g., in Mesh mode),
+     * it falls back to querying the local database to support offline and P2P environments.
      *
      * @param chatId The ID of the chat.
      * @param type The attachment type category.
@@ -161,7 +163,18 @@ class MessageRepositoryImpl @Inject constructor(
      */
     override suspend fun loadChatAttachments(chatId: String, type: String, page: Int, size: Int): List<Message> {
         return withContext(ioDispatcher) {
-            networkDataSource.loadChatAttachments(chatId, type, page, size).getOrThrow().map { it.toDomain() }
+            try {
+                val networkResult = networkDataSource.loadChatAttachments(chatId, type, page, size)
+                if (networkResult is ru.kubsu.borshchevyk.core.network.client.NetworkResult.Success && networkResult.data.isNotEmpty()) {
+                    networkResult.data.map { it.toDomain() }
+                } else {
+                    val offset = page * size
+                    messageDao.getMessagesWithAttachments(chatId, type, size, offset).map { it.toDomain() }
+                }
+            } catch (e: Exception) {
+                val offset = page * size
+                messageDao.getMessagesWithAttachments(chatId, type, size, offset).map { it.toDomain() }
+            }
         }
     }
 

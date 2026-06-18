@@ -112,6 +112,20 @@ interface MessageDao {
     fun getMessageReaders(messageId: String): List<UserEntity>
 
     /**
+     * Retrieves paginated messages that have attachments of a specific type.
+     */
+    @Transaction
+    @Query("""
+        SELECT m.* FROM messages m 
+        INNER JOIN attachments a ON m.id = a.messageId 
+        WHERE m.chatId = :chatId AND a.type = :type 
+        GROUP BY m.id 
+        ORDER BY m.createdAt DESC 
+        LIMIT :limit OFFSET :offset
+    """)
+    fun getMessagesWithAttachments(chatId: String, type: String, limit: Int, offset: Int): List<MessageWithDetails>
+
+    /**
      * Deletes all attachments for a specific message.
      *
      * @param messageId The ID of the message.
