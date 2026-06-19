@@ -62,6 +62,7 @@ fun ChatRoute(
                     ChatTopAppBar(
                         context = state.context,
                         typingUsers = state.input.typingUsers,
+                        feed = state.feed,
                         onBackClick = onBackClick,
                         onCallClick = { chatViewModel.handleIntent(ChatIntent.InitiateCall) },
                         onSettingsClick = { chatViewModel.handleIntent(ChatIntent.OpenSettings) }

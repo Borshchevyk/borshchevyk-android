@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import ru.kubsu.borshchevyk.core.ui.theme.BorshchevykTheme
 import ru.kubsu.borshchevyk.feature.chat.conversation.mvi.ChatContext
+import ru.kubsu.borshchevyk.feature.chat.conversation.mvi.MessageFeed
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneId
@@ -41,6 +42,7 @@ import java.time.format.DateTimeFormatter
  *
  * @param context The current context of the chat, including status and metadata.
  * @param typingUsers Set of user IDs currently typing in the chat.
+ * @param feed The message feed, used for resolving names of typing users in group chats.
  * @param onBackClick Callback invoked when the back button is clicked.
  * @param onCallClick Callback invoked when the call button is clicked.
  * @param onSettingsClick Callback invoked when the settings button is clicked.
@@ -50,6 +52,7 @@ import java.time.format.DateTimeFormatter
 fun ChatTopAppBar(
     context: ChatContext,
     typingUsers: Set<String>,
+    feed: MessageFeed,
     onBackClick: () -> Unit,
     onCallClick: () -> Unit,
     onSettingsClick: () -> Unit
@@ -89,7 +92,7 @@ fun ChatTopAppBar(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
-                    ChatStatusLine(context, typingUsers)
+                    ChatStatusLine(context, typingUsers, feed)
                 }
             }
         },
@@ -129,11 +132,13 @@ fun ChatTopAppBar(
  *
  * @param context The current context of the chat, including status and metadata.
  * @param typingUsers Set of user IDs currently typing in the chat.
+ * @param feed The message feed, used for resolving names of typing users.
  */
 @Composable
 private fun ChatStatusLine(
     context: ChatContext,
-    typingUsers: Set<String>
+    typingUsers: Set<String>,
+    feed: MessageFeed
 ) {
     val filteredTyping = remember(typingUsers, context.currentUserId) {
         typingUsers.filter { it != context.currentUserId }
@@ -141,7 +146,18 @@ private fun ChatStatusLine(
 
     val statusText = when {
         filteredTyping.isNotEmpty() -> {
-            if (filteredTyping.size == 1) "User is typing..." else "Multiple users are typing..."
+            if (filteredTyping.size == 1) {
+                if (!context.isGroupChat) {
+                    "${context.chatName} is typing..."
+                } else {
+                    val userId = filteredTyping.first()
+                    val user = feed.messages.find { it.authorId == userId }?.author
+                    val name = user?.let { "${it.firstName} ${it.lastName ?: ""}".trim() } ?: "User"
+                    "$name is typing..."
+                }
+            } else {
+                "Multiple users are typing..."
+            }
         }
         context.isOnline == true -> "online"
         context.isOnline == false && context.lastSeenAt != null -> {
