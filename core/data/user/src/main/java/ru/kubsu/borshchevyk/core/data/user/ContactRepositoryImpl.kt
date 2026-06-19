@@ -158,14 +158,14 @@ class ContactRepositoryImpl @Inject constructor(
 
     /**
      * Extension to map [ContactWithUser] to its domain equivalent [Contact].
-     * This prioritizes reactive data from the UserEntity.
+     * This prioritizes the custom contact name over the user's real name.
      */
     private fun ContactWithUser.toDomain(): Contact = Contact(
         id = contact.id,
         ownerId = contact.ownerId,
         contactUserId = contact.contactUserId,
-        contactFirstName = user?.firstName ?: contact.contactFirstName,
-        contactLastName = user?.lastName ?: contact.contactLastName,
+        contactFirstName = contact.contactFirstName,
+        contactLastName = contact.contactLastName,
         addedAt = contact.addedAt,
         contactAvatarUrl = user?.avatarUrl
     )
