@@ -99,7 +99,14 @@ class ChatMessageHandler @Inject constructor(
                 status = MessageStatus.SENDING,
                 source = MessageSource.ONLINE,
                 forwardedFromChatId = forwardPayload.fromChatId,
-                forwardedFromUserId = forwardPayload.fromUserId
+                forwardedFromUserId = forwardPayload.fromUserId,
+                forwardedFromUser = ru.kubsu.borshchevyk.core.model.domain.User(
+                    userId = forwardPayload.fromUserId ?: "",
+                    firstName = forwardPayload.authorName,
+                    lastName = null,
+                    tag = "",
+                    avatarUrl = null
+                )
             )
             messages.add(OptimisticMessageData(tempId1, msg1, "", emptyList(), forwardPayload))
 
@@ -138,6 +145,15 @@ class ChatMessageHandler @Inject constructor(
                 source = MessageSource.ONLINE,
                 forwardedFromChatId = forwardPayload?.fromChatId,
                 forwardedFromUserId = forwardPayload?.fromUserId,
+                forwardedFromUser = forwardPayload?.let {
+                    ru.kubsu.borshchevyk.core.model.domain.User(
+                        userId = it.fromUserId ?: "",
+                        firstName = it.authorName,
+                        lastName = null,
+                        tag = "",
+                        avatarUrl = null
+                    )
+                },
                 attachments = attachments.map { 
                     Attachment(
                         id = "temp_att_${java.util.UUID.randomUUID()}",

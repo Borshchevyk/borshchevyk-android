@@ -121,6 +121,9 @@ class MeshMessageNetworkDataSource @Inject constructor(
             val attachments = request.attachmentIds?.mapNotNull { mediaDataSource.getCachedAttachment(it) } ?: emptyList()
             val userId = signatureService.getUserId() ?: "self"
             
+            val forwardedChat = request.forwardedFromChatId?.let { ShortChatDto(id = it, name = "") }
+            val forwardedUser = request.forwardedFromUserId?.let { ShortUserDto(id = it) }
+
             val messageDto = NotificationDto.MessageDto(
                 id = UUID.randomUUID().toString(),
                 chat = ShortChatDto(id = chatId, name = ""),
@@ -139,7 +142,9 @@ class MeshMessageNetworkDataSource @Inject constructor(
                         height = it.height
                     )
                 },
-                status = "SENT"
+                status = "SENT",
+                forwardedFromChat = forwardedChat,
+                forwardedFromUser = forwardedUser
             )
             val payloadString = json.encodeToString(messageDto)
 
@@ -163,7 +168,9 @@ class MeshMessageNetworkDataSource @Inject constructor(
                 status = null,
                 attachments = messageDto.attachments,
                 parentMessageId = request.parentMessageId,
-                reactions = emptyList()
+                reactions = emptyList(),
+                forwardedFromChat = forwardedChat,
+                forwardedFromUser = forwardedUser
             )
             NetworkResult.Success(response)
         }
