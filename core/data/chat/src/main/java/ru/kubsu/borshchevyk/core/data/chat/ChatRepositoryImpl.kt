@@ -131,13 +131,16 @@ class ChatRepositoryImpl @Inject constructor(
             val networkChats = networkDataSource.getUserChats().getOrThrow()
             
             // Only overwrite if it's not a Mesh group, or preserve the local LWW timestamps if it is.
+            // Also preserve locally-zeroed unreadCount to prevent stale server values
+            // from overwriting it before the server processes the read receipt.
             val mergedEntities = networkChats.map { dto ->
                 val entity = dto.toEntity()
                 val existing = chatDao.getChat(entity.id)
-                if (existing != null && entity.type == ChatType.GROUP) {
+                if (existing != null) {
                     entity.copy(
-                        titleUpdatedAt = existing.titleUpdatedAt,
-                        descriptionUpdatedAt = existing.descriptionUpdatedAt
+                        titleUpdatedAt = if (entity.type == ChatType.GROUP) existing.titleUpdatedAt else entity.titleUpdatedAt,
+                        descriptionUpdatedAt = if (entity.type == ChatType.GROUP) existing.descriptionUpdatedAt else entity.descriptionUpdatedAt,
+                        unreadCount = if (existing.unreadCount == 0L && entity.unreadCount > 0) 0L else entity.unreadCount
                     )
                 } else {
                     entity
@@ -424,9 +427,14 @@ class ChatRepositoryImpl @Inject constructor(
                         )
                         
                         // Sync events are ordered by vector clock during pull, so we can overwrite.
+                        // But preserve locally-zeroed unreadCount to prevent stale values.
                         val existing = chatDao.getChat(entity.id)
                         if (existing != null) {
-                            chatDao.upsertChat(entity.copy(titleUpdatedAt = existing.titleUpdatedAt, descriptionUpdatedAt = existing.descriptionUpdatedAt))
+                            chatDao.upsertChat(entity.copy(
+                                titleUpdatedAt = existing.titleUpdatedAt,
+                                descriptionUpdatedAt = existing.descriptionUpdatedAt,
+                                unreadCount = if (existing.unreadCount == 0L && entity.unreadCount > 0) 0L else entity.unreadCount
+                            ))
                         } else {
                             chatDao.upsertChat(entity)
                         }
