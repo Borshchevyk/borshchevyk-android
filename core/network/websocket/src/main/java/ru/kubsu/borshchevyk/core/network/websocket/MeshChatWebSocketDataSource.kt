@@ -367,8 +367,12 @@ class MeshChatWebSocketDataSource @Inject constructor(
             }
     }
 
+    override fun observeAllEvents(): Flow<ru.kubsu.borshchevyk.core.network.dto.AppEventDto> {
+        return kotlinx.coroutines.flow.emptyFlow()
+    }
+
     override suspend fun sendTypingEvent(chatId: String, isTyping: Boolean) {
-        val event = TypingEvent(user = ShortUserDto(id = "self"), isTyping = isTyping)
+        val event = TypingEvent(chatId = chatId, user = ShortUserDto(id = "self"), isTyping = isTyping)
         val envelope = MeshEnvelope(
             envelopeId = UUID.randomUUID().toString(),
             originEndpointId = "self",

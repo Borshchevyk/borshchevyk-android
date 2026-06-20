@@ -129,4 +129,14 @@ object DatabaseModule {
     @Provides
     @Singleton
     fun providePrivacySettingsDao(database: AppDatabase): PrivacySettingsDao = database.privacySettingsDao()
+
+    /**
+     * Provides the [SyncDao] implementation.
+     *
+     * @param database The [AppDatabase] instance.
+     * @return The [SyncDao] implementation.
+     */
+    @Provides
+    @Singleton
+    fun provideSyncDao(database: AppDatabase): ru.kubsu.borshchevyk.core.database.dao.SyncDao = database.syncDao()
 }

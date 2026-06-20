@@ -11,6 +11,7 @@ import ru.kubsu.borshchevyk.core.database.dao.MessageDao
 import ru.kubsu.borshchevyk.core.database.dao.PendingEnvelopeDao
 import ru.kubsu.borshchevyk.core.database.dao.PrivacySettingsDao
 import ru.kubsu.borshchevyk.core.database.dao.PublicKeyDao
+import ru.kubsu.borshchevyk.core.database.dao.SyncDao
 import ru.kubsu.borshchevyk.core.database.dao.UserDao
 import ru.kubsu.borshchevyk.core.database.entity.AttachmentEntity
 import ru.kubsu.borshchevyk.core.database.entity.ChatEntity
@@ -22,6 +23,7 @@ import ru.kubsu.borshchevyk.core.database.entity.PendingEnvelopeEntity
 import ru.kubsu.borshchevyk.core.database.entity.PrivacySettingsEntity
 import ru.kubsu.borshchevyk.core.database.entity.PublicKeyEntity
 import ru.kubsu.borshchevyk.core.database.entity.ReactionEntity
+import ru.kubsu.borshchevyk.core.database.entity.SyncEventEntity
 import ru.kubsu.borshchevyk.core.database.entity.UserEntity
 
 /**
@@ -52,9 +54,10 @@ import ru.kubsu.borshchevyk.core.database.entity.UserEntity
         PublicKeyEntity::class,
         PendingEnvelopeEntity::class,
         ContactEntity::class,
-        PrivacySettingsEntity::class
+        PrivacySettingsEntity::class,
+        SyncEventEntity::class
     ],
-    version = 8,
+    version = 9,
     exportSchema = false
 )
 @TypeConverters(DatabaseConverters::class)
@@ -67,4 +70,5 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun pendingEnvelopeDao(): PendingEnvelopeDao
     abstract fun contactDao(): ContactDao
     abstract fun privacySettingsDao(): PrivacySettingsDao
+    abstract fun syncDao(): SyncDao
 }

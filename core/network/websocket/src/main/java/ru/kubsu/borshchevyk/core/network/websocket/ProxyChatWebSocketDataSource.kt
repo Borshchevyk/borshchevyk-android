@@ -82,6 +82,13 @@ class ProxyChatWebSocketDataSource @Inject constructor(
         }
     }
 
+    override fun observeAllEvents(): Flow<ru.kubsu.borshchevyk.core.network.dto.AppEventDto> {
+        return transportModeManager.networkMode.flatMapLatest { mode ->
+            if (mode == NetworkMode.MESH) meshWebSocket.observeAllEvents()
+            else krossbowWebSocket.observeAllEvents()
+        }
+    }
+
     override suspend fun sendTypingEvent(chatId: String, isTyping: Boolean) {
         currentDataSource.sendTypingEvent(chatId, isTyping)
     }

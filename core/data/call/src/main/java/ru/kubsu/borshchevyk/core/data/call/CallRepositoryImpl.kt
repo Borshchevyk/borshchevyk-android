@@ -2,7 +2,13 @@ package ru.kubsu.borshchevyk.core.data.call
 
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.merge
+import kotlinx.coroutines.flow.filter
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.json.Json
+import ru.kubsu.borshchevyk.core.data.sync.SyncRepository
 import ru.kubsu.borshchevyk.core.domain.call.CallRepository
+import ru.kubsu.borshchevyk.core.model.domain.EventType
 import ru.kubsu.borshchevyk.core.network.client.getOrThrow
 import ru.kubsu.borshchevyk.core.network.dto.CreateCallRequest
 import ru.kubsu.borshchevyk.core.network.call.CallNetworkDataSource
@@ -20,7 +26,8 @@ import javax.inject.Inject
  */
 class CallRepositoryImpl @Inject constructor(
     private val networkDataSource: CallNetworkDataSource,
-    private val webSocketDataSource: CallWebSocketDataSource
+    private val webSocketDataSource: CallWebSocketDataSource,
+    private val syncRepository: SyncRepository
 ) : CallRepository {
 
     /**
@@ -72,15 +79,17 @@ class CallRepositoryImpl @Inject constructor(
         return emptyList()
     }
     
+    private val json = Json { ignoreUnknownKeys = true }
+
     /**
-     * Subscribes to real-time call events from the WebSocket connection.
+     * Subscribes to real-time call events from both WebSocket connection and Background Sync.
      *
-     * Maps network data transfer objects (DTOs) into domain-level call events.
+     * Maps network data transfer objects (DTOs) and SyncEvents into domain-level call events.
      *
      * @return A [Flow] emitting [ru.kubsu.borshchevyk.core.model.domain.DomainCallEvent] representing events like incoming calls or participant status changes.
      */
     override fun observeCallEvents(): Flow<ru.kubsu.borshchevyk.core.model.domain.DomainCallEvent> {
-        return webSocketDataSource.observeCallEvents().map { dto ->
+        val wsFlow = webSocketDataSource.observeCallEvents().map { dto ->
             ru.kubsu.borshchevyk.core.model.domain.DomainCallEvent(
                 type = dto.eventType,
                 callId = dto.callId,
@@ -88,5 +97,20 @@ class CallRepositoryImpl @Inject constructor(
                 participants = emptyList()
             )
         }
+        
+        val syncFlow = syncRepository.incomingEvents
+            .filter { it.eventType == EventType.CALL_EVENT }
+            .map { event ->
+                // The payload for CALL_EVENT should be a CallEventDto equivalent
+                val dto = json.decodeFromString<ru.kubsu.borshchevyk.core.network.dto.NotificationDto.CallEventDto>(event.payload)
+                ru.kubsu.borshchevyk.core.model.domain.DomainCallEvent(
+                    type = dto.eventType,
+                    callId = dto.callId,
+                    initiatorId = dto.initiator?.id ?: dto.actor?.id ?: "",
+                    participants = emptyList()
+                )
+            }
+            
+        return merge(wsFlow, syncFlow)
     }
 }

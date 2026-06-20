@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace = "ru.kubsu.borshchevyk.core.data.message"
+    namespace = "ru.kubsu.borshchevyk.core.network.sync"
     compileSdk = 36
     defaultConfig {
         minSdk = 29
@@ -19,20 +19,13 @@ android {
 
 dependencies {
     implementation(project(":core:model"))
-    implementation(project(":core:domain:message"))
-    implementation(project(":core:data:chat"))
-    implementation(project(":core:data:sync"))
-    implementation(project(":core:network:client"))
-    implementation(project(":core:network:mesh"))
-    implementation(project(":core:network:message"))
-    implementation(project(":core:network:media"))
-    implementation(project(":core:network:user"))
-    implementation(project(":core:network:websocket"))
-    
-    implementation(project(":core:database"))
-    
+    api(project(":core:network:client"))
+    implementation(project(":core:network:ktor"))
+
+    implementation(libs.ktor.client.core)
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.serialization.json)
+
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
 }

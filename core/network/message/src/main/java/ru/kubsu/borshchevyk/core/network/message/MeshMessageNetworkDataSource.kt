@@ -256,6 +256,7 @@ class MeshMessageNetworkDataSource @Inject constructor(
     override suspend fun addReaction(chatId: String, messageId: String, reaction: String): NetworkResult<Unit> {
         return withContext(ioDispatcher) {
             val reactionEvent = ReactionEvent(
+                chatId = chatId,
                 messageId = messageId,
                 user = ShortUserDto(id = "self"), // Endpoint ID will be filled later or by recipient
                 reaction = reaction,
@@ -277,6 +278,7 @@ class MeshMessageNetworkDataSource @Inject constructor(
     override suspend fun removeReaction(chatId: String, messageId: String, reaction: String): NetworkResult<Unit> {
         return withContext(ioDispatcher) {
             val reactionEvent = ReactionEvent(
+                chatId = chatId,
                 messageId = messageId,
                 user = ShortUserDto(id = "self"),
                 reaction = reaction,
@@ -330,6 +332,7 @@ class MeshMessageNetworkDataSource @Inject constructor(
     override suspend fun readMessage(chatId: String, messageId: String): NetworkResult<Unit> {
         return withContext(ioDispatcher) {
             val readEvent = ReadReceiptEvent(
+                chatId = chatId,
                 user = ShortUserDto(id = "self"),
                 messageId = messageId
             )

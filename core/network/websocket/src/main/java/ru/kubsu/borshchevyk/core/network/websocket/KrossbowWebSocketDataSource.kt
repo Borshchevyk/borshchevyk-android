@@ -21,6 +21,8 @@ import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.decodeFromJsonElement
+import kotlinx.serialization.json.JsonPrimitive
 import org.hildan.krossbow.stomp.StompClient
 import org.hildan.krossbow.stomp.StompSession
 import org.hildan.krossbow.stomp.config.HeartBeat
@@ -188,43 +190,74 @@ class KrossbowWebSocketDataSource @Inject constructor(
         }
     }
 
-    private inline fun <reified T> observeTopic(destination: String): Flow<T> {
-        return getSharedTopicFlow(destination)
+    private val appEvents: Flow<ru.kubsu.borshchevyk.core.network.dto.AppEventDto> by lazy {
+        getSharedTopicFlow("/user/queue/events")
             .map { msg ->
-                Log.d(TAG, "WS Received on $destination: $msg")
-                json.decodeFromString<T>(msg)
+                Log.d(TAG, "WS Received on /user/queue/events: $msg")
+                json.decodeFromString<ru.kubsu.borshchevyk.core.network.dto.AppEventDto>(msg)
             }
             .catch { e ->
-                Log.w(TAG, "WS Mapping error on $destination", e)
+                Log.w(TAG, "WS Mapping error on /user/queue/events", e)
             }
+            .shareIn(scope, SharingStarted.WhileSubscribed(5000), 1)
     }
 
-    private fun observeTopicString(destination: String): Flow<String> {
-        return getSharedTopicFlow(destination)
-            .map { msg ->
-                Log.d(TAG, "WS Received on $destination: $msg")
-                msg.replace("\"", "").trim()
-            }
-            .catch { e ->
-                Log.w(TAG, "WS Mapping error on $destination", e)
-            }
+    private inline fun <reified T> observeEvent(vararg types: String): Flow<T> {
+        return appEvents
+            .filter { it.eventType in types }
+            .map { json.decodeFromJsonElement<T>(it.payload) }
+            .catch { e -> Log.w(TAG, "Error decoding event of type ${T::class.simpleName}", e) }
     }
 
-    override fun observeNewMessages(): Flow<NotificationDto.MessageDto> = observeTopic("/user/queue/messages")
-    override fun observeChatEvents(): Flow<NotificationDto.ChatEventDto> = observeTopic("/user/queue/chats")
-    override fun observeCallEvents(): Flow<NotificationDto.CallEventDto> = observeTopic("/user/queue/calls")
-    override fun observeDeletedMessages(): Flow<String> = observeTopicString("/user/queue/messages/deleted")
-    override fun observeTyping(chatId: String): Flow<TypingEvent> = observeTopic("/topic/chat/$chatId/typing")
-    override fun observeReactions(chatId: String): Flow<ReactionEvent> = observeTopic("/topic/chat/$chatId/reactions")
-    override fun observePins(chatId: String): Flow<String> = observeTopicString("/topic/chat/$chatId/pin")
-    override fun observeUnpins(chatId: String): Flow<String> = observeTopicString("/topic/chat/$chatId/unpin")
-    override fun observeReadReceipts(chatId: String): Flow<ReadReceiptEvent> = observeTopic("/topic/chat/$chatId/read")
+    private fun observeEventString(vararg types: String): Flow<String> {
+        return appEvents
+            .filter { it.eventType in types }
+            .map { event ->
+                val payload = event.payload
+                if (payload is JsonPrimitive && payload.isString) {
+                    payload.content
+                } else {
+                    payload.toString().replace("\"", "")
+                }
+            }
+            .catch { e -> Log.w(TAG, "Error decoding string event", e) }
+    }
+
+    override fun observeNewMessages(): Flow<NotificationDto.MessageDto> = observeEvent("MESSAGE_CREATED")
+    
+    override fun observeChatEvents(): Flow<NotificationDto.ChatEventDto> = observeEvent("CHAT_EVENT", "CHAT_INFO_UPDATED", "CHAT_SETTINGS_UPDATED")
+    
+    override fun observeCallEvents(): Flow<NotificationDto.CallEventDto> = observeEvent("CALL_EVENT")
+    
+    override fun observeDeletedMessages(): Flow<String> = appEvents
+        .filter { it.eventType == "MESSAGE_DELETED" }
+        .map { event ->
+            val payload = event.payload
+            if (payload is JsonPrimitive && payload.isString) {
+                payload.content
+            } else {
+                json.decodeFromJsonElement<NotificationDto.MessageDto>(payload).id
+            }
+        }
+        .catch { e -> Log.w(TAG, "Error decoding MESSAGE_DELETED", e) }
+
+    override fun observeTyping(chatId: String): Flow<TypingEvent> = 
+        observeEvent<TypingEvent>("TYPING").filter { it.chatId == chatId }
+        
+    override fun observeReactions(chatId: String): Flow<ReactionEvent> = 
+        observeEvent<ReactionEvent>("REACTION_ADDED", "REACTION_REMOVED").filter { it.chatId == chatId }
+        
+    override fun observePins(chatId: String): Flow<String> = 
+        observeEventString("MESSAGE_PINNED") // Should filter by chatId, but backend doesn't send chatId for pins currently
+        
+    override fun observeUnpins(chatId: String): Flow<String> = 
+        observeEventString("MESSAGE_UNPINNED")
+        
+    override fun observeReadReceipts(chatId: String): Flow<ReadReceiptEvent> = 
+        observeEvent<ReadReceiptEvent>("MESSAGE_READ").filter { it.chatId == chatId }
     
     override fun observePresence(userId: String): Flow<PresenceStatusResponse> = 
-        kotlinx.coroutines.flow.merge(
-            observeTopic("/app/user/$userId/presence"),
-            observeTopic("/topic/user/$userId/presence")
-        )
+        observeEvent<PresenceStatusResponse>("PRESENCE_UPDATE").filter { it.userId == userId }
 
     override suspend fun sendTypingEvent(chatId: String, isTyping: Boolean) {
         try {
@@ -235,4 +268,6 @@ class KrossbowWebSocketDataSource @Inject constructor(
             Log.w(TAG, "Failed to send typing event", e)
         }
     }
+
+    override fun observeAllEvents(): Flow<ru.kubsu.borshchevyk.core.network.dto.AppEventDto> = appEvents
 }

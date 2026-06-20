@@ -7,6 +7,7 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.buffer
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
@@ -35,6 +36,11 @@ import ru.kubsu.borshchevyk.core.network.mesh.MeshSignatureService
 import ru.kubsu.borshchevyk.core.network.message.MessageNetworkDataSource
 import ru.kubsu.borshchevyk.core.network.websocket.ChatWebSocketDataSource
 import ru.kubsu.borshchevyk.core.network.websocket.PresenceWebSocketDataSource
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
+import ru.kubsu.borshchevyk.core.data.sync.SyncRepository
+import ru.kubsu.borshchevyk.core.model.domain.EventType
+import java.util.UUID
 import javax.inject.Inject
 
 /**
@@ -58,14 +64,23 @@ class MessageRepositoryImpl @Inject constructor(
     private val userDao: UserDao,
     private val meshProfileListener: MeshProfileListener,
     private val signatureService: MeshSignatureService,
+    private val syncRepository: SyncRepository,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
     @ApplicationScope private val scope: CoroutineScope
 ) : MessageRepository {
+
+    private val json = Json { ignoreUnknownKeys = true }
 
     init {
         meshProfileListener.startListening()
         // Ensure that Mesh chat events are processed even when the UI is not active.
         observeChatEvents().launchIn(scope)
+        
+        // Subscribe to incoming background sync events for the Message Domain
+        syncRepository.incomingEvents
+            .filter { it.eventType.name.startsWith("MESSAGE_") }
+            .onEach { processMessageEvent(it) }
+            .launchIn(scope)
     }
 
     /**
@@ -84,18 +99,36 @@ class MessageRepositoryImpl @Inject constructor(
         forwardedFromChatId: String?, 
         forwardedFromUserId: String?
     ) {
-        val message = networkDataSource.sendMessage(
-            chatId, 
-            SendMessageRequest(
-                text = text,
-                attachmentIds = attachmentIds,
-                forwardedFromChatId = forwardedFromChatId,
-                forwardedFromUserId = forwardedFromUserId
-            )
-        ).getOrThrow().toDomain()
+        val request = SendMessageRequest(
+            text = text,
+            attachmentIds = attachmentIds,
+            forwardedFromChatId = forwardedFromChatId,
+            forwardedFromUserId = forwardedFromUserId
+        )
+        val payloadString = Json.encodeToString(request)
         
+        // 1. Enqueue the event for background sync
+        syncRepository.enqueueEvent(
+            entityId = chatId,
+            eventType = EventType.MESSAGE_CREATED,
+            payload = payloadString
+        )
+        
+        // 2. Save a temporary "Sending" message to the local database for instant UI feedback
+        val tempId = UUID.randomUUID().toString()
+        val tempMessage = Message(
+            id = tempId,
+            chatId = chatId,
+            authorId = signatureService.getUserId() ?: "self",
+            text = text,
+            createdAt = java.time.Instant.now().toString(),
+            status = MessageStatus.SENDING
+        )
         withContext(ioDispatcher) {
-            message.saveToDb()
+            tempMessage.saveToDb()
+            
+            // 3. Attempt immediate push if online
+            syncRepository.push()
         }
     }
 
@@ -614,6 +647,64 @@ class MessageRepositoryImpl @Inject constructor(
         if (chat != null) {
             val previewText = if (attachments.isNotEmpty() && text.isBlank()) "Attachment" else text
             chatDao.upsertChat(chat.copy(lastMessage = previewText))
+        }
+    }
+
+    /**
+     * Processes incoming synchronization events from the background SyncRepository.
+     * Implements Last-Write-Wins (LWW) conflict resolution logic using timestamps.
+     */
+    private suspend fun processMessageEvent(event: ru.kubsu.borshchevyk.core.model.domain.SyncEvent) {
+        withContext(ioDispatcher) {
+            try {
+                when (event.eventType) {
+                    EventType.MESSAGE_CREATED, EventType.MESSAGE_UPDATED -> {
+                        // Deserialize the backend payload into our local domain model
+                        val incomingMessage = json.decodeFromString<Message>(event.payload)
+                        
+                        // LWW Conflict Resolution
+                        val localMsgWithDetails = messageDao.getMessage(incomingMessage.id)
+                        if (localMsgWithDetails != null) {
+                            val localTime = localMsgWithDetails.message.updatedAt ?: localMsgWithDetails.message.createdAt
+                            val remoteTime = incomingMessage.updatedAt ?: incomingMessage.createdAt
+                            
+                            // If local is strictly newer, ignore the remote event
+                            if (localTime > remoteTime) {
+                                return@withContext
+                            }
+                        }
+                        
+                        // Overwrite local state with incoming state
+                        incomingMessage.saveToDb()
+                    }
+                    EventType.MESSAGE_DELETED -> {
+                        messageDao.deleteMessage(event.entityId)
+                    }
+                    EventType.MESSAGE_READ -> {
+                        // The payload contains chatId — reset unread count for this chat
+                        try {
+                            val root = json.parseToJsonElement(event.payload)
+                            val chatId = if (root is kotlinx.serialization.json.JsonObject) {
+                                root["chatId"]?.let { 
+                                    (it as? kotlinx.serialization.json.JsonPrimitive)?.content 
+                                } ?: event.entityId
+                            } else event.entityId
+                            
+                            val existingChat = chatDao.getChat(chatId)
+                            if (existingChat != null) {
+                                chatDao.upsertChat(existingChat.copy(unreadCount = 0))
+                            }
+                        } catch (e: Exception) {
+                            Log.w("MessageRepository", "MESSAGE_READ: failed to process", e)
+                        }
+                    }
+                    else -> {
+                        // Ignore events from other domains
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("MessageRepository", "Failed to process message sync event: ${event.id}", e)
+            }
         }
     }
 }

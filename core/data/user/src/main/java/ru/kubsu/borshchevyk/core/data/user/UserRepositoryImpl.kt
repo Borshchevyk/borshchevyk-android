@@ -29,6 +29,14 @@ import ru.kubsu.borshchevyk.core.network.dto.UpdateProfileRequest
 import ru.kubsu.borshchevyk.core.network.user.UserNetworkDataSource
 import javax.inject.Inject
 
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.json.Json
+import ru.kubsu.borshchevyk.core.data.sync.SyncRepository
+import ru.kubsu.borshchevyk.core.model.domain.EventType
+
 /**
  * Implementation of [UserRepository] managing user profile data and privacy settings.
  *
@@ -45,10 +53,19 @@ class UserRepositoryImpl @Inject constructor(
     private val userDao: UserDao,
     private val privacySettingsDao: PrivacySettingsDao,
     private val transportModeManager: TransportModeManager,
+    private val syncRepository: SyncRepository,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher
 ) : UserRepository {
 
     private val repositoryScope = CoroutineScope(SupervisorJob() + ioDispatcher)
+    private val json = Json { ignoreUnknownKeys = true }
+
+    init {
+        syncRepository.incomingEvents
+            .filter { it.eventType.name.startsWith("USER_") }
+            .onEach { processUserEvent(it) }
+            .launchIn(repositoryScope)
+    }
 
     override fun observeUserProfile(userId: String): Flow<User?> = userDao.observeUser(userId).map { it?.toDomain() }
 
@@ -153,4 +170,37 @@ class UserRepositoryImpl @Inject constructor(
         profilePhotoVisibility = profilePhotoVisibility,
         inviteToChatVisibility = inviteToChatVisibility
     )
+
+    private fun User.toEntity() = ru.kubsu.borshchevyk.core.database.entity.UserEntity(
+        userId = userId,
+        email = email,
+        tag = tag,
+        firstName = firstName,
+        lastName = lastName,
+        bio = bio,
+        avatarUrl = avatarUrl,
+        avatars = avatars
+    )
+
+    /**
+     * Processes incoming synchronization events from the background SyncRepository.
+     */
+    private suspend fun processUserEvent(event: ru.kubsu.borshchevyk.core.model.domain.SyncEvent) {
+        withContext(ioDispatcher) {
+            try {
+                when (event.eventType) {
+                    EventType.USER_REGISTERED, EventType.USER_UPDATED -> {
+                        val incomingUser = json.decodeFromString<User>(event.payload)
+                        userDao.upsertUser(incomingUser.toEntity())
+                    }
+                    EventType.USER_DELETED -> {
+                        userDao.deleteUser(event.entityId)
+                    }
+                    else -> {}
+                }
+            } catch (e: Exception) {
+                Log.e("UserRepository", "Failed to process user sync event", e)
+            }
+        }
+    }
 }

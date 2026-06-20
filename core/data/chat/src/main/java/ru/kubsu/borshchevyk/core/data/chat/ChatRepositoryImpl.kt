@@ -32,6 +32,14 @@ import ru.kubsu.borshchevyk.core.network.dto.UpdateChatInfoRequest
 import ru.kubsu.borshchevyk.core.network.dto.UpdatePermissionsRequest
 import javax.inject.Inject
 
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.json.Json
+import ru.kubsu.borshchevyk.core.data.sync.SyncRepository
+import ru.kubsu.borshchevyk.core.model.domain.EventType
+
 /**
  * Implementation of [ChatRepository] that manages chat list and chat actions.
  *
@@ -49,10 +57,22 @@ class ChatRepositoryImpl @Inject constructor(
     private val messageDao: MessageDao,
     private val chatMemberDao: ru.kubsu.borshchevyk.core.database.dao.ChatMemberDao,
     private val userDao: ru.kubsu.borshchevyk.core.database.dao.UserDao,
+    private val syncRepository: SyncRepository,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher
 ) : ChatRepository {
 
     private val repositoryScope = CoroutineScope(SupervisorJob() + ioDispatcher)
+    private val json = Json { ignoreUnknownKeys = true }
+
+    init {
+        syncRepository.incomingEvents
+            .filter { 
+                it.eventType.name.startsWith("CHAT_") || 
+                it.eventType.name.startsWith("MEMBER_") 
+            }
+            .onEach { processChatEvent(it) }
+            .launchIn(repositoryScope)
+    }
 
     /**
      * Observes a continuous stream of the user's chats from the local database.
@@ -372,5 +392,118 @@ class ChatRepositoryImpl @Inject constructor(
                 )
             }
         )
+    }
+
+    /**
+     * Processes incoming synchronization events from the background SyncRepository.
+     * Implements Last-Write-Wins (LWW) conflict resolution logic using timestamps.
+     */
+    private suspend fun processChatEvent(event: ru.kubsu.borshchevyk.core.model.domain.SyncEvent) {
+        withContext(ioDispatcher) {
+            try {
+                when (event.eventType) {
+                    EventType.CHAT_CREATED, EventType.CHAT_UPDATED -> {
+                        val incomingChat = json.decodeFromString<Chat>(event.payload)
+                        val entity = ru.kubsu.borshchevyk.core.database.entity.ChatEntity(
+                            id = incomingChat.id,
+                            type = incomingChat.type,
+                            title = incomingChat.title,
+                            description = incomingChat.description,
+                            partnerId = incomingChat.partnerId,
+                            partnerName = incomingChat.partnerName,
+                            partnerAvatarUrl = incomingChat.partnerAvatarUrl,
+                            partnerLastOnline = incomingChat.partnerLastOnline,
+                            lastMessage = incomingChat.lastMessage,
+                            unreadCount = incomingChat.unreadCount,
+                            allowedReactions = incomingChat.allowedReactions,
+                            isDeletable = incomingChat.isDeletable,
+                            isPinned = incomingChat.isPinned,
+                            createdAt = incomingChat.createdAt,
+                            titleUpdatedAt = 0L,
+                            descriptionUpdatedAt = 0L
+                        )
+                        
+                        // Sync events are ordered by vector clock during pull, so we can overwrite.
+                        val existing = chatDao.getChat(entity.id)
+                        if (existing != null) {
+                            chatDao.upsertChat(entity.copy(titleUpdatedAt = existing.titleUpdatedAt, descriptionUpdatedAt = existing.descriptionUpdatedAt))
+                        } else {
+                            chatDao.upsertChat(entity)
+                        }
+                    }
+                    EventType.CHAT_DELETED -> {
+                        chatDao.deleteChat(event.entityId)
+                        messageDao.deleteMessagesByChat(event.entityId)
+                    }
+                    EventType.MEMBER_ADDED -> {
+                        try {
+                            val memberEvent = json.decodeFromString<ru.kubsu.borshchevyk.core.network.dto.CrdtMemberUpdateEvent>(event.payload)
+                            val now = System.currentTimeMillis()
+                            val entity = ru.kubsu.borshchevyk.core.database.entity.ChatMemberEntity(
+                                chatId = memberEvent.chatId,
+                                userId = memberEvent.targetUserId,
+                                role = memberEvent.role ?: "MEMBER",
+                                joinedAt = event.timestamp,
+                                status = "ACTIVE",
+                                canSendMessages = memberEvent.canSendMessages ?: true,
+                                canDeleteMessages = memberEvent.canDeleteMessages ?: false,
+                                canInviteUsers = memberEvent.canInviteUsers ?: false,
+                                canChangeInfo = memberEvent.canChangeInfo ?: false,
+                                roleUpdatedAt = memberEvent.roleUpdatedAt.takeIf { it > 0 } ?: now,
+                                statusUpdatedAt = memberEvent.statusUpdatedAt.takeIf { it > 0 } ?: now,
+                                permissionsUpdatedAt = memberEvent.permissionsUpdatedAt.takeIf { it > 0 } ?: now
+                            )
+                            chatMemberDao.upsertMemberWithLWW(entity)
+                        } catch (e: Exception) {
+                            // Fallback: payload might just contain userId/chatId from Kafka event
+                            Log.w("ChatRepository", "MEMBER_ADDED: could not parse CrdtMemberUpdateEvent, skipping", e)
+                        }
+                    }
+                    EventType.MEMBER_REMOVED -> {
+                        try {
+                            val memberEvent = json.decodeFromString<ru.kubsu.borshchevyk.core.network.dto.CrdtMemberUpdateEvent>(event.payload)
+                            val now = System.currentTimeMillis()
+                            val existing = chatMemberDao.getMember(memberEvent.chatId, memberEvent.targetUserId)
+                            if (existing != null) {
+                                chatMemberDao.insertOrReplace(existing.copy(
+                                    status = "LEFT",
+                                    statusUpdatedAt = memberEvent.statusUpdatedAt.takeIf { it > 0 } ?: now
+                                ))
+                            } else {
+                                chatMemberDao.deleteMember(memberEvent.chatId, memberEvent.targetUserId)
+                            }
+                        } catch (e: Exception) {
+                            Log.w("ChatRepository", "MEMBER_REMOVED: could not parse CrdtMemberUpdateEvent, skipping", e)
+                        }
+                    }
+                    EventType.MEMBER_UPDATED -> {
+                        try {
+                            val memberEvent = json.decodeFromString<ru.kubsu.borshchevyk.core.network.dto.CrdtMemberUpdateEvent>(event.payload)
+                            val now = System.currentTimeMillis()
+                            val entity = ru.kubsu.borshchevyk.core.database.entity.ChatMemberEntity(
+                                chatId = memberEvent.chatId,
+                                userId = memberEvent.targetUserId,
+                                role = memberEvent.role ?: "MEMBER",
+                                joinedAt = event.timestamp,
+                                status = memberEvent.status ?: "ACTIVE",
+                                canSendMessages = memberEvent.canSendMessages ?: true,
+                                canDeleteMessages = memberEvent.canDeleteMessages ?: false,
+                                canInviteUsers = memberEvent.canInviteUsers ?: false,
+                                canChangeInfo = memberEvent.canChangeInfo ?: false,
+                                roleUpdatedAt = memberEvent.roleUpdatedAt.takeIf { it > 0 } ?: now,
+                                statusUpdatedAt = memberEvent.statusUpdatedAt.takeIf { it > 0 } ?: now,
+                                permissionsUpdatedAt = memberEvent.permissionsUpdatedAt.takeIf { it > 0 } ?: now
+                            )
+                            chatMemberDao.upsertMemberWithLWW(entity)
+                        } catch (e: Exception) {
+                            Log.w("ChatRepository", "MEMBER_UPDATED: could not parse CrdtMemberUpdateEvent, skipping", e)
+                        }
+                    }
+                    else -> {}
+                }
+            } catch (e: Exception) {
+                Log.e("ChatRepository", "Failed to process chat sync event", e)
+            }
+        }
     }
 }

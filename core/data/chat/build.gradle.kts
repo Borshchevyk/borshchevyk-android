@@ -23,8 +23,10 @@ dependencies {
     implementation(project(":core:network:client"))
     
     implementation(project(":core:database"))
+    implementation(project(":core:data:sync"))
     
     implementation(libs.kotlinx.coroutines.core)
+    implementation(libs.kotlinx.serialization.json)
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
 }
