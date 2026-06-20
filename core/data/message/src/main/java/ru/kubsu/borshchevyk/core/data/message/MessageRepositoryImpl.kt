@@ -99,36 +99,18 @@ class MessageRepositoryImpl @Inject constructor(
         forwardedFromChatId: String?, 
         forwardedFromUserId: String?
     ) {
-        val request = SendMessageRequest(
-            text = text,
-            attachmentIds = attachmentIds,
-            forwardedFromChatId = forwardedFromChatId,
-            forwardedFromUserId = forwardedFromUserId
-        )
-        val payloadString = Json.encodeToString(request)
+        val message = networkDataSource.sendMessage(
+            chatId, 
+            SendMessageRequest(
+                text = text,
+                attachmentIds = attachmentIds,
+                forwardedFromChatId = forwardedFromChatId,
+                forwardedFromUserId = forwardedFromUserId
+            )
+        ).getOrThrow().toDomain()
         
-        // 1. Enqueue the event for background sync
-        syncRepository.enqueueEvent(
-            entityId = chatId,
-            eventType = EventType.MESSAGE_CREATED,
-            payload = payloadString
-        )
-        
-        // 2. Save a temporary "Sending" message to the local database for instant UI feedback
-        val tempId = UUID.randomUUID().toString()
-        val tempMessage = Message(
-            id = tempId,
-            chatId = chatId,
-            authorId = signatureService.getUserId() ?: "self",
-            text = text,
-            createdAt = java.time.Instant.now().toString(),
-            status = MessageStatus.SENDING
-        )
         withContext(ioDispatcher) {
-            tempMessage.saveToDb()
-            
-            // 3. Attempt immediate push if online
-            syncRepository.push()
+            message.saveToDb()
         }
     }
 
@@ -291,7 +273,20 @@ class MessageRepositoryImpl @Inject constructor(
                             messageDao.deleteMessagesByChat(domainEvent.chat.id)
                         } else {
                             val entityToSave = chatDto.toEntity()
-                            chatDao.upsertChat(entityToSave)
+                            // For non-MESSAGE actions (e.g. INFO_UPDATED, PINNED),
+                            // preserve the local unreadCount to avoid overwriting
+                            // a freshly-zeroed value with stale server data.
+                            val action = domainEvent.action
+                            if (action != GlobalChatAction.MESSAGE) {
+                                val existingChat = chatDao.getChat(entityToSave.id)
+                                if (existingChat != null && existingChat.unreadCount == 0L && entityToSave.unreadCount > 0) {
+                                    chatDao.upsertChat(entityToSave.copy(unreadCount = 0))
+                                } else {
+                                    chatDao.upsertChat(entityToSave)
+                                }
+                            } else {
+                                chatDao.upsertChat(entityToSave)
+                            }
                         }
                     }
                 } catch (e: Exception) {
@@ -553,6 +548,14 @@ class MessageRepositoryImpl @Inject constructor(
      * @param messageId The ID of the read message.
      */
     override suspend fun readMessage(chatId: String, messageId: String) {
+        // Optimistically zero out unread count locally so the chat list
+        // shows the correct badge immediately when the user navigates back.
+        withContext(ioDispatcher) {
+            val chat = chatDao.getChat(chatId)
+            if (chat != null && chat.unreadCount > 0) {
+                chatDao.upsertChat(chat.copy(unreadCount = 0))
+            }
+        }
         networkDataSource.readMessage(chatId, messageId).getOrThrow()
     }
 
