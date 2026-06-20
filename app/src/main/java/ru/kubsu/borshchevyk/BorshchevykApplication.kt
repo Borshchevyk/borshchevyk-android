@@ -30,7 +30,7 @@ class BorshchevykApplication : Application(), ImageLoaderFactory {
                 val urlString = request.url.toString()
                 
                 // Rewrite /avatars/ to /api/v1/media/avatars/
-                if (urlString.startsWith("https://dev.borshchevik.su/avatars/")) {
+                if (urlString.startsWith("https://borshchevik.su/avatars/")) {
                     val newUrl = request.url.newBuilder()
                         .encodedPath(request.url.encodedPath.replaceFirst("/avatars/", "/api/v1/media/avatars/"))
                         .build()
@@ -38,7 +38,7 @@ class BorshchevykApplication : Application(), ImageLoaderFactory {
                 }
                 
                 // Add Authorization header for our backend
-                if (request.url.host == "dev.borshchevik.su") {
+                if (request.url.host == "borshchevik.su") {
                     val token = tokenProvider.getAccessTokenSync()
                     if (!token.isNullOrEmpty()) {
                         request = request.newBuilder()

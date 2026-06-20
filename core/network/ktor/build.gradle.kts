@@ -16,11 +16,11 @@ android {
     }
     buildTypes {
         debug {
-            buildConfigField("String", "BASE_URL", "\"https://dev.borshchevik.su/\"")
+            buildConfigField("String", "BASE_URL", "\"https://borshchevik.su/\"")
             buildConfigField("long", "TIMEOUT_MILLIS", "60000L")
         }
         release {
-            buildConfigField("String", "BASE_URL", "\"https://dev.borshchevik.su/\"")
+            buildConfigField("String", "BASE_URL", "\"https://borshchevik.su/\"")
             buildConfigField("long", "TIMEOUT_MILLIS", "60000L")
         }
     }

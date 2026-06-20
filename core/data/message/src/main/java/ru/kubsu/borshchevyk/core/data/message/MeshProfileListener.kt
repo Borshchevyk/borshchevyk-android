@@ -87,7 +87,7 @@ class MeshProfileListener @Inject constructor(
                             // Sanitize avatarUrl: remove any potential server URL prefix and normalize to mesh://
                             val sanitizedAvatarUrl = payload.avatarUrl?.let { url ->
                                 val id = if (url.contains("mesh://")) url.substringAfter("mesh://")
-                                         else url.substringAfter("https://dev.borshchevik.su/")
+                                         else url.substringAfter("https://borshchevik.su/")
                                 
                                 if (id.startsWith("avatar/") || id.startsWith("avatar_")) "mesh://$id" else url
                             }
@@ -190,7 +190,7 @@ class MeshProfileListener @Inject constructor(
                 // Sanitize: ensure only the mesh ID part is sent, normalized.
                 avatarUrl = localUser?.avatarUrl?.let { url ->
                     val id = if (url.contains("mesh://")) url.substringAfter("mesh://")
-                             else url.substringAfter("https://dev.borshchevik.su/")
+                             else url.substringAfter("https://borshchevik.su/")
                     
                     if (id.startsWith("avatar/") || id.startsWith("avatar_")) id else url
                 },

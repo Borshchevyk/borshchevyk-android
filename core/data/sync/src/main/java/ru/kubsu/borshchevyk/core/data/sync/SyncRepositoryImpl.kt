@@ -6,6 +6,7 @@ import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import ru.kubsu.borshchevyk.core.database.dao.SyncDao
 import ru.kubsu.borshchevyk.core.model.domain.EventType
 import ru.kubsu.borshchevyk.core.model.domain.SyncEvent
@@ -44,90 +45,98 @@ class SyncRepositoryImpl @Inject constructor(
     }
 
     override suspend fun enqueueEvent(entityId: String, eventType: EventType, payload: String) {
-        clockMutex.withLock {
-            val currentClock = syncPreferences.getVectorClock()
-            val nodeId = syncPreferences.getNodeId()
-            val newClock = currentClock.increment(nodeId)
-            syncPreferences.saveVectorClock(newClock)
+        withContext(Dispatchers.IO) {
+            clockMutex.withLock {
+                val currentClock = syncPreferences.getVectorClock()
+                val nodeId = syncPreferences.getNodeId()
+                val newClock = currentClock.increment(nodeId)
+                syncPreferences.saveVectorClock(newClock)
+                
+                val event = SyncEvent(
+                    id = UUID.randomUUID().toString(),
+                    entityId = entityId,
+                    eventType = eventType,
+                    payload = payload,
+                    vectorClock = newClock,
+                    timestamp = Instant.now().toString()
+                )
+                syncDao.insertSyncEvent(event.toEntity())
+            }
+        }
+    }
+
+    override suspend fun push(): Boolean {
+        return withContext(Dispatchers.IO) {
+            val outboxEvents = syncDao.getUnsyncedEvents()
+            if (outboxEvents.isEmpty()) return@withContext true
             
+            val dtos = outboxEvents.map { it.toDomain().toDto() }
+            val result = syncNetworkDataSource.pushEvents(dtos)
+            
+            if (result is NetworkResult.Success) {
+                val serverClock = result.data
+                clockMutex.withLock {
+                    val localClock = syncPreferences.getVectorClock()
+                    syncPreferences.saveVectorClock(localClock.merge(serverClock))
+                }
+                
+                syncDao.deleteEvents(outboxEvents.map { it.id })
+                return@withContext true
+            }
+            return@withContext false
+        }
+    }
+
+    override suspend fun pull(): Boolean {
+        return withContext(Dispatchers.IO) {
+            var hasMore = true
+            var isSuccess = false
+            
+            while (hasMore) {
+                var currentClock = clockMutex.withLock { syncPreferences.getVectorClock() }
+                val result = syncNetworkDataSource.pullEvents(currentClock, 100)
+                
+                if (result is NetworkResult.Success) {
+                    isSuccess = true
+                    val response = result.data
+                    val events = response.events.map { it.toDomain() }
+                    
+                    for (event in events) {
+                        _incomingEvents.emit(event)
+                        clockMutex.withLock {
+                            val localClock = syncPreferences.getVectorClock()
+                            val mergedClock = localClock.merge(event.vectorClock)
+                            syncPreferences.saveVectorClock(mergedClock)
+                        }
+                    }
+                    
+                    hasMore = response.hasMore
+                } else {
+                    hasMore = false
+                }
+            }
+            return@withContext isSuccess
+        }
+    }
+
+    override suspend fun emitRealtimeEvent(entityId: String, eventType: EventType, payload: String, vectorClock: VectorClock?) {
+        withContext(Dispatchers.IO) {
+            val resolvedClock = vectorClock ?: VectorClock()
             val event = SyncEvent(
                 id = UUID.randomUUID().toString(),
                 entityId = entityId,
                 eventType = eventType,
                 payload = payload,
-                vectorClock = newClock,
-                timestamp = Instant.now().toString()
+                vectorClock = resolvedClock,
+                timestamp = java.time.Instant.now().toString()
             )
-            syncDao.insertSyncEvent(event.toEntity())
-        }
-    }
+            _incomingEvents.emit(event)
 
-    override suspend fun push(): Boolean {
-        val outboxEvents = syncDao.getUnsyncedEvents()
-        if (outboxEvents.isEmpty()) return true
-        
-        val dtos = outboxEvents.map { it.toDomain().toDto() }
-        val result = syncNetworkDataSource.pushEvents(dtos)
-        
-        if (result is NetworkResult.Success) {
-            val serverClock = result.data
-            clockMutex.withLock {
-                val localClock = syncPreferences.getVectorClock()
-                syncPreferences.saveVectorClock(localClock.merge(serverClock))
-            }
-            
-            syncDao.deleteEvents(outboxEvents.map { it.id })
-            return true
-        }
-        return false
-    }
-
-    override suspend fun pull(): Boolean {
-        var hasMore = true
-        var isSuccess = false
-        
-        while (hasMore) {
-            var currentClock = clockMutex.withLock { syncPreferences.getVectorClock() }
-            val result = syncNetworkDataSource.pullEvents(currentClock, 100)
-            
-            if (result is NetworkResult.Success) {
-                isSuccess = true
-                val response = result.data
-                val events = response.events.map { it.toDomain() }
-                
-                for (event in events) {
-                    _incomingEvents.emit(event)
-                    clockMutex.withLock {
-                        val localClock = syncPreferences.getVectorClock()
-                        val mergedClock = localClock.merge(event.vectorClock)
-                        syncPreferences.saveVectorClock(mergedClock)
-                    }
+            if (vectorClock != null) {
+                clockMutex.withLock {
+                    val localClock = syncPreferences.getVectorClock()
+                    syncPreferences.saveVectorClock(localClock.merge(vectorClock))
                 }
-                
-                hasMore = response.hasMore
-            } else {
-                hasMore = false
-            }
-        }
-        return isSuccess
-    }
-
-    override suspend fun emitRealtimeEvent(entityId: String, eventType: EventType, payload: String, vectorClock: VectorClock?) {
-        val resolvedClock = vectorClock ?: VectorClock()
-        val event = SyncEvent(
-            id = UUID.randomUUID().toString(),
-            entityId = entityId,
-            eventType = eventType,
-            payload = payload,
-            vectorClock = resolvedClock,
-            timestamp = java.time.Instant.now().toString()
-        )
-        _incomingEvents.emit(event)
-
-        if (vectorClock != null) {
-            clockMutex.withLock {
-                val localClock = syncPreferences.getVectorClock()
-                syncPreferences.saveVectorClock(localClock.merge(vectorClock))
             }
         }
     }
