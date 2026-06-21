@@ -8,6 +8,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
@@ -101,6 +102,16 @@ class ChatViewModel @Inject constructor(
                 ) }
                 
                 chatPresenceHandler.getPartnerId(chatId)?.let { partnerId ->
+                    val initialChat = chatHistoryHandler.observeChats().firstOrNull()?.find { it.id == chatId }
+                    initialChat?.partnerLastOnline?.let { lastSeenStr ->
+                        try {
+                            val lastSeenAt = java.time.Instant.parse(lastSeenStr).toEpochMilli()
+                            container.updateState { it.updatePresence(isOnline = false, lastSeenAt = lastSeenAt) }
+                        } catch (e: Exception) {
+                            Log.w("ChatVM", "Failed to parse partnerLastOnline ISO string", e)
+                        }
+                    }
+
                     chatPresenceHandler.observePresence(partnerId).onEach { presence ->
                         container.updateState { it.updatePresence(presence.isOnline, presence.lastSeenAt) }
                     }.launchIn(viewModelScope)

@@ -16,14 +16,18 @@ class LocalMediaInteractor @Inject constructor(
 ) {
     suspend fun resolveAttachment(uri: Uri): AttachmentFile? = withContext(Dispatchers.IO) {
         try {
-            var fileName = "unknown"
+            var fileName = uri.lastPathSegment ?: "unknown"
             var size = 0L
-            context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
-                val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
-                val sizeIndex = cursor.getColumnIndex(OpenableColumns.SIZE)
-                if (cursor.moveToFirst()) {
-                    if (nameIndex != -1) fileName = cursor.getString(nameIndex)
-                    if (sizeIndex != -1) size = cursor.getLong(sizeIndex)
+            if (uri.scheme == "file" && uri.path != null) {
+                size = java.io.File(uri.path!!).length()
+            } else {
+                context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+                    val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                    val sizeIndex = cursor.getColumnIndex(OpenableColumns.SIZE)
+                    if (cursor.moveToFirst()) {
+                        if (nameIndex != -1) fileName = cursor.getString(nameIndex)
+                        if (sizeIndex != -1) size = cursor.getLong(sizeIndex)
+                    }
                 }
             }
             val contentType = context.contentResolver.getType(uri) ?: "application/octet-stream"
@@ -52,10 +56,14 @@ class LocalMediaInteractor @Inject constructor(
     suspend fun resolveAudio(uri: Uri): AttachmentFile? = withContext(Dispatchers.IO) {
          try {
              var size = 0L
-             context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
-                 val sizeIndex = cursor.getColumnIndex(OpenableColumns.SIZE)
-                 if (cursor.moveToFirst() && sizeIndex != -1) {
-                     size = cursor.getLong(sizeIndex)
+             if (uri.scheme == "file" && uri.path != null) {
+                 size = java.io.File(uri.path!!).length()
+             } else {
+                 context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+                     val sizeIndex = cursor.getColumnIndex(OpenableColumns.SIZE)
+                     if (cursor.moveToFirst() && sizeIndex != -1) {
+                         size = cursor.getLong(sizeIndex)
+                     }
                  }
              }
              val duration = MediaUtil.extractDuration(context, uri)
