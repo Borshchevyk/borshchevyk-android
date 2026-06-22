@@ -3,6 +3,7 @@ package ru.kubsu.borshchevyk.feature.chat.chatlist.ui.components
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -106,7 +107,10 @@ internal fun ChatItem(
             
             Spacer(modifier = Modifier.width(16.dp))
             
-            Column(modifier = Modifier.weight(1f)) {
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.Center
+            ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         text = displayName,
@@ -125,14 +129,16 @@ internal fun ChatItem(
                         )
                     }
                 }
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    text = chat.lastMessage ?: "No messages yet",
-                    style = BorshchevykTheme.typography.bodyMedium,
-                    color = BorshchevykTheme.colors.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+                if (chat.lastMessage?.isNotBlank() == true) {
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = chat.lastMessage ?: "No messages yet",
+                        style = BorshchevykTheme.typography.bodyMedium,
+                        color = BorshchevykTheme.colors.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
             }
 
             if (chat.unreadCount > 0) {
