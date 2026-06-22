@@ -103,7 +103,9 @@ fun ChatTopAppBar(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
-                    ChatStatusLine(context, typingUsers)
+                    if (typingUsers.isNotEmpty()) {
+                        ChatStatusLine(context, typingUsers)
+                    }
                 }
             }
         },
