@@ -42,7 +42,8 @@ class WebSocketSyncBridge @Inject constructor(
         "MEMBER_ADDED", "MEMBER_REMOVED", "MEMBER_UPDATED",
         "MESSAGE_READ",
         "CONTACT_ADDED", "CONTACT_REMOVED", "CONTACT_UPDATED",
-        "PRIVACY_SETTINGS_UPDATED"
+        "PRIVACY_SETTINGS_UPDATED",
+        "USER_UPDATED", "USER_REGISTERED", "USER_DELETED"
     )
 
     private val eventTypeMapping = mapOf(
@@ -53,7 +54,10 @@ class WebSocketSyncBridge @Inject constructor(
         "CONTACT_ADDED" to EventType.CONTACT_ADDED,
         "CONTACT_REMOVED" to EventType.CONTACT_REMOVED,
         "CONTACT_UPDATED" to EventType.CONTACT_UPDATED,
-        "PRIVACY_SETTINGS_UPDATED" to EventType.PRIVACY_SETTINGS_UPDATED
+        "PRIVACY_SETTINGS_UPDATED" to EventType.PRIVACY_SETTINGS_UPDATED,
+        "USER_UPDATED" to EventType.USER_UPDATED,
+        "USER_REGISTERED" to EventType.USER_REGISTERED,
+        "USER_DELETED" to EventType.USER_DELETED
     )
 
     fun startListening() {
