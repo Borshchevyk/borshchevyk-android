@@ -106,7 +106,9 @@ class ChatViewModel @Inject constructor(
                     initialChat?.partnerLastOnline?.let { lastSeenStr ->
                         try {
                             val lastSeenAt = java.time.Instant.parse(lastSeenStr).toEpochMilli()
-                            container.updateState { it.updatePresence(isOnline = false, lastSeenAt = lastSeenAt) }
+                            val diff = System.currentTimeMillis() - lastSeenAt
+                            val isOnline = diff < 5 * 60 * 1000 // 5 minutes
+                            container.updateState { it.updatePresence(isOnline = isOnline, lastSeenAt = lastSeenAt) }
                         } catch (e: Exception) {
                             Log.w("ChatVM", "Failed to parse partnerLastOnline ISO string", e)
                         }

@@ -18,6 +18,7 @@ import ru.kubsu.borshchevyk.core.database.dao.ChatDao
 import ru.kubsu.borshchevyk.core.database.dao.MessageDao
 import ru.kubsu.borshchevyk.core.database.dao.UserDao
 import ru.kubsu.borshchevyk.core.database.entity.ReactionEntity
+import ru.kubsu.borshchevyk.core.database.entity.mergeWith
 import ru.kubsu.borshchevyk.core.domain.message.MessageRepository
 import ru.kubsu.borshchevyk.core.model.domain.DomainGlobalChatEvent
 import ru.kubsu.borshchevyk.core.model.domain.DomainPresenceStatus
@@ -276,20 +277,8 @@ class MessageRepositoryImpl @Inject constructor(
                             messageDao.deleteMessagesByChat(domainEvent.chat.id)
                         } else {
                             val entityToSave = chatDto.toEntity()
-                            // For non-MESSAGE actions (e.g. INFO_UPDATED, PINNED),
-                            // preserve the local unreadCount to avoid overwriting
-                            // a freshly-zeroed value with stale server data.
-                            val action = domainEvent.action
-                            if (action != GlobalChatAction.MESSAGE) {
-                                val existingChat = chatDao.getChat(entityToSave.id)
-                                if (existingChat != null && existingChat.unreadCount == 0L && entityToSave.unreadCount > 0) {
-                                    chatDao.upsertChat(entityToSave.copy(unreadCount = 0))
-                                } else {
-                                    chatDao.upsertChat(entityToSave)
-                                }
-                            } else {
-                                chatDao.upsertChat(entityToSave)
-                            }
+                            val existingChat = chatDao.getChat(entityToSave.id)
+                            chatDao.upsertChat(entityToSave.mergeWith(existingChat))
                         }
                     }
                 } catch (e: Exception) {
@@ -424,7 +413,25 @@ class MessageRepositoryImpl @Inject constructor(
      * @return A [Flow] emitting [DomainPresenceStatus] models.
      */
     override fun observePresence(userId: String): Flow<DomainPresenceStatus> = 
-        presenceWebSocketDataSource.observePresence(userId).map { DomainPresenceStatus(it.userId, it.isOnline, it.lastSeenAt) }
+        presenceWebSocketDataSource.observePresence(userId)
+            .map { DomainPresenceStatus(it.userId, it.isOnline, it.lastSeenAt) }
+            .onEach { presence ->
+                withContext(ioDispatcher) {
+                    try {
+                        val chat = chatDao.getChatByPartnerId(presence.userId)
+                        if (chat != null) {
+                            val lastSeenInstant = if (presence.isOnline) {
+                                java.time.Instant.now()
+                            } else {
+                                presence.lastSeenAt?.let { java.time.Instant.ofEpochMilli(it) } ?: java.time.Instant.now()
+                            }
+                            chatDao.upsertChat(chat.copy(partnerLastOnline = lastSeenInstant.toString()))
+                        }
+                    } catch (e: Exception) {
+                        Log.e("MessageRepository", "Failed to update partner presence in DB", e)
+                    }
+                }
+            }
 
     /**
      * Sends a typing event indicator to the chat via WebSocket.

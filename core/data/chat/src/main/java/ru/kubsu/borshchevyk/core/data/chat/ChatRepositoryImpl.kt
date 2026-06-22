@@ -39,6 +39,7 @@ import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 import ru.kubsu.borshchevyk.core.data.sync.SyncRepository
 import ru.kubsu.borshchevyk.core.model.domain.EventType
+import ru.kubsu.borshchevyk.core.database.entity.mergeWith
 
 /**
  * Implementation of [ChatRepository] that manages chat list and chat actions.
@@ -136,15 +137,7 @@ class ChatRepositoryImpl @Inject constructor(
             val mergedEntities = networkChats.map { dto ->
                 val entity = dto.toEntity()
                 val existing = chatDao.getChat(entity.id)
-                if (existing != null) {
-                    entity.copy(
-                        titleUpdatedAt = if (entity.type == ChatType.GROUP) existing.titleUpdatedAt else entity.titleUpdatedAt,
-                        descriptionUpdatedAt = if (entity.type == ChatType.GROUP) existing.descriptionUpdatedAt else entity.descriptionUpdatedAt,
-                        unreadCount = if (existing.unreadCount == 0L && entity.unreadCount > 0) 0L else entity.unreadCount
-                    )
-                } else {
-                    entity
-                }
+                entity.mergeWith(existing)
             }
             
             chatDao.upsertChats(mergedEntities)
@@ -429,15 +422,7 @@ class ChatRepositoryImpl @Inject constructor(
                         // Sync events are ordered by vector clock during pull, so we can overwrite.
                         // But preserve locally-zeroed unreadCount to prevent stale values.
                         val existing = chatDao.getChat(entity.id)
-                        if (existing != null) {
-                            chatDao.upsertChat(entity.copy(
-                                titleUpdatedAt = existing.titleUpdatedAt,
-                                descriptionUpdatedAt = existing.descriptionUpdatedAt,
-                                unreadCount = if (existing.unreadCount == 0L && entity.unreadCount > 0) 0L else entity.unreadCount
-                            ))
-                        } else {
-                            chatDao.upsertChat(entity)
-                        }
+                        chatDao.upsertChat(entity.mergeWith(existing))
                     }
                     EventType.CHAT_DELETED -> {
                         chatDao.deleteChat(event.entityId)
