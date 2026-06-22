@@ -22,3 +22,9 @@
 
 -dontwarn java.net.http.**
 -dontwarn org.hildan.krossbow.**
+
+# Fix for WorkManager / Room NoSuchMethodException in release build
+-keep class androidx.work.impl.WorkDatabase_Impl { *; }
+-keep class * extends androidx.room.RoomDatabase {
+    <init>();
+}
