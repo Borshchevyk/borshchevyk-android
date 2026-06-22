@@ -21,6 +21,8 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavHostController
 import ru.kubsu.borshchevyk.core.ui.theme.BorshchevykTheme
 import ru.kubsu.borshchevyk.feature.chat.chatlist.ui.ChatListRoute
@@ -30,6 +32,7 @@ import ru.kubsu.borshchevyk.feature.profile.ui.ProfileRoute
 @Composable
 fun HomeRoute(
     navController: NavHostController,
+    backStackEntry: NavBackStackEntry,
     onLogoutSuccess: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -73,14 +76,13 @@ fun HomeRoute(
             when (selectedItem) {
                 0 -> {
                     // Chats
-                    val currentBackStackEntry = navController.currentBackStackEntry
-                    val savedStateHandle = currentBackStackEntry?.savedStateHandle
-                    val forwardPayloadJson = savedStateHandle?.get<String>("forwardPayload")
+                    val savedStateHandle = backStackEntry.savedStateHandle
+                    val forwardPayloadJson by savedStateHandle.getStateFlow<String?>("forwardPayload", null).collectAsStateWithLifecycle()
 
                     ChatListRoute(
                         forwardPayloadJson = forwardPayloadJson,
                         onCancelForward = {
-                            savedStateHandle?.remove<String>("forwardPayload")
+                            savedStateHandle.set("forwardPayload", null)
                         },
                         onChatClick = { chatId ->
                             if (forwardPayloadJson != null) {

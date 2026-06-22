@@ -63,9 +63,10 @@ fun BorshchevykNavHost(
                 )
             }
 
-            composable<HomeRoute> {
+            composable<HomeRoute> { backStackEntry ->
                 HomeRoute(
                     navController = navController,
+                    backStackEntry = backStackEntry,
                     onLogoutSuccess = {
                         navController.navigate(AuthRoute) {
                             popUpTo(0) { inclusive = true }

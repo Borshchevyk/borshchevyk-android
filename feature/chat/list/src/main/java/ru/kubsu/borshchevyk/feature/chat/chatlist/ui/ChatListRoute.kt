@@ -89,9 +89,6 @@ fun ChatListRoute(
     Scaffold(
         topBar = {
             Column {
-                if (forwardPayloadJson != null) {
-                    ForwardBanner(onCancelForward = onCancelForward)
-                }
                 ChatListTopAppBar(
                     networkMode = uiState.networkMode,
                     connectedPeersCount = uiState.connectedPeersCount,
@@ -109,6 +106,9 @@ fun ChatListRoute(
                     onSearchClick = onSearchClick,
                     onJoinClick = { showJoinDialog = true }
                 )
+                if (forwardPayloadJson != null) {
+                    ForwardBanner(onCancelForward = onCancelForward)
+                }
             }
         },
         floatingActionButton = {
