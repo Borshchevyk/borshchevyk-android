@@ -36,6 +36,8 @@ import ru.kubsu.borshchevyk.core.network.mesh.MeshSignatureService
 import ru.kubsu.borshchevyk.core.network.message.MessageNetworkDataSource
 import ru.kubsu.borshchevyk.core.network.websocket.ChatWebSocketDataSource
 import ru.kubsu.borshchevyk.core.network.websocket.PresenceWebSocketDataSource
+import ru.kubsu.borshchevyk.core.domain.auth.GetUserIdUseCase
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import ru.kubsu.borshchevyk.core.data.sync.SyncRepository
@@ -65,6 +67,7 @@ class MessageRepositoryImpl @Inject constructor(
     private val meshProfileListener: MeshProfileListener,
     private val signatureService: MeshSignatureService,
     private val syncRepository: SyncRepository,
+    private val getUserIdUseCase: GetUserIdUseCase,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
     @ApplicationScope private val scope: CoroutineScope
 ) : MessageRepository {
@@ -632,11 +635,13 @@ class MessageRepositoryImpl @Inject constructor(
      * Helper extension to save a domain [Message] and its related details (author, attachments, etc.)
      * into the local Room database cache.
      */
-    private fun Message.saveToDb() {
+    private suspend fun Message.saveToDb() {
         if (isDeleted) {
             messageDao.deleteMessage(id)
             return
         }
+        val isNewMessage = messageDao.getMessage(id) == null
+
         messageDao.upsertMessageWithDetails(
             message = toMessageEntity(),
             author = toAuthorEntity(),
@@ -649,7 +654,19 @@ class MessageRepositoryImpl @Inject constructor(
         val chat = chatDao.getChat(chatId)
         if (chat != null) {
             val previewText = if (attachments.isNotEmpty() && text.isBlank()) "Attachment" else text
-            chatDao.upsertChat(chat.copy(lastMessage = previewText))
+            
+            val currentUserId = getUserIdUseCase().firstOrNull() ?: ""
+            val isFromOtherUser = authorId != currentUserId
+            
+            var newUnreadCount = chat.unreadCount
+            if (isNewMessage && isFromOtherUser && status != MessageStatus.READ) {
+                newUnreadCount += 1
+            }
+
+            chatDao.upsertChat(chat.copy(
+                lastMessage = previewText,
+                unreadCount = newUnreadCount
+            ))
         }
     }
 

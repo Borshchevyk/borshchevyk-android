@@ -20,6 +20,7 @@ android {
 dependencies {
     implementation(project(":core:model"))
     implementation(project(":core:domain:message"))
+    implementation(project(":core:domain:auth"))
     implementation(project(":core:data:chat"))
     implementation(project(":core:data:sync"))
     implementation(project(":core:network:client"))
