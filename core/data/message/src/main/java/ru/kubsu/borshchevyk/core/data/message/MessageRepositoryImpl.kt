@@ -41,6 +41,7 @@ import ru.kubsu.borshchevyk.core.domain.auth.GetUserIdUseCase
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.decodeFromJsonElement
 import ru.kubsu.borshchevyk.core.data.sync.SyncRepository
 import ru.kubsu.borshchevyk.core.model.domain.EventType
 import java.util.UUID
@@ -84,6 +85,29 @@ class MessageRepositoryImpl @Inject constructor(
         syncRepository.incomingEvents
             .filter { it.eventType.name.startsWith("MESSAGE_") }
             .onEach { processMessageEvent(it) }
+            .launchIn(scope)
+
+        // Globally listen to presence events and update the local DB cache in real-time
+        chatWebSocketDataSource.observeAllEvents()
+            .filter { it.eventType == "PRESENCE_UPDATE" }
+            .onEach { appEvent ->
+                withContext(ioDispatcher) {
+                    try {
+                        val response = json.decodeFromJsonElement<ru.kubsu.borshchevyk.core.network.dto.PresenceStatusResponse>(appEvent.payload)
+                        val chat = chatDao.getChatByPartnerId(response.userId)
+                        if (chat != null) {
+                            val lastSeenInstant = if (response.isOnline) {
+                                java.time.Instant.now()
+                            } else {
+                                response.lastSeenAt?.let { java.time.Instant.ofEpochMilli(it) } ?: java.time.Instant.now()
+                            }
+                            chatDao.upsertChat(chat.copy(partnerLastOnline = lastSeenInstant.toString()))
+                        }
+                    } catch (e: Exception) {
+                        Log.e("MessageRepository", "Failed to process global presence update", e)
+                    }
+                }
+            }
             .launchIn(scope)
     }
 
