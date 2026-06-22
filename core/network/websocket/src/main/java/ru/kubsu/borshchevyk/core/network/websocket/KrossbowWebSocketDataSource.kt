@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -192,12 +193,14 @@ class KrossbowWebSocketDataSource @Inject constructor(
 
     private val appEvents: Flow<ru.kubsu.borshchevyk.core.network.dto.AppEventDto> by lazy {
         getSharedTopicFlow("/user/queue/events")
-            .map { msg ->
-                Log.d(TAG, "WS Received on /user/queue/events: $msg")
-                json.decodeFromString<ru.kubsu.borshchevyk.core.network.dto.AppEventDto>(msg)
-            }
-            .catch { e ->
-                Log.w(TAG, "WS Mapping error on /user/queue/events", e)
+            .mapNotNull { msg ->
+                try {
+                    Log.d(TAG, "WS Received on /user/queue/events: $msg")
+                    json.decodeFromString<ru.kubsu.borshchevyk.core.network.dto.AppEventDto>(msg)
+                } catch (e: Exception) {
+                    Log.w(TAG, "WS Mapping error on /user/queue/events: msg=$msg", e)
+                    null
+                }
             }
             .shareIn(scope, SharingStarted.WhileSubscribed(5000), 1)
     }
@@ -205,22 +208,32 @@ class KrossbowWebSocketDataSource @Inject constructor(
     private inline fun <reified T> observeEvent(vararg types: String): Flow<T> {
         return appEvents
             .filter { it.eventType in types }
-            .map { json.decodeFromJsonElement<T>(it.payload) }
-            .catch { e -> Log.w(TAG, "Error decoding event of type ${T::class.simpleName}", e) }
+            .mapNotNull { 
+                try {
+                    json.decodeFromJsonElement<T>(it.payload)
+                } catch (e: Exception) {
+                    Log.w(TAG, "Error decoding event of type ${T::class.simpleName}: payload=${it.payload}", e)
+                    null
+                }
+            }
     }
 
     private fun observeEventString(vararg types: String): Flow<String> {
         return appEvents
             .filter { it.eventType in types }
-            .map { event ->
-                val payload = event.payload
-                if (payload is JsonPrimitive && payload.isString) {
-                    payload.content
-                } else {
-                    payload.toString().replace("\"", "")
+            .mapNotNull { event ->
+                try {
+                    val payload = event.payload
+                    if (payload is JsonPrimitive && payload.isString) {
+                        payload.content
+                    } else {
+                        payload.toString().replace("\"", "")
+                    }
+                } catch (e: Exception) {
+                    Log.w(TAG, "Error decoding string event: payload=${event.payload}", e)
+                    null
                 }
             }
-            .catch { e -> Log.w(TAG, "Error decoding string event", e) }
     }
 
     override fun observeNewMessages(): Flow<NotificationDto.MessageDto> = observeEvent("MESSAGE_CREATED")
@@ -231,12 +244,17 @@ class KrossbowWebSocketDataSource @Inject constructor(
     
     override fun observeDeletedMessages(): Flow<String> = appEvents
         .filter { it.eventType == "MESSAGE_DELETED" }
-        .map { event ->
-            val payload = event.payload
-            if (payload is JsonPrimitive && payload.isString) {
-                payload.content
-            } else {
-                json.decodeFromJsonElement<NotificationDto.MessageDto>(payload).id
+        .mapNotNull { event ->
+            try {
+                val payload = event.payload
+                if (payload is JsonPrimitive && payload.isString) {
+                    payload.content
+                } else {
+                    json.decodeFromJsonElement<NotificationDto.MessageDto>(payload).id
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "Error decoding MESSAGE_DELETED: payload=${event.payload}", e)
+                null
             }
         }
         .catch { e -> Log.w(TAG, "Error decoding MESSAGE_DELETED", e) }
