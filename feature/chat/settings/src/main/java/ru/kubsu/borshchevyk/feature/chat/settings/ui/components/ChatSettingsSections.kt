@@ -79,12 +79,22 @@ internal fun ChatHeaderSection(uiState: ChatSettingsUiState) {
                     shape = CircleShape,
                     color = BorshchevykTheme.colors.primaryContainer
                 ) {
-                    Icon(
-                        imageVector = if (uiState.isGroupChat) Icons.Default.Group else Icons.Default.Person,
-                        contentDescription = "Default Avatar",
-                        modifier = Modifier.padding(32.dp),
-                        tint = BorshchevykTheme.colors.onPrimaryContainer
-                    )
+                    if (uiState.isSavedMessages) {
+                        Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                            Text(
+                                text = "SM",
+                                style = BorshchevykTheme.typography.titleLarge.copy(fontSize = 40.sp),
+                                color = BorshchevykTheme.colors.onPrimaryContainer
+                            )
+                        }
+                    } else {
+                        Icon(
+                            imageVector = if (uiState.isGroupChat) Icons.Default.Group else Icons.Default.Person,
+                            contentDescription = "Default Avatar",
+                            modifier = Modifier.padding(32.dp),
+                            tint = BorshchevykTheme.colors.onPrimaryContainer
+                        )
+                    }
                 }
             }
         }

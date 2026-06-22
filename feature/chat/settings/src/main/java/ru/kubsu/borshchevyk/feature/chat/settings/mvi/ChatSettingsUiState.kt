@@ -7,6 +7,7 @@ import ru.kubsu.borshchevyk.core.model.domain.ChatMember
 data class ChatSettingsUiState(
     val currentUserId: String = "",
     val isGroupChat: Boolean = false,
+    val isSavedMessages: Boolean = false,
     val members: PersistentList<ChatMember> = persistentListOf(),
     val inviteLink: String? = null,
     val isChatDeleted: Boolean = false,

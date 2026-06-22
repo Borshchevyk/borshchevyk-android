@@ -103,13 +103,15 @@ internal fun ChatSettingsScreen(
                 ChatHeaderSection(uiState)
             }
 
-            item {
-                ChatActionsSection(
-                    uiState = uiState,
-                    onIntent = onIntent,
-                    onShowInvite = onShowInviteSearch,
-                    onShowAddContact = { showAddContactDialog = true }
-                )
+            if (!uiState.isSavedMessages) {
+                item {
+                    ChatActionsSection(
+                        uiState = uiState,
+                        onIntent = onIntent,
+                        onShowInvite = onShowInviteSearch,
+                        onShowAddContact = { showAddContactDialog = true }
+                    )
+                }
             }
 
             item {

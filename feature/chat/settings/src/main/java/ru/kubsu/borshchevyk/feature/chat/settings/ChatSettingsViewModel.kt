@@ -47,13 +47,16 @@ class ChatSettingsViewModel @Inject constructor(
             if (chat == null && !uiState.value.isLoading) {
                 container.updateState { it.copy(isChatDeleted = true) }
             } else if (chat != null) {
+                val isSavedMessages = chat.type == ru.kubsu.borshchevyk.core.model.domain.ChatType.SAVED_MESSAGES
                 container.updateState { it.copy(
-                    chatName = if (it.isGroupChat) chat.title ?: "" else chat.partnerName ?: "",
+                    chatName = if (isSavedMessages) "Saved Messages" else if (it.isGroupChat) chat.title ?: "" else chat.partnerName ?: "",
                     chatDescription = chat.description,
                     partnerId = chat.partnerId,
                     partnerFirstName = chat.partnerName?.substringBefore(" "),
                     partnerLastName = chat.partnerName?.substringAfter(" ", missingDelimiterValue = ""),
-                    chatAvatarUrl = if (!it.isGroupChat) chat.partnerAvatarUrl else it.chatAvatarUrl
+                    chatAvatarUrl = if (!it.isGroupChat && !isSavedMessages) chat.partnerAvatarUrl else it.chatAvatarUrl,
+                    isSavedMessages = isSavedMessages,
+                    partnerTag = if (isSavedMessages) "saved_messages" else it.partnerTag
                 ) }
             }
         }.launchIn(viewModelScope)
@@ -74,13 +77,14 @@ class ChatSettingsViewModel @Inject constructor(
             members = data.members.toPersistentList(),
             isContact = data.isContact,
             partnerId = data.partnerId,
-            partnerTag = data.partnerTag,
             partnerFirstName = data.partnerFirstName,
             partnerLastName = data.partnerLastName,
             isDeletable = data.isDeletable,
-            chatName = data.chatName,
+            chatName = if (data.isSavedMessages) "Saved Messages" else data.chatName,
             chatDescription = data.chatDescription,
-            chatAvatarUrl = data.chatAvatarUrl
+            chatAvatarUrl = if (data.isSavedMessages) null else data.chatAvatarUrl,
+            isSavedMessages = data.isSavedMessages,
+            partnerTag = if (data.isSavedMessages) "saved_messages" else data.partnerTag
         ) }
     }
 

@@ -3,6 +3,7 @@ package ru.kubsu.borshchevyk.feature.chat.conversation.ui.components
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -72,12 +73,25 @@ fun ChatTopAppBar(
                         shape = CircleShape,
                         color = BorshchevykTheme.colors.primaryContainer
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Person,
-                            contentDescription = "Default Avatar",
-                            modifier = Modifier.padding(8.dp),
-                            tint = BorshchevykTheme.colors.onPrimaryContainer
-                        )
+                        if (context.isSavedMessages) {
+                            androidx.compose.foundation.layout.Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier.fillMaxSize()
+                            ) {
+                                Text(
+                                    text = "SM",
+                                    style = BorshchevykTheme.typography.titleMedium,
+                                    color = BorshchevykTheme.colors.onPrimaryContainer
+                                )
+                            }
+                        } else {
+                            Icon(
+                                imageVector = Icons.Default.Person,
+                                contentDescription = "Default Avatar",
+                                modifier = Modifier.padding(8.dp),
+                                tint = BorshchevykTheme.colors.onPrimaryContainer
+                            )
+                        }
                     }
                 }
                 Spacer(modifier = Modifier.width(12.dp))

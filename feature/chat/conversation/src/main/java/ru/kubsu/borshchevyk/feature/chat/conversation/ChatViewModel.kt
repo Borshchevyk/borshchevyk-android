@@ -135,8 +135,9 @@ class ChatViewModel @Inject constructor(
             val chat = chats.find { it.id == chatId }
             if (chat != null) {
                 val isGroup = chat.type == ChatType.GROUP
-                val chatTitle = chat.title ?: chat.partnerName ?: if (isGroup) "Group Chat" else "Private Chat"
-                container.updateState { it.updateTitle(chatTitle, chat.partnerAvatarUrl) }
+                val isSavedMessages = chat.type == ChatType.SAVED_MESSAGES
+                val chatTitle = if (isSavedMessages) "Saved Messages" else chat.title ?: chat.partnerName ?: if (isGroup) "Group Chat" else "Private Chat"
+                container.updateState { it.updateTitle(chatTitle, if (isSavedMessages) null else chat.partnerAvatarUrl, isSavedMessages) }
             } else {
                 handleIntent(ChatIntent.ChatDeletedLocally)
             }

@@ -24,7 +24,8 @@ data class ChatSettingsData(
     val isDeletable: Boolean,
     val chatName: String,
     val chatDescription: String?,
-    val chatAvatarUrl: String?
+    val chatAvatarUrl: String?,
+    val isSavedMessages: Boolean
 )
 
 class ChatSettingsDataLoader @Inject constructor(
@@ -84,7 +85,8 @@ class ChatSettingsDataLoader @Inject constructor(
             isDeletable = chat?.isDeletable ?: true,
             chatName = chatName,
             chatDescription = chat?.description,
-            chatAvatarUrl = chatAvatarUrl
+            chatAvatarUrl = chatAvatarUrl,
+            isSavedMessages = chat?.type == ChatType.SAVED_MESSAGES
         )
     }
 }

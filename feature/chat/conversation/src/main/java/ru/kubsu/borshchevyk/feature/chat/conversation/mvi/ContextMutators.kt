@@ -13,9 +13,9 @@ fun ChatUiState.setLoadFailed(error: String): ChatUiState =
 
 fun ChatUiState.setInitialDataLoaded(
     chatId: String, currentUserId: String, isGroup: Boolean, chatTitle: String, 
-    chatAvatarUrl: String?, history: List<Message>, pinned: List<Message>, forwardPayload: ForwardPayload?
+    chatAvatarUrl: String?, history: List<Message>, pinned: List<Message>, forwardPayload: ForwardPayload?, isSavedMessages: Boolean = false
 ): ChatUiState = ChatUiState.Content(
-    context = ChatContext(chatId, currentUserId, isGroup, chatTitle, chatAvatarUrl),
+    context = ChatContext(chatId, currentUserId, isGroup, chatTitle, chatAvatarUrl, isSavedMessages = isSavedMessages),
     feed = MessageFeed(
         history.map { it.toUiModel() }.toPersistentList(), 
         pinned.map { it.toUiModel() }.toPersistentList()
@@ -33,7 +33,7 @@ fun ChatUiState.setChatDeleted(): ChatUiState {
     return this.copy(isChatDeleted = true)
 }
 
-fun ChatUiState.updateTitle(title: String, avatarUrl: String?): ChatUiState {
+fun ChatUiState.updateTitle(title: String, avatarUrl: String?, isSavedMessages: Boolean = false): ChatUiState {
     if (this !is ChatUiState.Content) return this
-    return this.copy(context = this.context.copy(chatName = title, chatAvatarUrl = avatarUrl))
+    return this.copy(context = this.context.copy(chatName = title, chatAvatarUrl = avatarUrl, isSavedMessages = isSavedMessages))
 }

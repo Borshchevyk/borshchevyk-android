@@ -24,7 +24,8 @@ data class ChatContext(
     val chatName: String = "",
     val chatAvatarUrl: String? = null,
     val isOnline: Boolean? = null,
-    val lastSeenAt: Long? = null
+    val lastSeenAt: Long? = null,
+    val isSavedMessages: Boolean = false
 )
 
 data class MessageFeed(
