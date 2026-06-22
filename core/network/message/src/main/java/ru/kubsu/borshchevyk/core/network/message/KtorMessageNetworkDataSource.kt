@@ -10,12 +10,12 @@ import io.ktor.client.request.setBody
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 import ru.kubsu.borshchevyk.core.network.client.NetworkResult
+import ru.kubsu.borshchevyk.core.network.di.IoDispatcher
 import ru.kubsu.borshchevyk.core.network.dto.EditMessageRequest
 import ru.kubsu.borshchevyk.core.network.dto.EnrichedUserResponse
 import ru.kubsu.borshchevyk.core.network.dto.MessageResponse
 import ru.kubsu.borshchevyk.core.network.dto.SendMessageRequest
-import ru.kubsu.borshchevyk.core.network.client.safeRequest
-import ru.kubsu.borshchevyk.core.network.di.IoDispatcher
+import ru.kubsu.borshchevyk.core.network.ktor.client.safeRequest
 import javax.inject.Inject
 
 class KtorMessageNetworkDataSource @Inject constructor(

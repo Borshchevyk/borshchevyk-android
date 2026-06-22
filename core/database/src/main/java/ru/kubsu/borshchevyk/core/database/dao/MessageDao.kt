@@ -8,6 +8,7 @@ import androidx.room.Transaction
 import kotlinx.coroutines.flow.Flow
 import ru.kubsu.borshchevyk.core.database.entity.AttachmentEntity
 import ru.kubsu.borshchevyk.core.database.entity.MessageEntity
+import ru.kubsu.borshchevyk.core.database.entity.MessageReaderEntity
 import ru.kubsu.borshchevyk.core.database.entity.MessageWithDetails
 import ru.kubsu.borshchevyk.core.database.entity.ReactionEntity
 import ru.kubsu.borshchevyk.core.database.entity.UserEntity
@@ -85,12 +86,44 @@ interface MessageDao {
     fun insertReactions(reactions: List<ReactionEntity>)
 
     /**
-     * Inserts or updates user entities.
+     * Inserts or updates user entities, ignoring if they already exist to prevent wiping out full profiles with incomplete message data.
      *
-     * @param users The list of [UserEntity] to upsert.
+     * @param users The list of [UserEntity] to insert.
      */
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
     fun insertUsers(users: List<UserEntity>)
+
+    /**
+     * Inserts a user but ignores if it already exists.
+     */
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    fun insertUserIgnore(user: UserEntity)
+
+    /**
+     * Inserts a message reader mapping.
+     */
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    fun insertMessageReader(reader: MessageReaderEntity)
+
+    /**
+     * Retrieves the list of users who have read a specific message.
+     */
+    @Query("SELECT users.* FROM users INNER JOIN message_readers ON users.userId = message_readers.userId WHERE message_readers.messageId = :messageId")
+    fun getMessageReaders(messageId: String): List<UserEntity>
+
+    /**
+     * Retrieves paginated messages that have attachments of a specific type.
+     */
+    @Transaction
+    @Query("""
+        SELECT m.* FROM messages m 
+        INNER JOIN attachments a ON m.id = a.messageId 
+        WHERE m.chatId = :chatId AND a.type = :type 
+        GROUP BY m.id 
+        ORDER BY m.createdAt DESC 
+        LIMIT :limit OFFSET :offset
+    """)
+    fun getMessagesWithAttachments(chatId: String, type: String, limit: Int, offset: Int): List<MessageWithDetails>
 
     /**
      * Deletes all attachments for a specific message.
@@ -99,6 +132,12 @@ interface MessageDao {
      */
     @Query("DELETE FROM attachments WHERE messageId = :messageId")
     fun deleteAttachmentsForMessage(messageId: String)
+
+    /**
+     * Deletes a specific reaction by a user for a message.
+     */
+    @Query("DELETE FROM reactions WHERE messageId = :messageId AND userId = :userId AND reaction = :reaction")
+    fun deleteReaction(messageId: String, userId: String, reaction: String)
 
     /**
      * Deletes all reactions for a specific message.

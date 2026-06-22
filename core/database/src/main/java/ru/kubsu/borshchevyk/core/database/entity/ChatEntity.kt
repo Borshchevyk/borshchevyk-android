@@ -41,5 +41,34 @@ data class ChatEntity(
     val allowedReactions: Set<String>?,
     val isDeletable: Boolean,
     val isPinned: Boolean,
-    val createdAt: String
+    val createdAt: String,
+    
+    // CRDT LWW Timestamps for Mesh group updates
+    val titleUpdatedAt: Long = 0,
+    val descriptionUpdatedAt: Long = 0
 )
+
+fun ChatEntity.mergeWith(existing: ChatEntity?): ChatEntity {
+    if (existing == null) return this
+    
+    val mergedLastOnline = if (existing.partnerLastOnline != null && this.partnerLastOnline != null) {
+        try {
+            val existingInstant = java.time.Instant.parse(existing.partnerLastOnline)
+            val incomingInstant = java.time.Instant.parse(this.partnerLastOnline)
+            if (existingInstant.isAfter(incomingInstant)) existing.partnerLastOnline else this.partnerLastOnline
+        } catch (e: Exception) {
+            existing.partnerLastOnline
+        }
+    } else {
+        existing.partnerLastOnline ?: this.partnerLastOnline
+    }
+
+    return this.copy(
+        title = if (this.titleUpdatedAt >= existing.titleUpdatedAt) this.title else existing.title,
+        titleUpdatedAt = kotlin.math.max(this.titleUpdatedAt, existing.titleUpdatedAt),
+        description = if (this.descriptionUpdatedAt >= existing.descriptionUpdatedAt) this.description else existing.description,
+        descriptionUpdatedAt = kotlin.math.max(this.descriptionUpdatedAt, existing.descriptionUpdatedAt),
+        unreadCount = if (existing.unreadCount == 0L && this.unreadCount > 0) 0L else this.unreadCount,
+        partnerLastOnline = mergedLastOnline
+    )
+}

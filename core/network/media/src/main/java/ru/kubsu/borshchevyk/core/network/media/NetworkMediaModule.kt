@@ -11,5 +11,5 @@ import javax.inject.Singleton
 interface NetworkMediaModule {
     @Binds
     @Singleton
-    fun bindMediaNetworkDataSource(impl: KtorMediaNetworkDataSource): MediaNetworkDataSource
+    fun bindMediaNetworkDataSource(impl: ProxyMediaNetworkDataSource): MediaNetworkDataSource
 }

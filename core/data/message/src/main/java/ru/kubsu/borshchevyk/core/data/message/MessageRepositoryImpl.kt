@@ -1,34 +1,50 @@
 package ru.kubsu.borshchevyk.core.data.message
 
+import android.util.Log
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.buffer
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
-import kotlinx.coroutines.channels.Channel
-import android.util.Log
 import kotlinx.coroutines.withContext
-import ru.kubsu.borshchevyk.core.database.dao.MessageDao
-import ru.kubsu.borshchevyk.core.database.dao.ChatDao
-import ru.kubsu.borshchevyk.core.data.chat.toEntity
 import ru.kubsu.borshchevyk.core.data.chat.toDomain
+import ru.kubsu.borshchevyk.core.data.chat.toEntity
+import ru.kubsu.borshchevyk.core.database.dao.ChatDao
+import ru.kubsu.borshchevyk.core.database.dao.MessageDao
+import ru.kubsu.borshchevyk.core.database.dao.UserDao
+import ru.kubsu.borshchevyk.core.database.entity.ReactionEntity
+import ru.kubsu.borshchevyk.core.database.entity.mergeWith
 import ru.kubsu.borshchevyk.core.domain.message.MessageRepository
 import ru.kubsu.borshchevyk.core.model.domain.DomainGlobalChatEvent
-import ru.kubsu.borshchevyk.core.model.domain.GlobalChatAction
 import ru.kubsu.borshchevyk.core.model.domain.DomainPresenceStatus
 import ru.kubsu.borshchevyk.core.model.domain.DomainReactionEvent
 import ru.kubsu.borshchevyk.core.model.domain.DomainReadReceiptEvent
 import ru.kubsu.borshchevyk.core.model.domain.DomainTypingEvent
+import ru.kubsu.borshchevyk.core.model.domain.GlobalChatAction
 import ru.kubsu.borshchevyk.core.model.domain.Message
 import ru.kubsu.borshchevyk.core.model.domain.MessageStatus
 import ru.kubsu.borshchevyk.core.network.client.getOrThrow
+import ru.kubsu.borshchevyk.core.network.di.ApplicationScope
+import ru.kubsu.borshchevyk.core.network.di.IoDispatcher
 import ru.kubsu.borshchevyk.core.network.dto.EditMessageRequest
 import ru.kubsu.borshchevyk.core.network.dto.SendMessageRequest
-import ru.kubsu.borshchevyk.core.network.di.IoDispatcher
+import ru.kubsu.borshchevyk.core.network.mesh.MeshSignatureService
 import ru.kubsu.borshchevyk.core.network.message.MessageNetworkDataSource
 import ru.kubsu.borshchevyk.core.network.websocket.ChatWebSocketDataSource
 import ru.kubsu.borshchevyk.core.network.websocket.PresenceWebSocketDataSource
+import ru.kubsu.borshchevyk.core.domain.auth.GetUserIdUseCase
+import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.decodeFromJsonElement
+import ru.kubsu.borshchevyk.core.data.sync.SyncRepository
+import ru.kubsu.borshchevyk.core.model.domain.EventType
+import java.util.UUID
 import javax.inject.Inject
 
 /**
@@ -49,8 +65,51 @@ class MessageRepositoryImpl @Inject constructor(
     private val presenceWebSocketDataSource: PresenceWebSocketDataSource,
     private val messageDao: MessageDao,
     private val chatDao: ChatDao,
-    @IoDispatcher private val ioDispatcher: CoroutineDispatcher
+    private val userDao: UserDao,
+    private val meshProfileListener: MeshProfileListener,
+    private val signatureService: MeshSignatureService,
+    private val syncRepository: SyncRepository,
+    private val getUserIdUseCase: GetUserIdUseCase,
+    @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
+    @ApplicationScope private val scope: CoroutineScope
 ) : MessageRepository {
+
+    private val json = Json { ignoreUnknownKeys = true }
+
+    init {
+        meshProfileListener.startListening()
+        // Ensure that Mesh chat events are processed even when the UI is not active.
+        observeChatEvents().launchIn(scope)
+        
+        // Subscribe to incoming background sync events for the Message Domain
+        syncRepository.incomingEvents
+            .filter { it.eventType.name.startsWith("MESSAGE_") }
+            .onEach { processMessageEvent(it) }
+            .launchIn(scope)
+
+        // Globally listen to presence events and update the local DB cache in real-time
+        chatWebSocketDataSource.observeAllEvents()
+            .filter { it.eventType == "PRESENCE_UPDATE" }
+            .onEach { appEvent ->
+                withContext(ioDispatcher) {
+                    try {
+                        val response = json.decodeFromJsonElement<ru.kubsu.borshchevyk.core.network.dto.PresenceStatusResponse>(appEvent.payload)
+                        val chat = chatDao.getChatByPartnerId(response.userId)
+                        if (chat != null) {
+                            val lastSeenInstant = if (response.isOnline) {
+                                java.time.Instant.now()
+                            } else {
+                                response.lastSeenAt?.let { java.time.Instant.ofEpochMilli(it) } ?: java.time.Instant.now()
+                            }
+                            chatDao.upsertChat(chat.copy(partnerLastOnline = lastSeenInstant.toString()))
+                        }
+                    } catch (e: Exception) {
+                        Log.e("MessageRepository", "Failed to process global presence update", e)
+                    }
+                }
+            }
+            .launchIn(scope)
+    }
 
     /**
      * Sends a new message to a specific chat, saving the resulting message into the local database cache.
@@ -135,7 +194,9 @@ class MessageRepositoryImpl @Inject constructor(
     }
 
     /**
-     * Retrieves a paginated list of messages containing attachments of a specific category from the remote server.
+     * Retrieves a paginated list of messages containing attachments of a specific category.
+     * Attempts to fetch from the network first. If the network returns empty (e.g., in Mesh mode),
+     * it falls back to querying the local database to support offline and P2P environments.
      *
      * @param chatId The ID of the chat.
      * @param type The attachment type category.
@@ -145,7 +206,18 @@ class MessageRepositoryImpl @Inject constructor(
      */
     override suspend fun loadChatAttachments(chatId: String, type: String, page: Int, size: Int): List<Message> {
         return withContext(ioDispatcher) {
-            networkDataSource.loadChatAttachments(chatId, type, page, size).getOrThrow().map { it.toDomain() }
+            try {
+                val networkResult = networkDataSource.loadChatAttachments(chatId, type, page, size)
+                if (networkResult is ru.kubsu.borshchevyk.core.network.client.NetworkResult.Success && networkResult.data.isNotEmpty()) {
+                    networkResult.data.map { it.toDomain() }
+                } else {
+                    val offset = page * size
+                    messageDao.getMessagesWithAttachments(chatId, type, size, offset).map { it.toDomain() }
+                }
+            } catch (e: Exception) {
+                val offset = page * size
+                messageDao.getMessagesWithAttachments(chatId, type, size, offset).map { it.toDomain() }
+            }
         }
     }
 
@@ -175,7 +247,28 @@ class MessageRepositoryImpl @Inject constructor(
             .onEach { domainMsg -> 
                 try {
                     withContext(ioDispatcher) {
-                        domainMsg.saveToDb() 
+                        val existingMsgWithDetails = messageDao.getMessage(domainMsg.id)
+                        if (existingMsgWithDetails != null) {
+                            // This is an update (e.g., EDIT_MESSAGE from Mesh) or a redelivery.
+                            // We should merge the new data (like text and updatedAt) while preserving 
+                            // existing state (like source, attachments, reactions, read status).
+                            val updatedMessageEntity = existingMsgWithDetails.message.copy(
+                                text = domainMsg.text.takeIf { it.isNotEmpty() } ?: existingMsgWithDetails.message.text,
+                                updatedAt = domainMsg.updatedAt ?: existingMsgWithDetails.message.updatedAt,
+                                // Prevent overriding a READ status with an older RECEIVED_BY_USER status
+                                status = if (existingMsgWithDetails.message.status == MessageStatus.READ) MessageStatus.READ else domainMsg.status
+                            )
+                            messageDao.upsertMessageWithDetails(
+                                message = updatedMessageEntity,
+                                author = existingMsgWithDetails.author,
+                                forwardedFromUser = existingMsgWithDetails.forwardedFromUser,
+                                attachments = existingMsgWithDetails.attachments,
+                                reactions = existingMsgWithDetails.reactions
+                            )
+                        } else {
+                            // Completely new message
+                            domainMsg.saveToDb() 
+                        }
                     }
                 } catch (e: Exception) {
                     Log.e("MessageRepository", "Failed to save new message to db: ${domainMsg.id}", e)
@@ -203,10 +296,13 @@ class MessageRepositoryImpl @Inject constructor(
                             chatDao.deleteChat(domainEvent.chat.id)
                             messageDao.deleteMessagesByChat(domainEvent.chat.id)
                         } else if (action == GlobalChatAction.HISTORY_CLEARED) {
-                            chatDao.upsertChat(chatDto.toEntity())
+                            val entityToSave = chatDto.toEntity()
+                            chatDao.upsertChat(entityToSave)
                             messageDao.deleteMessagesByChat(domainEvent.chat.id)
                         } else {
-                            chatDao.upsertChat(chatDto.toEntity())
+                            val entityToSave = chatDto.toEntity()
+                            val existingChat = chatDao.getChat(entityToSave.id)
+                            chatDao.upsertChat(entityToSave.mergeWith(existingChat))
                         }
                     }
                 } catch (e: Exception) {
@@ -246,6 +342,21 @@ class MessageRepositoryImpl @Inject constructor(
      */
     override fun observeReactions(chatId: String): Flow<DomainReactionEvent> = 
         chatWebSocketDataSource.observeReactions(chatId).map { DomainReactionEvent(it.messageId, it.user.id, it.reaction, it.isAdded) }
+            .onEach { event ->
+                withContext(ioDispatcher) {
+                    if (event.isAdded) {
+                        val reactionEntity = ru.kubsu.borshchevyk.core.database.entity.ReactionEntity(
+                            messageId = event.messageId,
+                            userId = event.userId,
+                            reaction = event.reaction
+                        )
+                        messageDao.insertReactions(listOf(reactionEntity))
+                    } else {
+                        // Delete a specific user's reaction on a message
+                        messageDao.deleteReaction(event.messageId, event.userId, event.reaction)
+                    }
+                }
+            }
 
     /**
      * Observes newly pinned messages within a specific chat.
@@ -255,6 +366,21 @@ class MessageRepositoryImpl @Inject constructor(
      */
     override fun observePins(chatId: String): Flow<String> = 
         chatWebSocketDataSource.observePins(chatId)
+            .onEach { messageId ->
+                withContext(ioDispatcher) {
+                    val msgWithDetails = messageDao.getMessage(messageId)
+                    if (msgWithDetails != null && !msgWithDetails.message.isPinned) {
+                        val updatedMsg = msgWithDetails.message.copy(isPinned = true)
+                        messageDao.upsertMessageWithDetails(
+                            message = updatedMsg,
+                            author = msgWithDetails.author,
+                            forwardedFromUser = msgWithDetails.forwardedFromUser,
+                            attachments = msgWithDetails.attachments,
+                            reactions = msgWithDetails.reactions
+                        )
+                    }
+                }
+            }
 
     /**
      * Observes newly unpinned messages within a specific chat.
@@ -264,6 +390,21 @@ class MessageRepositoryImpl @Inject constructor(
      */
     override fun observeUnpins(chatId: String): Flow<String> = 
         chatWebSocketDataSource.observeUnpins(chatId)
+            .onEach { messageId ->
+                withContext(ioDispatcher) {
+                    val msgWithDetails = messageDao.getMessage(messageId)
+                    if (msgWithDetails != null && msgWithDetails.message.isPinned) {
+                        val updatedMsg = msgWithDetails.message.copy(isPinned = false)
+                        messageDao.upsertMessageWithDetails(
+                            message = updatedMsg,
+                            author = msgWithDetails.author,
+                            forwardedFromUser = msgWithDetails.forwardedFromUser,
+                            attachments = msgWithDetails.attachments,
+                            reactions = msgWithDetails.reactions
+                        )
+                    }
+                }
+            }
 
     /**
      * Observes read receipt updates for messages and updates the local cache accordingly.
@@ -296,7 +437,25 @@ class MessageRepositoryImpl @Inject constructor(
      * @return A [Flow] emitting [DomainPresenceStatus] models.
      */
     override fun observePresence(userId: String): Flow<DomainPresenceStatus> = 
-        presenceWebSocketDataSource.observePresence(userId).map { DomainPresenceStatus(it.userId, it.isOnline, it.lastSeenAt) }
+        presenceWebSocketDataSource.observePresence(userId)
+            .map { DomainPresenceStatus(it.userId, it.isOnline, it.lastSeenAt) }
+            .onEach { presence ->
+                withContext(ioDispatcher) {
+                    try {
+                        val chat = chatDao.getChatByPartnerId(presence.userId)
+                        if (chat != null) {
+                            val lastSeenInstant = if (presence.isOnline) {
+                                java.time.Instant.now()
+                            } else {
+                                presence.lastSeenAt?.let { java.time.Instant.ofEpochMilli(it) } ?: java.time.Instant.now()
+                            }
+                            chatDao.upsertChat(chat.copy(partnerLastOnline = lastSeenInstant.toString()))
+                        }
+                    } catch (e: Exception) {
+                        Log.e("MessageRepository", "Failed to update partner presence in DB", e)
+                    }
+                }
+            }
 
     /**
      * Sends a typing event indicator to the chat via WebSocket.
@@ -316,10 +475,11 @@ class MessageRepositoryImpl @Inject constructor(
      * @param forAll Whether to delete the message for everyone or just the local user.
      */
     override suspend fun deleteMessage(chatId: String, messageId: String, forAll: Boolean) {
-        networkDataSource.deleteMessage(chatId, messageId, forAll).getOrThrow()
+        val result = networkDataSource.deleteMessage(chatId, messageId, forAll)
         withContext(ioDispatcher) {
             messageDao.deleteMessage(messageId)
         }
+        result.getOrThrow()
     }
 
     /**
@@ -331,6 +491,16 @@ class MessageRepositoryImpl @Inject constructor(
      */
     override suspend fun addReaction(chatId: String, messageId: String, reaction: String) {
         networkDataSource.addReaction(chatId, messageId, reaction).getOrThrow()
+        
+        withContext(ioDispatcher) {
+            val userId = signatureService.getUserId() ?: "self"
+            val reactionEntity = ReactionEntity(
+                messageId = messageId,
+                userId = userId,
+                reaction = reaction
+            )
+            messageDao.insertReactions(listOf(reactionEntity))
+        }
     }
 
     /**
@@ -342,6 +512,11 @@ class MessageRepositoryImpl @Inject constructor(
      */
     override suspend fun removeReaction(chatId: String, messageId: String, reaction: String) {
         networkDataSource.removeReaction(chatId, messageId, reaction).getOrThrow()
+        
+        withContext(ioDispatcher) {
+            val userId = signatureService.getUserId() ?: "self"
+            messageDao.deleteReaction(messageId, userId, reaction)
+        }
     }
 
     /**
@@ -352,6 +527,19 @@ class MessageRepositoryImpl @Inject constructor(
      */
     override suspend fun pinMessage(chatId: String, messageId: String) {
         networkDataSource.pinMessage(chatId, messageId).getOrThrow()
+        withContext(ioDispatcher) {
+            val msgWithDetails = messageDao.getMessage(messageId)
+            if (msgWithDetails != null && !msgWithDetails.message.isPinned) {
+                val updatedMsg = msgWithDetails.message.copy(isPinned = true)
+                messageDao.upsertMessageWithDetails(
+                    message = updatedMsg,
+                    author = msgWithDetails.author,
+                    forwardedFromUser = msgWithDetails.forwardedFromUser,
+                    attachments = msgWithDetails.attachments,
+                    reactions = msgWithDetails.reactions
+                )
+            }
+        }
     }
 
     /**
@@ -362,6 +550,19 @@ class MessageRepositoryImpl @Inject constructor(
      */
     override suspend fun unpinMessage(chatId: String, messageId: String) {
         networkDataSource.unpinMessage(chatId, messageId).getOrThrow()
+        withContext(ioDispatcher) {
+            val msgWithDetails = messageDao.getMessage(messageId)
+            if (msgWithDetails != null && msgWithDetails.message.isPinned) {
+                val updatedMsg = msgWithDetails.message.copy(isPinned = false)
+                messageDao.upsertMessageWithDetails(
+                    message = updatedMsg,
+                    author = msgWithDetails.author,
+                    forwardedFromUser = msgWithDetails.forwardedFromUser,
+                    attachments = msgWithDetails.attachments,
+                    reactions = msgWithDetails.reactions
+                )
+            }
+        }
     }
 
     /**
@@ -381,6 +582,14 @@ class MessageRepositoryImpl @Inject constructor(
      * @param messageId The ID of the read message.
      */
     override suspend fun readMessage(chatId: String, messageId: String) {
+        // Optimistically zero out unread count locally so the chat list
+        // shows the correct badge immediately when the user navigates back.
+        withContext(ioDispatcher) {
+            val chat = chatDao.getChat(chatId)
+            if (chat != null && chat.unreadCount > 0) {
+                chatDao.upsertChat(chat.copy(unreadCount = 0))
+            }
+        }
         networkDataSource.readMessage(chatId, messageId).getOrThrow()
     }
 
@@ -392,14 +601,46 @@ class MessageRepositoryImpl @Inject constructor(
      * @return A list of [User]s who read the message.
      */
     override suspend fun getMessageReaders(chatId: String, messageId: String): List<ru.kubsu.borshchevyk.core.model.domain.User> {
-        return networkDataSource.getMessageReaders(chatId, messageId).getOrThrow().map {
-            ru.kubsu.borshchevyk.core.model.domain.User(
-                userId = it.id,
-                firstName = it.firstName,
-                lastName = it.lastName,
-                tag = it.tag ?: "",
-                avatarUrl = it.avatarUrl
-            )
+        val networkReaders = try {
+            networkDataSource.getMessageReaders(chatId, messageId).getOrThrow()
+        } catch (e: Exception) {
+            emptyList()
+        }
+
+        withContext(ioDispatcher) {
+            if (networkReaders.isNotEmpty()) {
+                val users = networkReaders.map { 
+                    ru.kubsu.borshchevyk.core.database.entity.UserEntity(
+                        userId = it.id,
+                        email = null,
+                        tag = it.tag ?: "user_${it.id.take(4)}",
+                        firstName = it.firstName,
+                        lastName = it.lastName,
+                        bio = null,
+                        avatarUrl = it.avatarUrl,
+                        avatars = emptyList()
+                    )
+                }
+                // Save fetched users and map them as readers
+                users.forEach { messageDao.insertUserIgnore(it) }
+                networkReaders.forEach { user ->
+                    messageDao.insertMessageReader(
+                        ru.kubsu.borshchevyk.core.database.entity.MessageReaderEntity(messageId, user.id)
+                    )
+                }
+            }
+        }
+
+        return withContext(ioDispatcher) {
+            messageDao.getMessageReaders(messageId).map { 
+                ru.kubsu.borshchevyk.core.model.domain.User(
+                    userId = it.userId,
+                    firstName = it.firstName,
+                    lastName = it.lastName,
+                    tag = it.tag,
+                    avatarUrl = it.avatarUrl
+                )
+            }
         }
     }
 
@@ -425,11 +666,13 @@ class MessageRepositoryImpl @Inject constructor(
      * Helper extension to save a domain [Message] and its related details (author, attachments, etc.)
      * into the local Room database cache.
      */
-    private fun Message.saveToDb() {
+    private suspend fun Message.saveToDb() {
         if (isDeleted) {
             messageDao.deleteMessage(id)
             return
         }
+        val isNewMessage = messageDao.getMessage(id) == null
+
         messageDao.upsertMessageWithDetails(
             message = toMessageEntity(),
             author = toAuthorEntity(),
@@ -437,5 +680,82 @@ class MessageRepositoryImpl @Inject constructor(
             attachments = toAttachmentEntities(),
             reactions = toReactionEntities()
         )
+        
+        // Update the chat's last message to show in the chat list
+        val chat = chatDao.getChat(chatId)
+        if (chat != null) {
+            val previewText = if (attachments.isNotEmpty() && text.isBlank()) "Attachment" else text
+            
+            val currentUserId = getUserIdUseCase().firstOrNull() ?: ""
+            val isFromOtherUser = authorId != currentUserId
+            
+            var newUnreadCount = chat.unreadCount
+            if (isNewMessage && isFromOtherUser && status != MessageStatus.READ) {
+                newUnreadCount += 1
+            }
+
+            chatDao.upsertChat(chat.copy(
+                lastMessage = previewText,
+                unreadCount = newUnreadCount
+            ))
+        }
+    }
+
+    /**
+     * Processes incoming synchronization events from the background SyncRepository.
+     * Implements Last-Write-Wins (LWW) conflict resolution logic using timestamps.
+     */
+    private suspend fun processMessageEvent(event: ru.kubsu.borshchevyk.core.model.domain.SyncEvent) {
+        withContext(ioDispatcher) {
+            try {
+                when (event.eventType) {
+                    EventType.MESSAGE_CREATED, EventType.MESSAGE_UPDATED -> {
+                        // Deserialize the backend payload into our local domain model
+                        val incomingMessage = json.decodeFromString<Message>(event.payload)
+                        
+                        // LWW Conflict Resolution
+                        val localMsgWithDetails = messageDao.getMessage(incomingMessage.id)
+                        if (localMsgWithDetails != null) {
+                            val localTime = localMsgWithDetails.message.updatedAt ?: localMsgWithDetails.message.createdAt
+                            val remoteTime = incomingMessage.updatedAt ?: incomingMessage.createdAt
+                            
+                            // If local is strictly newer, ignore the remote event
+                            if (localTime > remoteTime) {
+                                return@withContext
+                            }
+                        }
+                        
+                        // Overwrite local state with incoming state
+                        incomingMessage.saveToDb()
+                    }
+                    EventType.MESSAGE_DELETED -> {
+                        messageDao.deleteMessage(event.entityId)
+                    }
+                    EventType.MESSAGE_READ -> {
+                        // The payload contains chatId — reset unread count for this chat
+                        try {
+                            val root = json.parseToJsonElement(event.payload)
+                            val chatId = if (root is kotlinx.serialization.json.JsonObject) {
+                                root["chatId"]?.let { 
+                                    (it as? kotlinx.serialization.json.JsonPrimitive)?.content 
+                                } ?: event.entityId
+                            } else event.entityId
+                            
+                            val existingChat = chatDao.getChat(chatId)
+                            if (existingChat != null) {
+                                chatDao.upsertChat(existingChat.copy(unreadCount = 0))
+                            }
+                        } catch (e: Exception) {
+                            Log.w("MessageRepository", "MESSAGE_READ: failed to process", e)
+                        }
+                    }
+                    else -> {
+                        // Ignore events from other domains
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("MessageRepository", "Failed to process message sync event: ${event.id}", e)
+            }
+        }
     }
 }

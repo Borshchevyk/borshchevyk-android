@@ -3,19 +3,18 @@ package ru.kubsu.borshchevyk.core.network.user
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
 import io.ktor.client.request.patch
-import io.ktor.client.request.post
 import io.ktor.client.request.put
 import io.ktor.client.request.setBody
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 import ru.kubsu.borshchevyk.core.network.client.NetworkResult
+import ru.kubsu.borshchevyk.core.network.di.IoDispatcher
 import ru.kubsu.borshchevyk.core.network.dto.PrivacySettingsResponse
 import ru.kubsu.borshchevyk.core.network.dto.UpdateAvatarRequest
 import ru.kubsu.borshchevyk.core.network.dto.UpdatePrivacySettingsRequest
 import ru.kubsu.borshchevyk.core.network.dto.UpdateProfileRequest
 import ru.kubsu.borshchevyk.core.network.dto.UserProfileResponse
-import ru.kubsu.borshchevyk.core.network.client.safeRequest
-import ru.kubsu.borshchevyk.core.network.di.IoDispatcher
+import ru.kubsu.borshchevyk.core.network.ktor.client.safeRequest
 import javax.inject.Inject
 
 class KtorUserNetworkDataSource @Inject constructor(

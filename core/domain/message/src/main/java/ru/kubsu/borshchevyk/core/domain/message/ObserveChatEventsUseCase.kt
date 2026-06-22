@@ -29,7 +29,8 @@ class ObserveChatEventsUseCase @Inject constructor(
     private val observeReactionsUseCase: ObserveReactionsUseCase,
     private val observePinsUseCase: ObservePinsUseCase,
     private val observeUnpinsUseCase: ObserveUnpinsUseCase,
-    private val observeReadReceiptsUseCase: ObserveReadReceiptsUseCase
+    private val observeReadReceiptsUseCase: ObserveReadReceiptsUseCase,
+    private val observeGlobalChatEventsUseCase: ObserveGlobalChatEventsUseCase
 ) {
     /**
      * Returns a merged Flow of [ChatEvent] for the specified chat.
@@ -45,7 +46,8 @@ class ObserveChatEventsUseCase @Inject constructor(
         val pins = observePinsUseCase(chatId).map { ChatEvent.MessagePinned(it) }
         val unpins = observeUnpinsUseCase(chatId).map { ChatEvent.MessageUnpinned(it) }
         val readReceipts = observeReadReceiptsUseCase(chatId).map { ChatEvent.ReadReceipt(it) }
+        val globalEvents = observeGlobalChatEventsUseCase().map { ChatEvent.GlobalChatEvent(it) }
 
-        return merge(newMessages, deletedMessages, typing, reactions, pins, unpins, readReceipts)
+        return merge(newMessages, deletedMessages, typing, reactions, pins, unpins, readReceipts, globalEvents)
     }
 }

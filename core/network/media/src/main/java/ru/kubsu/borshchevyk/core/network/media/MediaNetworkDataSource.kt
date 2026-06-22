@@ -1,5 +1,6 @@
 package ru.kubsu.borshchevyk.core.network.media
 
+import kotlinx.coroutines.flow.Flow
 import ru.kubsu.borshchevyk.core.network.client.NetworkResult
 import ru.kubsu.borshchevyk.core.network.dto.AttachmentResponse
 import ru.kubsu.borshchevyk.core.network.dto.AttachmentUrlResult
@@ -13,6 +14,20 @@ import ru.kubsu.borshchevyk.core.network.dto.ValidateAttachmentsResponse
  */
 interface MediaNetworkDataSource {
     /**
+     * Observes the download progress of a specific attachment.
+     *
+     * @param attachmentId The ID of the attachment.
+     * @return A Flow emitting progress values from 0.0 to 1.0.
+     */
+    fun observeAttachmentProgress(attachmentId: String): Flow<Float>
+
+    /**
+     * Observes the incoming files completed over the mesh network.
+     * Emits the attachment IDs of the downloaded files.
+     */
+    fun observeIncomingFiles(): Flow<String>
+
+    /**
      * Requests a pre-signed URL from the server to upload a file directly to storage (e.g., S3).
      *
      * @param request The metadata of the file to be uploaded.
@@ -21,14 +36,15 @@ interface MediaNetworkDataSource {
     suspend fun requestUploadUrl(request: RequestUploadUrlRequest): NetworkResult<UploadUrlResult>
 
     /**
-     * Performs the actual binary upload to the provided pre-signed URL.
+     * Performs the actual binary upload to the provided pre-signed URL via streaming.
      *
      * @param url The pre-signed upload URL.
-     * @param fileBytes The binary content of the file.
+     * @param inputStreamProvider A function providing the input stream.
+     * @param sizeBytes The size of the file.
      * @param contentType The MIME type of the file.
      * @return A [NetworkResult] indicating upload success or failure.
      */
-    suspend fun uploadToS3(url: String, fileBytes: ByteArray, contentType: String): NetworkResult<Unit>
+    suspend fun uploadToS3(url: String, inputStreamProvider: () -> java.io.InputStream?, sizeBytes: Long, contentType: String): NetworkResult<Unit>
 
     /**
      * Notifies the server that a file upload has been completed.
@@ -51,20 +67,22 @@ interface MediaNetworkDataSource {
     /**
      * Convenience method to upload a voice message directly.
      *
-     * @param fileBytes The binary content of the voice audio.
+     * @param inputStreamProvider A function providing the input stream of the audio.
+     * @param sizeBytes The size of the file.
      * @param duration The duration of the audio in seconds.
-     * @return A [NetworkResult] containing the resulting [AttachmentResponse].
+     * @return A [NetworkResult] containing the server's [AttachmentResponse].
      */
-    suspend fun uploadVoice(fileBytes: ByteArray, duration: Double): NetworkResult<AttachmentResponse>
+    suspend fun uploadVoice(inputStreamProvider: () -> java.io.InputStream?, sizeBytes: Long, duration: Double): NetworkResult<AttachmentResponse>
 
     /**
      * Convenience method to upload a video circle message directly.
      *
-     * @param fileBytes The binary content of the video.
+     * @param inputStreamProvider A function providing the input stream of the video.
+     * @param sizeBytes The size of the file.
      * @param duration The duration of the video in seconds.
-     * @return A [NetworkResult] containing the resulting [AttachmentResponse].
+     * @return A [NetworkResult] containing the server's [AttachmentResponse].
      */
-    suspend fun uploadCircle(fileBytes: ByteArray, duration: Double): NetworkResult<AttachmentResponse>
+    suspend fun uploadCircle(inputStreamProvider: () -> java.io.InputStream?, sizeBytes: Long, duration: Double): NetworkResult<AttachmentResponse>
 
     /**
      * Requests a direct, pre-signed download URL for a given attachment.
@@ -97,4 +115,12 @@ interface MediaNetworkDataSource {
      * @return A [NetworkResult] containing the validation result.
      */
     suspend fun validateAttachments(request: ValidateAttachmentsRequest): NetworkResult<ValidateAttachmentsResponse>
+
+    /**
+     * Exports an attachment from the local cache to the device's public Downloads directory.
+     *
+     * @param attachmentId The ID of the attachment to export.
+     * @return A [NetworkResult] containing the URI or path to the exported file, or an error.
+     */
+    suspend fun exportAttachment(attachmentId: String): NetworkResult<String>
 }

@@ -22,7 +22,7 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -56,12 +56,15 @@ dependencies {
     implementation(project(":core:network:message"))
     implementation(project(":core:network:user"))
     implementation(project(":core:network:media"))
+    implementation(project(":core:network:mesh"))
     implementation(project(":core:network:call"))
     implementation(project(":core:network:websocket"))
     implementation(project(":core:security"))
     implementation(project(":core:ui"))
     implementation(project(":feature:auth"))
-    implementation(project(":feature:chat"))
+    implementation(project(":feature:chat:list"))
+    implementation(project(":feature:chat:conversation"))
+    implementation(project(":feature:chat:settings"))
     implementation(project(":feature:profile"))
     implementation(project(":feature:search"))
     implementation(project(":feature:contacts"))

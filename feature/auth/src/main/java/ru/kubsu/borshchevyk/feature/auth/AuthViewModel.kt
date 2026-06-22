@@ -105,7 +105,7 @@ class AuthViewModel @Inject constructor(
 
         val state = _uiState.value
         when {
-            state.mode == AuthMode.OFFLINE -> onRegisterOffline(state.tag)
+            state.mode == AuthMode.OFFLINE -> onRegisterOffline(state.tag, state.firstName, state.lastName)
             state.isLogin -> onLoginOnline(state.email, state.password)
             else -> onRegisterOnline(state.email, state.password, state.tag, state.firstName, state.lastName)
         }
@@ -141,6 +141,10 @@ class AuthViewModel @Inject constructor(
                 }
             }
         } else {
+            if (state.firstName.isBlank()) {
+                _uiState.update { it.copy(firstNameError = "First name is required") }
+                isValid = false
+            }
             if (state.tag.isBlank()) {
                 _uiState.update { it.copy(tagError = "Unique tag is required") }
                 isValid = false
@@ -154,11 +158,13 @@ class AuthViewModel @Inject constructor(
      * Executes the offline (Mesh) registration process.
      *
      * @param tag The unique tag for the offline user profile.
+     * @param firstName The user's first name.
+     * @param lastName The user's optional last name.
      */
-    private fun onRegisterOffline(tag: String) {
+    private fun onRegisterOffline(tag: String, firstName: String, lastName: String?) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
-            registerOffline(tag)
+            registerOffline(tag, firstName, lastName.takeIf { it?.isNotBlank() == true })
                 .onSuccess {
                     _uiState.update { state -> state.copy(isLoading = false) }
                     _effect.send(AuthEffect.AuthSuccess)

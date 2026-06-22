@@ -1,5 +1,6 @@
 package ru.kubsu.borshchevyk.core.domain.message
 
+import kotlinx.coroutines.flow.Flow
 import ru.kubsu.borshchevyk.core.model.domain.DomainAttachmentResponse
 import ru.kubsu.borshchevyk.core.model.domain.DomainAttachmentType
 
@@ -12,6 +13,20 @@ import ru.kubsu.borshchevyk.core.model.domain.DomainAttachmentType
  * storage mechanisms (e.g., S3, local cache).
  */
 interface MediaRepository {
+    /**
+     * Observes the download progress of a specific attachment.
+     *
+     * @param attachmentId The ID of the attachment.
+     * @return A Flow emitting progress values from 0.0 to 1.0.
+     */
+    fun observeAttachmentProgress(attachmentId: String): Flow<Float>
+
+    /**
+     * Observes the incoming files completed over the mesh network.
+     * Emits the attachment IDs of the downloaded files.
+     */
+    fun observeIncomingFiles(): Flow<String>
+
     /**
      * Requests a pre-signed upload URL for securely uploading a file to storage.
      *
@@ -40,10 +55,11 @@ interface MediaRepository {
      * Uploads the file data directly to the storage service using a provided URL.
      *
      * @param url The pre-signed upload URL obtained from [requestUploadUrl].
-     * @param fileBytes The raw byte array of the file to be uploaded.
+     * @param inputStreamProvider A function that provides an InputStream of the file to be uploaded.
+     * @param sizeBytes The total size of the file in bytes.
      * @param contentType The MIME type of the file data.
      */
-    suspend fun uploadToS3(url: String, fileBytes: ByteArray, contentType: String)
+    suspend fun uploadToS3(url: String, inputStreamProvider: () -> java.io.InputStream?, sizeBytes: Long, contentType: String)
 
     /**
      * Confirms the successful upload of an attachment with the backend.
@@ -66,20 +82,22 @@ interface MediaRepository {
     /**
      * Uploads a voice message attachment.
      *
-     * @param fileBytes The raw byte array of the audio recording.
+     * @param inputStreamProvider A function providing the input stream of the audio.
+     * @param sizeBytes The size of the audio file in bytes.
      * @param duration The duration of the voice message in seconds.
      * @return A [DomainAttachmentResponse] representing the uploaded voice message metadata.
      */
-    suspend fun uploadVoice(fileBytes: ByteArray, duration: Double): DomainAttachmentResponse
+    suspend fun uploadVoice(inputStreamProvider: () -> java.io.InputStream?, sizeBytes: Long, duration: Double): DomainAttachmentResponse
 
     /**
      * Uploads a circle video message attachment.
      *
-     * @param fileBytes The raw byte array of the video recording.
+     * @param inputStreamProvider A function providing the input stream of the video.
+     * @param sizeBytes The size of the video file in bytes.
      * @param duration The duration of the video message in seconds.
      * @return A [DomainAttachmentResponse] representing the uploaded circle video metadata.
      */
-    suspend fun uploadCircle(fileBytes: ByteArray, duration: Double): DomainAttachmentResponse
+    suspend fun uploadCircle(inputStreamProvider: () -> java.io.InputStream?, sizeBytes: Long, duration: Double): DomainAttachmentResponse
 
     /**
      * Retrieves the direct download or display URL for a given attachment.
@@ -111,4 +129,12 @@ interface MediaRepository {
      * @return True if all attachments are valid, false otherwise.
      */
     suspend fun validateAttachments(attachmentIds: List<String>): Boolean
+
+    /**
+     * Exports a locally cached or remote attachment to the public Downloads directory.
+     *
+     * @param attachmentId The ID of the attachment to export.
+     * @return A URI string indicating the public file location, or an error message.
+     */
+    suspend fun exportAttachment(attachmentId: String): Result<String>
 }

@@ -11,5 +11,5 @@ import javax.inject.Singleton
 interface NetworkChatModule {
     @Binds
     @Singleton
-    fun bindChatNetworkDataSource(impl: KtorChatNetworkDataSource): ChatNetworkDataSource
+    fun bindChatNetworkDataSource(impl: ProxyChatNetworkDataSource): ChatNetworkDataSource
 }

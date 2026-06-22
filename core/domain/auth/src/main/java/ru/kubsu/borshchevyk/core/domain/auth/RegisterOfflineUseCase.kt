@@ -17,9 +17,11 @@ class RegisterOfflineUseCase @Inject constructor(
      * Executes the offline registration.
      *
      * @param tag The user's requested identity tag.
+     * @param firstName The user's first name.
+     * @param lastName The user's optional last name.
      * @return A [Result] containing the generated local ID on success.
      */
-    suspend operator fun invoke(tag: String): Result<String> = runCatching {
-        authRepository.registerOffline(tag)
+    suspend operator fun invoke(tag: String, firstName: String, lastName: String?): Result<String> = runCatching {
+        authRepository.registerOffline(tag, firstName, lastName)
     }
 }

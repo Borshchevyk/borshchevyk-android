@@ -58,13 +58,13 @@ internal fun AuthScreen(
         verticalArrangement = Arrangement.Center
     ) {
         Text(
-            text = "Borshchevyk",
+            text = "Borshchevik",
             style = BorshchevykTheme.typography.titleLarge.copy(fontSize = 32.sp),
             color = BorshchevykTheme.colors.primary
         )
         Spacer(modifier = Modifier.height(8.dp))
         Text(
-            text = "Modern Messenger",
+            text = "Messenger",
             style = BorshchevykTheme.typography.bodyLarge,
             color = BorshchevykTheme.colors.onSurfaceVariant
         )
@@ -211,6 +211,21 @@ private fun OfflineAuthFields(
     uiState: AuthUiState,
     onIntent: (AuthIntent) -> Unit
 ) {
+    AuthTextField(
+        value = uiState.firstName,
+        onValueChange = { onIntent(AuthIntent.FirstNameChanged(it)) },
+        label = "First Name",
+        error = uiState.firstNameError,
+        modifier = Modifier.fillMaxWidth()
+    )
+    Spacer(modifier = Modifier.height(16.dp))
+    AuthTextField(
+        value = uiState.lastName,
+        onValueChange = { onIntent(AuthIntent.LastNameChanged(it)) },
+        label = "Last Name (Optional)",
+        modifier = Modifier.fillMaxWidth()
+    )
+    Spacer(modifier = Modifier.height(16.dp))
     AuthTextField(
         value = uiState.tag,
         onValueChange = { onIntent(AuthIntent.TagChanged(it)) },

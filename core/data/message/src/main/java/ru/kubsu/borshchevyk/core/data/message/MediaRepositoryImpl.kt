@@ -1,14 +1,16 @@
 package ru.kubsu.borshchevyk.core.data.message
 
+import kotlinx.coroutines.flow.Flow
 import ru.kubsu.borshchevyk.core.domain.message.MediaRepository
 import ru.kubsu.borshchevyk.core.model.domain.DomainAttachmentResponse
 import ru.kubsu.borshchevyk.core.model.domain.DomainAttachmentType
+import ru.kubsu.borshchevyk.core.network.client.NetworkConstants
+import ru.kubsu.borshchevyk.core.network.client.NetworkResult
 import ru.kubsu.borshchevyk.core.network.client.getOrThrow
 import ru.kubsu.borshchevyk.core.network.dto.AttachmentResponse
 import ru.kubsu.borshchevyk.core.network.dto.AttachmentType
 import ru.kubsu.borshchevyk.core.network.dto.RequestUploadUrlRequest
 import ru.kubsu.borshchevyk.core.network.dto.ValidateAttachmentsRequest
-import ru.kubsu.borshchevyk.core.network.client.NetworkConstants
 import ru.kubsu.borshchevyk.core.network.media.MediaNetworkDataSource
 import javax.inject.Inject
 
@@ -24,6 +26,14 @@ import javax.inject.Inject
 class MediaRepositoryImpl @Inject constructor(
     private val networkDataSource: MediaNetworkDataSource
 ) : MediaRepository {
+
+    override fun observeAttachmentProgress(attachmentId: String): Flow<Float> {
+        return networkDataSource.observeAttachmentProgress(attachmentId)
+    }
+
+    override fun observeIncomingFiles(): Flow<String> {
+        return networkDataSource.observeIncomingFiles()
+    }
 
     /**
      * Requests a pre-signed URL from the backend to directly upload a media file to S3 storage.
@@ -67,16 +77,17 @@ class MediaRepositoryImpl @Inject constructor(
     }
 
     /**
-     * Uploads the raw bytes of a file directly to the provided S3 pre-signed URL.
+     * Uploads the file data directly to the storage service using a provided URL.
      *
      * This method performs a PUT request to the storage provider using the URL obtained via [requestUploadUrl].
      *
      * @param url The pre-signed upload URL.
-     * @param fileBytes The byte array containing the file's content.
+     * @param inputStreamProvider A function providing the file stream.
+     * @param sizeBytes The size of the file.
      * @param contentType The MIME type of the file, must match the one provided during URL request.
      */
-    override suspend fun uploadToS3(url: String, fileBytes: ByteArray, contentType: String) {
-        networkDataSource.uploadToS3(url, fileBytes, contentType).getOrThrow()
+    override suspend fun uploadToS3(url: String, inputStreamProvider: () -> java.io.InputStream?, sizeBytes: Long, contentType: String) {
+        networkDataSource.uploadToS3(url, inputStreamProvider, sizeBytes, contentType).getOrThrow()
     }
 
     /**
@@ -105,7 +116,7 @@ class MediaRepositoryImpl @Inject constructor(
      */
     override suspend fun uploadAvatar(fileBytes: ByteArray, filename: String, contentType: String): String {
         val url = networkDataSource.uploadAvatar(fileBytes, filename, contentType).getOrThrow().url
-        return if (url.startsWith("http")) {
+        return if (url.startsWith("http") || url.startsWith("mesh") || url.startsWith("file")) {
             url
         } else {
             "${NetworkConstants.BASE_URL}${if (url.startsWith("/")) "" else "/"}$url"
@@ -115,23 +126,25 @@ class MediaRepositoryImpl @Inject constructor(
     /**
      * Uploads a voice message directly to the server.
      *
-     * @param fileBytes The byte array of the audio recording.
+     * @param inputStreamProvider A function providing the input stream.
+     * @param sizeBytes The size of the file.
      * @param duration The length of the voice message in seconds.
      * @return A [DomainAttachmentResponse] containing the uploaded voice message details.
      */
-    override suspend fun uploadVoice(fileBytes: ByteArray, duration: Double): DomainAttachmentResponse {
-        return networkDataSource.uploadVoice(fileBytes, duration).getOrThrow().toDomain()
+    override suspend fun uploadVoice(inputStreamProvider: () -> java.io.InputStream?, sizeBytes: Long, duration: Double): DomainAttachmentResponse {
+        return networkDataSource.uploadVoice(inputStreamProvider, sizeBytes, duration).getOrThrow().toDomain()
     }
 
     /**
      * Uploads a video circle (video message) directly to the server.
      *
-     * @param fileBytes The byte array of the video recording.
+     * @param inputStreamProvider A function providing the input stream.
+     * @param sizeBytes The size of the file.
      * @param duration The length of the video circle in seconds.
      * @return A [DomainAttachmentResponse] containing the uploaded video circle details.
      */
-    override suspend fun uploadCircle(fileBytes: ByteArray, duration: Double): DomainAttachmentResponse {
-        return networkDataSource.uploadCircle(fileBytes, duration).getOrThrow().toDomain()
+    override suspend fun uploadCircle(inputStreamProvider: () -> java.io.InputStream?, sizeBytes: Long, duration: Double): DomainAttachmentResponse {
+        return networkDataSource.uploadCircle(inputStreamProvider, sizeBytes, duration).getOrThrow().toDomain()
     }
 
     /**
@@ -144,7 +157,7 @@ class MediaRepositoryImpl @Inject constructor(
      */
     override suspend fun getAttachmentUrl(attachmentId: String): String {
         val url = networkDataSource.getAttachmentUrl(attachmentId).getOrThrow().url
-        return if (url.startsWith("http")) {
+        return if (url.startsWith("http") || url.startsWith("mesh") || url.startsWith("file")) {
             url
         } else {
             "${NetworkConstants.BASE_URL}${if (url.startsWith("/")) "" else "/"}$url"
@@ -153,7 +166,7 @@ class MediaRepositoryImpl @Inject constructor(
 
     override suspend fun getAttachmentThumbnailUrl(attachmentId: String): String {
         val url = networkDataSource.getAttachmentThumbnailUrl(attachmentId).getOrThrow().url
-        return if (url.startsWith("http")) {
+        return if (url.startsWith("http") || url.startsWith("mesh") || url.startsWith("file")) {
             url
         } else {
             "${NetworkConstants.BASE_URL}${if (url.startsWith("/")) "" else "/"}$url"
@@ -180,6 +193,19 @@ class MediaRepositoryImpl @Inject constructor(
      */
     override suspend fun validateAttachments(attachmentIds: List<String>): Boolean {
         return networkDataSource.validateAttachments(ValidateAttachmentsRequest(attachmentIds)).getOrThrow().valid
+    }
+
+    override suspend fun exportAttachment(attachmentId: String): Result<String> {
+        return try {
+            val result = networkDataSource.exportAttachment(attachmentId)
+            if (result is NetworkResult.Success) {
+                Result.success(result.data)
+            } else {
+                Result.failure(Exception((result as NetworkResult.Error).message))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 
     private fun DomainAttachmentType.toDto(): AttachmentType = when (this) {

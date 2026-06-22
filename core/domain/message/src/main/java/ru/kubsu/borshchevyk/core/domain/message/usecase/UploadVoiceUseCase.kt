@@ -22,7 +22,7 @@ class UploadVoiceUseCase @Inject constructor(
      * @param duration The duration of the audio recording in seconds.
      * @return A [DomainAttachmentResponse] representing the finalized voice attachment.
      */
-    suspend operator fun invoke(fileBytes: ByteArray, duration: Double): DomainAttachmentResponse {
-        return mediaRepository.uploadVoice(fileBytes, duration)
+    suspend operator fun invoke(inputStreamProvider: () -> java.io.InputStream?, sizeBytes: Long, duration: Double): DomainAttachmentResponse {
+        return mediaRepository.uploadVoice(inputStreamProvider, sizeBytes, duration)
     }
 }

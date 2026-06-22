@@ -1,6 +1,7 @@
 package ru.kubsu.borshchevyk.feature.profile.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -9,20 +10,14 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -63,9 +58,10 @@ internal fun ProfileScreen(
                 .fillMaxSize()
                 .padding(16.dp)
                 .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Spacer(modifier = Modifier.height(24.dp))
+//            Spacer(modifier = Modifier.height(24.dp))
 
             Box(
                 modifier = Modifier
@@ -77,7 +73,10 @@ internal fun ProfileScreen(
                 val avatarUrl = uiState.user?.avatarUrl
                 if (!avatarUrl.isNullOrBlank()) {
                     SubcomposeAsyncImage(
-                        model = avatarUrl,
+                        model = coil.request.ImageRequest.Builder(androidx.compose.ui.platform.LocalContext.current)
+                            .data(avatarUrl)
+                            .setParameter("timestamp", System.currentTimeMillis())
+                            .build(),
                         contentDescription = "Avatar",
                         modifier = Modifier.fillMaxSize(),
                         contentScale = ContentScale.Crop,
@@ -124,40 +123,40 @@ internal fun ProfileScreen(
 
             Spacer(modifier = Modifier.height(48.dp))
 
-            Surface(
-                shape = RoundedCornerShape(16.dp),
-                color = BorshchevykTheme.colors.surface,
-                shadowElevation = 2.dp,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column {
-                    SettingsItem(
-                        icon = Icons.Default.Person,
-                        title = "Account Details",
-                        onClick = { onIntent(ProfileIntent.OpenEditProfile) }
-                    )
-                    HorizontalDivider(color = BorshchevykTheme.colors.outline.copy(alpha = 0.5f))
-                    SettingsItem(
-                        icon = Icons.Default.Lock,
-                        title = "Privacy & Security",
-                        onClick = { onIntent(ProfileIntent.OpenEditPrivacy) }
-                    )
-                    HorizontalDivider(color = BorshchevykTheme.colors.outline.copy(alpha = 0.5f))
-                    SettingsItem(
-                        icon = Icons.Default.Notifications,
-                        title = "Notifications",
-                        onClick = { /* TODO */ }
-                    )
-                    HorizontalDivider(color = BorshchevykTheme.colors.outline.copy(alpha = 0.5f))
-                    SettingsItem(
-                        icon = Icons.Default.Info,
-                        title = "About Borshchevyk",
-                        onClick = { /* TODO */ }
-                    )
-                }
-            }
+//            Surface(
+//                shape = RoundedCornerShape(16.dp),
+//                color = BorshchevykTheme.colors.surface,
+//                shadowElevation = 2.dp,
+//                modifier = Modifier.fillMaxWidth()
+//            ) {
+//                Column {
+//                    SettingsItem(
+//                        icon = Icons.Default.Person,
+//                        title = "Account Details",
+//                        onClick = { onIntent(ProfileIntent.OpenEditProfile) }
+//                    )
+//                    HorizontalDivider(color = BorshchevykTheme.colors.outline.copy(alpha = 0.5f))
+//                    SettingsItem(
+//                        icon = Icons.Default.Lock,
+//                        title = "Privacy & Security",
+//                        onClick = { onIntent(ProfileIntent.OpenEditPrivacy) }
+//                    )
+//                    HorizontalDivider(color = BorshchevykTheme.colors.outline.copy(alpha = 0.5f))
+//                    SettingsItem(
+//                        icon = Icons.Default.Notifications,
+//                        title = "Notifications",
+//                        onClick = { /* TODO */ }
+//                    )
+//                    HorizontalDivider(color = BorshchevykTheme.colors.outline.copy(alpha = 0.5f))
+//                    SettingsItem(
+//                        icon = Icons.Default.Info,
+//                        title = "About Borshchevyk",
+//                        onClick = { /* TODO */ }
+//                    )
+//                }
+//            }
 
-            Spacer(modifier = Modifier.height(24.dp))
+//            Spacer(modifier = Modifier.height(24.dp))
 
             Surface(
                 shape = RoundedCornerShape(16.dp),

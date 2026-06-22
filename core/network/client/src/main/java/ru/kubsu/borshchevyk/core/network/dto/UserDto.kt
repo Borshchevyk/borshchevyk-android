@@ -21,6 +21,15 @@ data class ShortUserDto(
     val avatarUrl: String? = null
 )
 
+val ShortUserDto.displayName: String
+    get() = "${firstName.orEmpty()} ${lastName.orEmpty()}".trim().ifBlank { displayTag }
+
+val ShortUserDto.displayTag: String
+    get() {
+        val cleanTag = tag?.removePrefix("offline_user_")
+        return cleanTag?.let { if (it.startsWith("@")) it else "@$it" } ?: "@unknown"
+    }
+
 /**
  * Comprehensive details about a user's profile.
  *

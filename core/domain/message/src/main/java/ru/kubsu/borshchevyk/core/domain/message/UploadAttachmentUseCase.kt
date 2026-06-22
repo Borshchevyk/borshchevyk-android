@@ -1,6 +1,7 @@
 package ru.kubsu.borshchevyk.core.domain.message
 
 import ru.kubsu.borshchevyk.core.model.domain.DomainAttachmentType
+import java.io.InputStream
 import javax.inject.Inject
 
 /**
@@ -19,7 +20,8 @@ class UploadAttachmentUseCase @Inject constructor(
     /**
      * Executes the attachment upload process.
      *
-     * @param fileBytes The raw byte array of the file to upload.
+     * @param inputStreamProvider A function that provides the file stream to upload.
+     * @param sizeBytes The size of the file in bytes.
      * @param originalFilename The original name of the file.
      * @param contentType The MIME type of the file.
      * @param extension The file extension including the dot (e.g., ".png").
@@ -30,7 +32,8 @@ class UploadAttachmentUseCase @Inject constructor(
      * @return The unique string identifier of the successfully uploaded attachment.
      */
     suspend operator fun invoke(
-        fileBytes: ByteArray,
+        inputStreamProvider: () -> InputStream?,
+        sizeBytes: Long,
         originalFilename: String,
         contentType: String,
         extension: String,
@@ -45,22 +48,18 @@ class UploadAttachmentUseCase @Inject constructor(
             contentType = contentType,
             extension = extension,
             type = type,
-            sizeBytes = fileBytes.size.toLong(),
+            sizeBytes = sizeBytes,
             width = width,
             height = height,
             duration = duration
         )
 
-        // Step 2: Upload raw bytes directly to S3 using the pre-signed URL
-        mediaRepository.uploadToS3(
-            url = uploadUrl,
-            fileBytes = fileBytes,
-            contentType = contentType
-        )
+        // Step 2: Upload directly to storage via stream
+        mediaRepository.uploadToS3(uploadUrl, inputStreamProvider, sizeBytes, contentType)
 
-        // Step 3: Notify backend that upload is complete
-        val completedAttachment = mediaRepository.completeUpload(attachmentId)
+        // Step 3: Confirm upload with backend
+        mediaRepository.completeUpload(attachmentId)
 
-        return completedAttachment.id
+        return attachmentId
     }
 }

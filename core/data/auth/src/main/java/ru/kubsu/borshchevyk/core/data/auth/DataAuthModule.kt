@@ -36,4 +36,8 @@ interface DataAuthModule {
     @Binds
     @Singleton
     fun bindTokenProvider(impl: AuthPreferences): ru.kubsu.borshchevyk.core.network.client.TokenProvider
+
+    @Binds
+    @Singleton
+    fun bindMeshSignatureService(impl: MeshSignatureServiceImpl): ru.kubsu.borshchevyk.core.network.mesh.MeshSignatureService
 }

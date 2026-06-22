@@ -7,11 +7,14 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import ru.kubsu.borshchevyk.core.domain.chat.CreatePrivateChatUseCase
 import ru.kubsu.borshchevyk.core.domain.user.GetContactsUseCase
+import ru.kubsu.borshchevyk.core.domain.user.ObserveContactsUseCase
 import ru.kubsu.borshchevyk.core.domain.user.RemoveContactUseCase
 import javax.inject.Inject
 
@@ -19,12 +22,14 @@ import javax.inject.Inject
  * ViewModel managing the contacts list screen.
  * Handles loading contacts, removing contacts, and starting chats with contacts.
  *
- * @property getContactsUseCase Use case for fetching the current user's contacts.
+ * @property observeContactsUseCase Use case for reactive contact observation.
+ * @property getContactsUseCase Use case for triggering a manual contact sync from the network.
  * @property removeContactUseCase Use case for removing a user from the contact list.
  * @property createPrivateChatUseCase Use case for creating a new private chat with a user.
  */
 @HiltViewModel
 class ContactsViewModel @Inject constructor(
+    private val observeContactsUseCase: ObserveContactsUseCase,
     private val getContactsUseCase: GetContactsUseCase,
     private val removeContactUseCase: RemoveContactUseCase,
     private val createPrivateChatUseCase: CreatePrivateChatUseCase
@@ -41,7 +46,15 @@ class ContactsViewModel @Inject constructor(
     val effect = _effect.receiveAsFlow()
 
     init {
-        loadContacts()
+        // Start observing contacts reactively
+        observeContactsUseCase()
+            .onEach { contacts ->
+                _uiState.update { it.copy(contacts = contacts, isLoading = false) }
+            }
+            .launchIn(viewModelScope)
+            
+        // Initial network sync
+        syncContacts()
     }
 
     /**
@@ -51,23 +64,23 @@ class ContactsViewModel @Inject constructor(
      */
     fun handleIntent(intent: ContactsIntent) {
         when (intent) {
-            is ContactsIntent.LoadContacts -> loadContacts()
+            is ContactsIntent.LoadContacts -> syncContacts()
             is ContactsIntent.RemoveContact -> removeContact(intent.contactUserId)
             is ContactsIntent.ContactClicked -> onContactClicked(intent.contactUserId)
         }
     }
 
     /**
-     * Loads the initial list of contacts from the repository.
+     * Triggers a network synchronization of the contact list.
+     * UI updates automatically via the observeContactsUseCase Flow.
      */
-    private fun loadContacts() {
+    private fun syncContacts() {
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, error = null) }
+            _uiState.update { it.copy(isLoading = _uiState.value.contacts.isEmpty(), error = null) }
             try {
-                val contacts = getContactsUseCase()
-                _uiState.update { it.copy(contacts = contacts, isLoading = false) }
+                getContactsUseCase()
             } catch (e: Exception) {
-                _uiState.update { it.copy(isLoading = false, error = e.message ?: "Failed to load contacts") }
+                _uiState.update { it.copy(isLoading = false, error = e.message ?: "Failed to sync contacts") }
             }
         }
     }
@@ -81,8 +94,7 @@ class ContactsViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 removeContactUseCase(contactUserId)
-                val currentContacts = _uiState.value.contacts.filterNot { it.contactUserId == contactUserId }
-                _uiState.update { it.copy(contacts = currentContacts) }
+                // No manual state update needed, Flow will emit new list.
             } catch (e: Exception) {
                 _effect.send(ContactsEffect.ShowError(e.message ?: "Failed to remove contact"))
             }

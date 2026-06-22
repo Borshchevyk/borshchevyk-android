@@ -9,7 +9,12 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import ru.kubsu.borshchevyk.core.database.AppDatabase
 import ru.kubsu.borshchevyk.core.database.dao.ChatDao
+import ru.kubsu.borshchevyk.core.database.dao.ChatMemberDao
+import ru.kubsu.borshchevyk.core.database.dao.ContactDao
 import ru.kubsu.borshchevyk.core.database.dao.MessageDao
+import ru.kubsu.borshchevyk.core.database.dao.PendingEnvelopeDao
+import ru.kubsu.borshchevyk.core.database.dao.PrivacySettingsDao
+import ru.kubsu.borshchevyk.core.database.dao.PublicKeyDao
 import ru.kubsu.borshchevyk.core.database.dao.UserDao
 import javax.inject.Singleton
 
@@ -40,7 +45,9 @@ object DatabaseModule {
             context,
             AppDatabase::class.java,
             "borshchevyk_database"
-        ).build()
+        )
+        .fallbackToDestructiveMigration()
+        .build()
     }
 
     /**
@@ -52,6 +59,16 @@ object DatabaseModule {
     @Provides
     @Singleton
     fun provideChatDao(database: AppDatabase): ChatDao = database.chatDao()
+
+    /**
+     * Provides the [ChatMemberDao] implementation.
+     *
+     * @param database The [AppDatabase] instance.
+     * @return The [ChatMemberDao] implementation.
+     */
+    @Provides
+    @Singleton
+    fun provideChatMemberDao(database: AppDatabase): ChatMemberDao = database.chatMemberDao()
 
     /**
      * Provides the [MessageDao] implementation.
@@ -72,4 +89,54 @@ object DatabaseModule {
     @Provides
     @Singleton
     fun provideUserDao(database: AppDatabase): UserDao = database.userDao()
+
+    /**
+     * Provides the [PublicKeyDao] implementation.
+     *
+     * @param database The [AppDatabase] instance.
+     * @return The [PublicKeyDao] implementation.
+     */
+    @Provides
+    @Singleton
+    fun providePublicKeyDao(database: AppDatabase): PublicKeyDao = database.publicKeyDao()
+
+    /**
+     * Provides the [PendingEnvelopeDao] implementation.
+     *
+     * @param database The [AppDatabase] instance.
+     * @return The [PendingEnvelopeDao] implementation.
+     */
+    @Provides
+    @Singleton
+    fun providePendingEnvelopeDao(database: AppDatabase): PendingEnvelopeDao = database.pendingEnvelopeDao()
+
+    /**
+     * Provides the [ContactDao] implementation.
+     *
+     * @param database The [AppDatabase] instance.
+     * @return The [ContactDao] implementation.
+     */
+    @Provides
+    @Singleton
+    fun provideContactDao(database: AppDatabase): ContactDao = database.contactDao()
+
+    /**
+     * Provides the [PrivacySettingsDao] implementation.
+     *
+     * @param database The [AppDatabase] instance.
+     * @return The [PrivacySettingsDao] implementation.
+     */
+    @Provides
+    @Singleton
+    fun providePrivacySettingsDao(database: AppDatabase): PrivacySettingsDao = database.privacySettingsDao()
+
+    /**
+     * Provides the [SyncDao] implementation.
+     *
+     * @param database The [AppDatabase] instance.
+     * @return The [SyncDao] implementation.
+     */
+    @Provides
+    @Singleton
+    fun provideSyncDao(database: AppDatabase): ru.kubsu.borshchevyk.core.database.dao.SyncDao = database.syncDao()
 }

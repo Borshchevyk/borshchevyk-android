@@ -34,9 +34,11 @@ interface AuthRepository {
      * without requiring a centralized server.
      *
      * @param tag The unique username or tag for the user.
+     * @param firstName The user's first name.
+     * @param lastName The user's optional last name.
      * @return The unique user ID generated for this local identity.
      */
-    suspend fun registerOffline(tag: String): String
+    suspend fun registerOffline(tag: String, firstName: String, lastName: String?): String
 
     /**
      * Registers a new user on the global centralized server.

@@ -49,4 +49,24 @@ class DatabaseConverters {
     fun toStringList(value: String?): List<String>? {
         return value?.let { json.decodeFromString(it) }
     }
+
+    @TypeConverter
+    fun fromVectorClock(value: ru.kubsu.borshchevyk.core.model.domain.VectorClock?): String? {
+        return value?.let { json.encodeToString(it) }
+    }
+
+    @TypeConverter
+    fun toVectorClock(value: String?): ru.kubsu.borshchevyk.core.model.domain.VectorClock? {
+        return value?.let { json.decodeFromString(it) }
+    }
+
+    @TypeConverter
+    fun fromEventType(value: ru.kubsu.borshchevyk.core.model.domain.EventType?): String? {
+        return value?.name
+    }
+
+    @TypeConverter
+    fun toEventType(value: String?): ru.kubsu.borshchevyk.core.model.domain.EventType? {
+        return value?.let { ru.kubsu.borshchevyk.core.model.domain.EventType.valueOf(it) }
+    }
 }

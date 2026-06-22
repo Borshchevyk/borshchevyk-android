@@ -15,15 +15,11 @@ interface NetworkWebSocketModule {
 
     @Binds
     @Singleton
-    fun bindChatWebSocketDataSource(impl: KrossbowWebSocketDataSource): ChatWebSocketDataSource
+    fun bindChatWebSocketDataSource(impl: ProxyChatWebSocketDataSource): ChatWebSocketDataSource
 
     @Binds
     @Singleton
-    fun bindCallWebSocketDataSource(impl: KrossbowWebSocketDataSource): CallWebSocketDataSource
-
-    @Binds
-    @Singleton
-    fun bindPresenceWebSocketDataSource(impl: KrossbowWebSocketDataSource): PresenceWebSocketDataSource
+    fun bindPresenceWebSocketDataSource(impl: ProxyPresenceWebSocketDataSource): PresenceWebSocketDataSource
 
     @Binds
     @Singleton

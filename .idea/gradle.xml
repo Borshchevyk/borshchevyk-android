@@ -30,7 +30,9 @@
             <option value="$PROJECT_DIR$/core/network/call" />
             <option value="$PROJECT_DIR$/core/network/chat" />
             <option value="$PROJECT_DIR$/core/network/client" />
+            <option value="$PROJECT_DIR$/core/network/ktor" />
             <option value="$PROJECT_DIR$/core/network/media" />
+            <option value="$PROJECT_DIR$/core/network/mesh" />
             <option value="$PROJECT_DIR$/core/network/message" />
             <option value="$PROJECT_DIR$/core/network/user" />
             <option value="$PROJECT_DIR$/core/network/websocket" />
@@ -40,6 +42,10 @@
             <option value="$PROJECT_DIR$/feature/auth" />
             <option value="$PROJECT_DIR$/feature/call" />
             <option value="$PROJECT_DIR$/feature/chat" />
+            <option value="$PROJECT_DIR$/feature/chat/common" />
+            <option value="$PROJECT_DIR$/feature/chat/conversation" />
+            <option value="$PROJECT_DIR$/feature/chat/list" />
+            <option value="$PROJECT_DIR$/feature/chat/settings" />
             <option value="$PROJECT_DIR$/feature/contacts" />
             <option value="$PROJECT_DIR$/feature/profile" />
             <option value="$PROJECT_DIR$/feature/search" />

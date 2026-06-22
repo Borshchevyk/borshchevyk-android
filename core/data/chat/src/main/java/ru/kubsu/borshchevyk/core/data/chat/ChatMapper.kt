@@ -1,11 +1,41 @@
 package ru.kubsu.borshchevyk.core.data.chat
 
 import ru.kubsu.borshchevyk.core.database.entity.ChatEntity
+import ru.kubsu.borshchevyk.core.database.entity.ChatWithPartner
 import ru.kubsu.borshchevyk.core.model.domain.Chat
-import ru.kubsu.borshchevyk.core.network.dto.ChatResponse
-import ru.kubsu.borshchevyk.core.network.dto.ChatMemberResponse
 import ru.kubsu.borshchevyk.core.model.domain.ChatMember
 import ru.kubsu.borshchevyk.core.model.domain.ChatMemberRole
+import ru.kubsu.borshchevyk.core.network.dto.ChatMemberResponse
+import ru.kubsu.borshchevyk.core.network.dto.ChatResponse
+
+/**
+ * Maps a [ChatWithPartner] database POJO to a domain [Chat] model.
+ *
+ * This mapping prioritizes data from the [UserEntity] relation for direct chats
+ * to ensure UI reactivity when a partner updates their profile.
+ *
+ * @return The mapped domain model.
+ */
+fun ChatWithPartner.toDomain(): Chat = Chat(
+    id = chat.id,
+    type = chat.type,
+    title = if (chat.type == ru.kubsu.borshchevyk.core.model.domain.ChatType.PRIVATE) {
+        partner?.let { "${it.firstName} ${it.lastName ?: ""}".trim() } ?: chat.partnerName ?: chat.title
+    } else {
+        chat.title
+    },
+    description = chat.description,
+    partnerId = chat.partnerId,
+    partnerName = partner?.let { "${it.firstName} ${it.lastName ?: ""}".trim() } ?: chat.partnerName,
+    partnerAvatarUrl = partner?.avatarUrl ?: chat.partnerAvatarUrl,
+    partnerLastOnline = chat.partnerLastOnline,
+    lastMessage = chat.lastMessage,
+    unreadCount = chat.unreadCount,
+    allowedReactions = chat.allowedReactions,
+    isDeletable = chat.isDeletable,
+    isPinned = chat.isPinned,
+    createdAt = chat.createdAt
+)
 
 /**
  * Maps a network [ChatResponse] DTO to a local [ChatEntity].
@@ -96,5 +126,6 @@ fun ChatMemberResponse.toDomain(): ChatMember = ChatMember(
     canDeleteMessages = canDeleteMessages,
     canInviteUsers = canInviteUsers,
     canChangeInfo = canChangeInfo,
+    isPinned = isPinned,
     historyClearedAt = historyClearedAt
 )

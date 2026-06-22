@@ -41,6 +41,16 @@ fun CallScreen(
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     
+    var isNavigatingBack by remember { mutableStateOf(false) }
+    val navigateBackSafely = remember(onNavigateBack) {
+        {
+            if (!isNavigatingBack) {
+                isNavigatingBack = true
+                onNavigateBack()
+            }
+        }
+    }
+
     val permissionsLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
@@ -48,7 +58,7 @@ fun CallScreen(
         if (granted) {
             viewModel.handleIntent(CallIntent.Connect)
         } else {
-            onNavigateBack()
+            navigateBackSafely()
         }
     }
 
@@ -64,7 +74,7 @@ fun CallScreen(
     LaunchedEffect(Unit) {
         viewModel.effect.collect { effect ->
             when (effect) {
-                is CallEffect.CallEnded -> onNavigateBack()
+                is CallEffect.CallEnded -> navigateBackSafely()
                 is CallEffect.ShowError -> {
                     snackbarHostState.showSnackbar(
                         message = effect.message,
@@ -94,7 +104,7 @@ fun CallScreen(
                         Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(24.dp)) {
                             Text(state.message, color = Color.Red, style = MaterialTheme.typography.bodyLarge)
                             Spacer(modifier = Modifier.height(24.dp))
-                            Button(onClick = onNavigateBack) {
+                            Button(onClick = navigateBackSafely) {
                                 Text("Go Back")
                             }
                         }

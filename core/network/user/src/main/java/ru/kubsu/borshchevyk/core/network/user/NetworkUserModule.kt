@@ -11,9 +11,9 @@ import javax.inject.Singleton
 interface NetworkUserModule {
     @Binds
     @Singleton
-    fun bindUserNetworkDataSource(impl: KtorUserNetworkDataSource): UserNetworkDataSource
+    fun bindUserNetworkDataSource(impl: ProxyUserNetworkDataSource): UserNetworkDataSource
 
     @Binds
     @Singleton
-    fun bindContactNetworkDataSource(impl: KtorContactNetworkDataSource): ContactNetworkDataSource
+    fun bindContactNetworkDataSource(impl: ProxyContactNetworkDataSource): ContactNetworkDataSource
 }

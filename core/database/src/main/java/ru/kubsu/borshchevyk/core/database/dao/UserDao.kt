@@ -62,4 +62,14 @@ interface UserDao {
      */
     @Query("DELETE FROM users")
     fun deleteAll()
+
+    /**
+     * Searches for users by tag, first name, or last name.
+     *
+     * @param query The search query string.
+     * @return A list of [UserEntity] matching the query.
+     */
+    @Query("SELECT * FROM users WHERE tag LIKE '%' || :query || '%' OR firstName LIKE '%' || :query || '%' OR lastName LIKE '%' || :query || '%'")
+    @JvmSuppressWildcards
+    suspend fun searchUsers(query: String): List<UserEntity>
 }

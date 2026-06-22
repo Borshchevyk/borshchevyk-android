@@ -6,6 +6,7 @@ import ru.kubsu.borshchevyk.core.network.dto.PresenceStatusResponse
 import ru.kubsu.borshchevyk.core.network.dto.ReactionEvent
 import ru.kubsu.borshchevyk.core.network.dto.ReadReceiptEvent
 import ru.kubsu.borshchevyk.core.network.dto.TypingEvent
+import ru.kubsu.borshchevyk.core.network.dto.AppEventDto
 
 /**
  * Core interface for managing the underlying WebSocket connection.
@@ -85,6 +86,13 @@ interface ChatWebSocketDataSource : WebSocketConnectionManager {
      * @param isTyping True if the user is typing, false if they stopped.
      */
     suspend fun sendTypingEvent(chatId: String, isTyping: Boolean)
+
+    /**
+     * Observes all events from the unified WebSocket channel.
+     * Used by sync infrastructure to forward real-time events to repositories.
+     * @return A [Flow] emitting [AppEventDto] for all event types.
+     */
+    fun observeAllEvents(): Flow<AppEventDto>
 }
 
 /**

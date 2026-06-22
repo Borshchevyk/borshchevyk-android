@@ -21,6 +21,7 @@ dependencies {
 
     implementation(project(":core:model"))
     api(project(":core:network:client"))
+    implementation(project(":core:network:ktor"))
     implementation(libs.ktor.client.core)
     implementation(libs.kotlinx.coroutines.core)
 
